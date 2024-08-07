@@ -1,12 +1,12 @@
 <div *ngIf="diary">
-  <h2>{{diary.name | uppercase}} Details</h2>
+  <h2>{{diary.path | uppercase}} Details</h2>
   <div>id: {{diary.id}}</div>
   <div>
     <div>path: {{diary.path}}</div>
   </div>
   <div>
-    <label for="diary-name">name: </label>
-    <input id="diary-name" [(ngModel)]="diary.name" placeholder="name">
+    <label for="diary">name: </label>
+    <input id="diary" [(ngModel)]="diary.path" placeholder="name">
   </div>
   <button type="button" (click)="goBack()">go back</button>
 </div> 

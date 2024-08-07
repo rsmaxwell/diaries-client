@@ -1,7 +1,7 @@
-<h2>Top Heroes</h2>
+<h2>Top Diaries</h2>
 <div class="diaries-menu">
-  <a *ngFor="let diary of diaries">
-    routerLink="/detail/{{diary.id}}">
-    {{diary.name}}
+  <a *ngFor="let diary of diaries" 
+     routerLink="/diary/{{diary.id}}" routerLinkActive="active" ariaCurrentWhenActive="page" >
+    {{diary.path}}
   </a>
 </div>
