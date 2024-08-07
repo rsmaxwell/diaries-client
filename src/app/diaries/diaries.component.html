@@ -1,0 +1,8 @@
+<h2>My Diaries</h2>
+<ul class="diaries">
+  <li *ngFor="let diary of diaries">
+    <a routerLink="/diary/{{diary.id}}" routerLinkActive="active" ariaCurrentWhenActive="page">
+      <span class="badge">{{diary.id}}</span>{{diary.path}}
+    </a>
+  </li>
+</ul>
