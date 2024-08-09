@@ -3,9 +3,10 @@ import { IMqttServiceOptions } from 'ngx-mqtt';
 
 export const MQTT_SERVICE_OPTIONS: IMqttServiceOptions = {
   hostname: 'localhost',
-  port: 8883,
+  port: 9001,
   path: '',
-  protocol: 'wss',
+  protocol: 'ws',
   username: 'richard',
-  password: 'secret'
+  password: 'secret',
+  protocolVersion: 5
 };

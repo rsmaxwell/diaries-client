@@ -34,7 +34,6 @@ export class DiariesComponent implements OnInit {
   }
 
   getDiaries(): void {
-    
     this.diaryService.getDiaries()
         .subscribe(diaries => this.diaries = diaries);
   }
