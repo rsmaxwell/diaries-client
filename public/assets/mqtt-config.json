@@ -1,0 +1,11 @@
+{
+    "brokerUrl": "ws://localhost:9001",
+    "clientId": "client-123",
+    "username": "richard",
+    "password": "secret",
+    "keepalive": 60,
+    "reconnectPeriod": 1000,
+    "connectTimeout": 30000,
+    "protocolVersion": 5
+  }
+  

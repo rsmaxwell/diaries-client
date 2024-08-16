@@ -1,12 +1,33 @@
-import { ApplicationConfig } from '@angular/core';
+import { APP_INITIALIZER, ApplicationConfig } from '@angular/core';
 import { provideRouter } from '@angular/router';
 
 import { routes } from './app.routes';
-import { MqttModule } from 'ngx-mqtt';
-import { MQTT_SERVICE_OPTIONS } from './mqtt-options';
+import { provideHttpClient } from '@angular/common/http';
+import { MqttService } from './mqtt.service';
+import { ConfigService } from './config.service';
+import { Observable } from 'rxjs';
+import { DiaryService } from './diary.service';
+
+
+function initializeDiaryService(diaryService: DiaryService) {
+  return () => diaryService.initializeAsync();
+}
 
 export const appConfig: ApplicationConfig = {
-  providers: [provideRouter(routes),
-             ...(MqttModule.forRoot(MQTT_SERVICE_OPTIONS).providers || [])
-             ]
+  providers: [
+    provideHttpClient(),
+    provideRouter(routes),
+    ConfigService,
+    MqttService,
+    DiaryService,
+    {
+      provide: APP_INITIALIZER,
+      useFactory: initializeDiaryService,
+      deps: [    DiaryService,
+      ],
+      multi: true,
+    },
+  ]
 };
+
+

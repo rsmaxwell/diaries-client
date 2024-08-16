@@ -27,14 +27,27 @@ export class DiariesComponent implements OnInit {
 
   diaries: Diary[] = [];
 
-  constructor(private diaryService: DiaryService, private messageService: MessageService) {}
+  constructor(
+    private diaryService: DiaryService, 
+    private messageService: MessageService
+  ) {}
 
   ngOnInit(): void {
     this.getDiaries();
   }
 
   getDiaries(): void {
-    this.diaryService.getDiaries()
-        .subscribe(diaries => this.diaries = diaries);
+    this.diaryService.getDiaries().subscribe({
+      next: value => {
+        console.log('DiariesComponent.getDiaries: value: ' + JSON.stringify(value))
+        this.diaries = value
+      },
+      error: err => console.error('DiariesComponent.getDiaries: error: ' + err),
+      complete: () => console.log('DiariesComponent.getDiaries: complete')
+    })
+  }
+
+  ngOnDestroy(): void {
+    console.log('DiariesComponent.getDiaries: ngOnDestroy')
   }
 }
