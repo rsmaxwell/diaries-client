@@ -29,12 +29,8 @@ To get more help on the Angular CLI use `ng help` or go check out the [Angular C
 
 ## Install dependancies
 
-### uuid
-
 npm install uuid
-npm i --save-dev @types/uuid
-
-### mqtt
-
+npm install --save-dev @types/uuid
 npm install mqtt
 
+ng add @angular/material

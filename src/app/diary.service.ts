@@ -55,6 +55,7 @@ export class DiaryService {
     let myuuid = uuidv4();
     let replyTopic = `reply/diaries`;
 
+    
     this.mqttClient.subscribeAsync(replyTopic)
       .then((granted) => {
         let request = { function: 'getDiaries' };
@@ -69,6 +70,8 @@ export class DiaryService {
         };
 
         this.mqttClient.publishAsync('request', JSON.stringify(request), publishOptions)
+          .then(() => {
+          })
           .catch((error) => {
             console.error('DiaryService.initialiseDiaries: error publishing: ' + error.message);
           });
@@ -100,6 +103,7 @@ export class DiaryService {
   }
 
   getDiary(id: number): Observable<Diary> {
+    console.log(`DiaryService.getDiary: id=${id}`);
     // For now, assume that a hero with the specified `id` always exists.
     // Error handling will be added in the next step of the tutorial.
     const diary = this.diaries.find(h => h.id === id)!;
@@ -108,6 +112,7 @@ export class DiaryService {
   }
 
   getDiaries(): Observable<Diary[]> {
+    console.log(`DiaryService.getDiaries`);
     return this.diariesObservable;  // Return the observable
   }
 }

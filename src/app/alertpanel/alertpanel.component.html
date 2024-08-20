@@ -1,0 +1,8 @@
+<div *ngFor="let alert of alerts" class="alert-container">
+
+    <button class="alert-close" (click)="removeAlert(alert)">
+        <img src="../assets/icons/close.svg" width="8" height="8" class="m-2">
+    </button>
+
+    <div class="alert-message {{ cssClass(alert) }}" [innerHTML]="alert.message"></div>
+</div>

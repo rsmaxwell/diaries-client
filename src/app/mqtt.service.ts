@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { ConfigService } from './config.service';
 import mqtt from "mqtt"
-import { ConfigService, MqttConfig } from './config.service';
 
 @Injectable({
   providedIn: 'root'

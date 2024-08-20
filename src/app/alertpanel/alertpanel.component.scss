@@ -1,0 +1,46 @@
+
+@import "../../constants";
+
+.alertbuttons {
+    background-color: pink;
+    padding: 10px;
+    text-align: center;
+}
+
+.alert-success {
+    background-color: $bg-green-100;
+}
+
+.alert-danger {
+    background-color: $bg-red-100;
+}
+
+.alert-info {
+    background-color: $bg-cyan-100;
+}
+
+.alert-warning {
+    background-color: $bg-orange-100;
+}
+
+
+
+.alert-container {
+    display: flex;
+    flex-direction: row;
+    align-items: center, stretch;
+}
+
+.alert-close {
+    flex-grow: 0;
+    border-width: 0;
+}
+
+.alert-message {
+    flex-grow: 1;
+    align-content: center;
+    padding: 4px;
+}
+
+
+  

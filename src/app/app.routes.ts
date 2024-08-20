@@ -3,11 +3,13 @@ import { PagesComponent } from './pages/pages.component';
 import { DiariesComponent } from './diaries/diaries.component';
 import { DashboardComponent } from './dashboard/dashboard.component';
 import { DiaryComponent } from './diary/diary.component';
+import { SigninPageComponent } from './signin.page/signin.page.component';
 
 exports: [ RouterModule ]
 
 export const routes: Routes = [
-    { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
+    { path: '', redirectTo: 'signin', pathMatch: 'full' },
+    { path: 'signin', component: SigninPageComponent },
     { path: 'dashboard', component: DashboardComponent },
     { path: 'diaries', component: DiariesComponent },
     { path: 'pages', component: PagesComponent },

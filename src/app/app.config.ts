@@ -7,6 +7,7 @@ import { MqttService } from './mqtt.service';
 import { ConfigService } from './config.service';
 import { Observable } from 'rxjs';
 import { DiaryService } from './diary.service';
+import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 
 
 function initializeDiaryService(diaryService: DiaryService) {
@@ -26,7 +27,7 @@ export const appConfig: ApplicationConfig = {
       deps: [    DiaryService,
       ],
       multi: true,
-    },
+    }, provideAnimationsAsync(),
   ]
 };
 

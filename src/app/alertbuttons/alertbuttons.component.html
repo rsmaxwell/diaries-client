@@ -1,0 +1,43 @@
+<div class="alertbuttons" >
+
+    <div class="">
+        
+       <button class="success" 
+          (click)="alertService.success(options.autoClose, 'Success!!')">
+          Success
+       </button>
+   
+       <button class="error" 
+          (click)="alertService.error(options.autoClose, 'Error....')">
+          Error
+       </button>
+   
+       <button class="info" 
+          (click)="alertService.info(options.autoClose, 'Some info....')">
+          Info
+       </button>
+   
+       <button class="warning" 
+          (click)="alertService.warning(options.autoClose, 'Warning: ...')">
+          Warn
+       </button>
+   
+       <button class="clear" 
+          (click)="alertService.clear()">
+          Clear
+       </button>
+   </div>
+
+    <div class="">
+        <div class="">
+            <input type="checkbox" name="autoClose" id="autoClose" class=""
+                [(ngModel)]="options.autoClose">
+            <label for="autoClose">Auto close alert after three seconds</label>
+        </div>
+        <div class="">
+            <input type="checkbox" name="keepAfterRouteChange" id="keepAfterRouteChange" class=""
+                [(ngModel)]="options.keepAfterRouteChange">
+            <label for="keepAfterRouteChange">Keep displaying after one route change</label>
+        </div>
+    </div>
+</div>
