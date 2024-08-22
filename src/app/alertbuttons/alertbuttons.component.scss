@@ -4,22 +4,22 @@
 
 
 .success {
-    background-color: $bg-green-500;
+    background-color: $green-500;
     color: white;
 }
 
 .error {
-    background-color: $bg-red-500;
+    background-color: $red-500;
     color: white;
 }
 
 .info {
-    background-color: $bg-cyan-500;
+    background-color: $cyan-500;
     color: white;
 }
 
 .warning {
-    background-color: $bg-orange-500;
+    background-color: $orange-500;
     color: white;
 }
 
@@ -52,19 +52,19 @@
 }
 
 .alert-success {
-    background-color: $bg-green-500;
+    background-color: $green-500;
 }
 
 .alert-danger {
-    background-color: $bg-red-500;
+    background-color: $red-500;
 }
 
 .alert-info {
-    background-color: $bg-cyan-500;
+    background-color: $cyan-500;
 }
 
 .alert-warning {
-    background-color: $bg-orange-300;
+    background-color: $orange-300;
 }
 
 button {
@@ -85,7 +85,7 @@ button:hover {
 }
 
 button:disabled {
-    background-color: #eee;
+    background-color: $grey-200;
     color: #aaa;
     cursor: auto;
 }

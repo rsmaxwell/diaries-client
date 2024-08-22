@@ -1,11 +1,18 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NgFor, NgIf, UpperCasePipe } from '@angular/common';
 import { Diary } from '../diary';
 import { DiaryService } from '../diary.service';
 import { DiaryComponent } from "../diary/diary.component";
 import { MessageService } from '../message.service';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { MatTableModule } from '@angular/material/table';
+import { ScrollingModule } from '@angular/cdk/scrolling';
+import { FullheaderComponent } from "../fullheader/fullheader.component";
+import { FullfooterComponent } from "../fullfooter/fullfooter.component";
+import { MessagesComponent } from "../messages/messages.component";
+import { AlertpanelComponent } from "../alertpanel/alertpanel.component";
+import { AlertbuttonsComponent } from "../alertbuttons/alertbuttons.component";
 
 @Component({
   selector: 'app-diaries',
@@ -18,17 +25,27 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
     RouterLink, 
     RouterLinkActive,
     UpperCasePipe,
-    DiaryComponent
-],
+    DiaryComponent,
+    MatTableModule,
+    ScrollingModule,
+    FullheaderComponent,
+    FullfooterComponent,
+    MessagesComponent,
+    AlertpanelComponent,
+    AlertbuttonsComponent
+  ],
   templateUrl: './diaries.component.html',
   styleUrl: './diaries.component.scss'
 })
 export class DiariesComponent implements OnInit {
 
+  pagename = 'Diaries';
+  displayedColumns: string[] = ['id', 'path'];
   diaries: Diary[] = [];
 
   constructor(
     private diaryService: DiaryService, 
+    private router: Router,
     private messageService: MessageService
   ) {}
 
@@ -49,5 +66,10 @@ export class DiariesComponent implements OnInit {
 
   ngOnDestroy(): void {
     console.log('DiariesComponent.getDiaries: ngOnDestroy')
+  }
+
+  getRecord(diary: Diary) {
+    console.log('DiariesComponent.getRecord: diary: ' + JSON.stringify(diary))
+    this.router.navigate([`/diary/${diary.id}`]);
   }
 }

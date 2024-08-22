@@ -5,13 +5,13 @@
   import { MatToolbarModule } from '@angular/material/toolbar';
   
   @Component({
-    selector: 'app-plainheader',
+    selector: 'app-fullheader',
     standalone: true,
     imports: [MatToolbarModule, MatButtonModule, MatIconModule],
-    templateUrl: './plainheader.component.html',
-    styleUrl: './plainheader.component.scss'
+    templateUrl: './fullheader.component.html',
+    styleUrl: './fullheader.component.scss'
   })
-  export class PlainheaderComponent {
+  export class FullheaderComponent {
   
   }
   

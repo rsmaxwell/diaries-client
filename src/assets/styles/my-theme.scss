@@ -1,0 +1,3 @@
+@import 'partials/theme';                    // our actual theme definition
+@include mat-core();                         // the required mat-core mixin
+@include angular-material-theme($my-theme);  // the declaration of our custom material theme

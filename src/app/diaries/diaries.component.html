@@ -1,8 +1,26 @@
-<h2>My Diaries</h2>
-<ul class="diaries">
-  <li *ngFor="let diary of diaries">
-    <a routerLink="/diary/{{diary.id}}" routerLinkActive="active" ariaCurrentWhenActive="page" >
-      <span class="badge">{{diary.id}}</span>{{diary.path}}
-    </a>
-  </li>
-</ul>
+
+<app-fullheader [title]="pagename"></app-fullheader>
+
+<cdk-virtual-scroll-viewport itemSize="50" class="example-viewport">
+
+  <table mat-table [dataSource]="diaries" class="mat-elevation-z8">
+
+    <ng-container matColumnDef="id">
+      <th mat-header-cell *matHeaderCellDef> id </th>
+      <td mat-cell *matCellDef="let element"> {{element.id}} </td>
+    </ng-container>
+
+    <ng-container matColumnDef="path">
+      <th mat-header-cell *matHeaderCellDef> path </th>
+      <td mat-cell *matCellDef="let element"> {{element.path}} </td>
+    </ng-container>
+
+    <tr mat-row *matRowDef="let row; columns: displayedColumns;" (click)="getRecord(row)"></tr>
+  </table>
+  
+</cdk-virtual-scroll-viewport>
+
+<app-messages></app-messages>
+<app-alertpanel></app-alertpanel>
+<app-alertbuttons></app-alertbuttons>
+<app-fullfooter></app-fullfooter>

@@ -1,5 +1,5 @@
 <h2>Top Diaries</h2>
-<div class="diaries-menu">
+<div class="dashboard">
   <a *ngFor="let diary of diaries" 
      routerLink="/diary/{{diary.id}}" routerLinkActive="active" ariaCurrentWhenActive="page" >
     {{diary.path}}

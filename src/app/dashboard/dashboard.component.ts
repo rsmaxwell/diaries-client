@@ -23,10 +23,10 @@ export class DashboardComponent implements OnInit {
   constructor(private diaryService: DiaryService) { }
 
   ngOnInit(): void {
-    this.getHeroes();
+    this.getDiaries();
   }
 
-  getHeroes(): void {
+  getDiaries(): void {
     this.diaryService.getDiaries()
       .subscribe(diaries => this.diaries = diaries.slice(1, 5));
   }

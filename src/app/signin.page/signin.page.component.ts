@@ -1,14 +1,24 @@
 import { Component } from '@angular/core';
-import { AlertpanelComponent } from "../alertpanel/alertpanel.component";
-import { AlertbuttonsComponent } from "../alertbuttons/alertbuttons.component";
+import { SigninDetailComponent } from "../signin.detail/signin.detail.component";
 import { PlainfooterComponent } from "../plainfooter/plainfooter.component";
 import { PlainheaderComponent } from "../plainheader/plainheader.component";
-import { SigninDetailComponent } from "../signin.detail/signin.detail.component";
+import { MessagesComponent } from "../messages/messages.component";
+import { AlertpanelComponent } from "../alertpanel/alertpanel.component";
+import { AlertbuttonsComponent } from "../alertbuttons/alertbuttons.component";
 
 @Component({
   selector: 'app-signin.page',
   standalone: true,
-  imports: [AlertpanelComponent, AlertbuttonsComponent, PlainfooterComponent, PlainheaderComponent, SigninDetailComponent],
+  imports: [ 
+    AlertpanelComponent, 
+    AlertbuttonsComponent, 
+    PlainfooterComponent, 
+    PlainheaderComponent, 
+    SigninDetailComponent,
+    MessagesComponent,
+    AlertpanelComponent,
+    AlertbuttonsComponent
+  ],
   templateUrl: './signin.page.component.html',
   styleUrl: './signin.page.component.scss'
 })
