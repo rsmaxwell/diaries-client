@@ -2,7 +2,6 @@ import { Component } from '@angular/core';
 import { SigninDetailComponent } from "../signin.detail/signin.detail.component";
 import { PlainfooterComponent } from "../plainfooter/plainfooter.component";
 import { PlainheaderComponent } from "../plainheader/plainheader.component";
-import { MessagesComponent } from "../messages/messages.component";
 import { AlertpanelComponent } from "../alertpanel/alertpanel.component";
 import { AlertbuttonsComponent } from "../alertbuttons/alertbuttons.component";
 
@@ -15,7 +14,6 @@ import { AlertbuttonsComponent } from "../alertbuttons/alertbuttons.component";
     PlainfooterComponent, 
     PlainheaderComponent, 
     SigninDetailComponent,
-    MessagesComponent,
     AlertpanelComponent,
     AlertbuttonsComponent
   ],

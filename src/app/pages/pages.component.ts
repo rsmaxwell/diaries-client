@@ -1,7 +1,6 @@
 import { Component } from '@angular/core';
 import { FullheaderComponent } from "../fullheader/fullheader.component";
 import { FullfooterComponent } from "../fullfooter/fullfooter.component";
-import { MessagesComponent } from "../messages/messages.component";
 import { AlertpanelComponent } from "../alertpanel/alertpanel.component";
 import { AlertbuttonsComponent } from "../alertbuttons/alertbuttons.component";
 
@@ -11,7 +10,6 @@ import { AlertbuttonsComponent } from "../alertbuttons/alertbuttons.component";
   imports: [
     FullheaderComponent,
     FullfooterComponent,
-    MessagesComponent,
     AlertpanelComponent,
     AlertbuttonsComponent
   ],

@@ -4,15 +4,14 @@ import { NgFor, NgIf, UpperCasePipe } from '@angular/common';
 import { Diary } from '../diary';
 import { DiaryService } from '../diary.service';
 import { DiaryComponent } from "../diary/diary.component";
-import { MessageService } from '../message.service';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { MatTableModule } from '@angular/material/table';
 import { ScrollingModule } from '@angular/cdk/scrolling';
 import { FullheaderComponent } from "../fullheader/fullheader.component";
 import { FullfooterComponent } from "../fullfooter/fullfooter.component";
-import { MessagesComponent } from "../messages/messages.component";
 import { AlertpanelComponent } from "../alertpanel/alertpanel.component";
 import { AlertbuttonsComponent } from "../alertbuttons/alertbuttons.component";
+import { AlertService } from '../alert.service';
 
 @Component({
   selector: 'app-diaries',
@@ -30,7 +29,6 @@ import { AlertbuttonsComponent } from "../alertbuttons/alertbuttons.component";
     ScrollingModule,
     FullheaderComponent,
     FullfooterComponent,
-    MessagesComponent,
     AlertpanelComponent,
     AlertbuttonsComponent
   ],
@@ -46,7 +44,7 @@ export class DiariesComponent implements OnInit {
   constructor(
     private diaryService: DiaryService, 
     private router: Router,
-    private messageService: MessageService
+    private alertService: AlertService
   ) {}
 
   ngOnInit(): void {
