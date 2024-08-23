@@ -2,18 +2,7 @@
 @import "../../constants";
 
 
-
-
-
-.example-viewport {
-  height: 400px;
-  width: 100%;
-  border: 1px solid black;
+.list-container {
+  max-height: 500px; /* Adjust the height as needed */
+  overflow-y: auto;
 }
-
-.example-item {
-  height: 50px;
-}
-
-
-

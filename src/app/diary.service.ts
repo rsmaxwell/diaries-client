@@ -6,6 +6,8 @@ import { Buffer } from 'buffer';
 import { v4 as uuidv4 } from 'uuid';
 import { MqttService } from './mqtt.service';
 import mqtt from 'mqtt';
+import { AlertType } from './alert.model';
+import { AlertBuilder } from './alert.builder';
 
 
 
@@ -106,14 +108,15 @@ export class DiaryService {
     // For now, assume that a hero with the specified `id` always exists.
     // Error handling will be added in the next step of the tutorial.
     const diary = this.diaries.find(h => h.id === id)!;
-    this.alertService.info(true, `DiaryService: fetched diary id=${id}`);
+    this.alertService.info(`DiaryService: fetched diary id=${id}`);
     return of(diary);
   }
 
   getDiaries(): Observable<Diary[]> {
     console.log(`DiaryService.getDiaries`);
-    this.alertService.info(true, `DiaryService: fetched diaries`);
+    this.alertService.info(`DiaryService: fetched diaries`);
     return this.diariesObservable;  // Return the observable
   }
+
 }
 

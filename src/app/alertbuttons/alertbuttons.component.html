@@ -1,31 +1,11 @@
 <div class="alertbuttons" >
 
     <div class="">
-        
-       <button class="success" 
-          (click)="alertService.success(options.autoClose, 'Success!!')">
-          Success
-       </button>
-   
-       <button class="error" 
-          (click)="alertService.error(options.autoClose, 'Error....')">
-          Error
-       </button>
-   
-       <button class="info" 
-          (click)="alertService.info(options.autoClose, 'Some info....')">
-          Info
-       </button>
-   
-       <button class="warning" 
-          (click)="alertService.warning(options.autoClose, 'Warning: ...')">
-          Warn
-       </button>
-   
-       <button class="clear" 
-          (click)="alertService.clear()">
-          Clear
-       </button>
+       <button class="success" (click)="success()">Success</button>
+       <button class="error" (click)="error()">Error</button>
+       <button class="info" (click)="info()">Info</button>
+       <button class="warning" (click)="warning()">Warn</button>
+       <button class="clear" (click)="clear()">Clear</button>
    </div>
 
     <div class="">

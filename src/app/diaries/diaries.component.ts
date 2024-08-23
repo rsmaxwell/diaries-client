@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NgFor, NgIf, UpperCasePipe } from '@angular/common';
 import { Diary } from '../diary';
@@ -37,7 +37,8 @@ import { AlertService } from '../alert.service';
 })
 export class DiariesComponent implements OnInit {
 
-  pagename = 'Diaries';
+  @Input() title?: string;
+  
   displayedColumns: string[] = ['id', 'path'];
   diaries: Diary[] = [];
 
@@ -54,7 +55,8 @@ export class DiariesComponent implements OnInit {
   getDiaries(): void {
     this.diaryService.getDiaries().subscribe({
       next: value => {
-        console.log('DiariesComponent.getDiaries: value: ' + JSON.stringify(value))
+        console.log(`DiariesComponent.getDiaries: value: ${JSON.stringify(value)}`)
+        this.alertService.infoDump(`DiariesComponent.getDiaries`, JSON.stringify(value))
         this.diaries = value
       },
       error: err => console.error('DiariesComponent.getDiaries: error: ' + err),
@@ -67,7 +69,8 @@ export class DiariesComponent implements OnInit {
   }
 
   getRecord(diary: Diary) {
-    console.log('DiariesComponent.getRecord: diary: ' + JSON.stringify(diary))
-    this.router.navigate([`/diary/${diary.id}`]);
+    console.log(`DiariesComponent.getRecord: diary: ${JSON.stringify(diary)}`)
+    this.alertService.info(`DiariesComponent.getRecord: diary: ${JSON.stringify(diary)}`)
+    // this.router.navigate([`/diary/${diary.id}`]);
   }
 }

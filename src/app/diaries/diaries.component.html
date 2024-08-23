@@ -1,7 +1,7 @@
 
-<app-fullheader [title]="pagename"></app-fullheader>
+<app-fullheader [title]="title"></app-fullheader>
 
-<cdk-virtual-scroll-viewport itemSize="50" class="example-viewport">
+<div class="list-container">
 
   <table mat-table [dataSource]="diaries" class="mat-elevation-z8">
 
@@ -18,7 +18,7 @@
     <tr mat-row *matRowDef="let row; columns: displayedColumns;" (click)="getRecord(row)"></tr>
   </table>
   
-</cdk-virtual-scroll-viewport>
+</div>
 
 <app-alertpanel></app-alertpanel>
 <app-alertbuttons></app-alertbuttons>

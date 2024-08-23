@@ -1,3 +1,6 @@
+
+<app-fullheader [title]="title"></app-fullheader>
+
 <h2>Top Diaries</h2>
 <div class="dashboard">
   <a *ngFor="let diary of diaries" 
@@ -5,3 +8,7 @@
     {{diary.path}}
   </a>
 </div>
+
+<app-alertpanel></app-alertpanel>
+<app-alertbuttons></app-alertbuttons>
+<app-fullfooter></app-fullfooter>

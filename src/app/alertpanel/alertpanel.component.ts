@@ -14,6 +14,7 @@ import { CommonModule } from '@angular/common';
   styleUrl: './alertpanel.component.scss'
 })
 export class AlertpanelComponent implements OnInit, OnDestroy {
+
   @Input() id = 'default-alert';
   @Input() fade = true;
 
@@ -99,5 +100,10 @@ export class AlertpanelComponent implements OnInit, OnDestroy {
       }
 
       return classes.join(' ');
+  }
+
+  showDump(alert: Alert) {
+    console.log(`AlertpanelComponent.showDump: ${alert.dump}`)
+    this.router.navigate(['/dump']);
   }
 }
