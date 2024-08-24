@@ -65,7 +65,7 @@ export class DiariesComponent implements OnInit {
   }
 
   ngOnDestroy(): void {
-    console.log('DiariesComponent.getDiaries: ngOnDestroy')
+    console.log('DiariesComponent.ngOnDestroy')
   }
 
   getRecord(diary: Diary) {

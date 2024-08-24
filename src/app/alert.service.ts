@@ -1,41 +1,32 @@
 import { Injectable } from '@angular/core';
-import { Observable, Subject } from 'rxjs';
-import { filter } from 'rxjs/operators';
+import { BehaviorSubject, Observable, of } from 'rxjs';
 import { Alert, AlertType } from './alert.model';
 import { AlertBuilder } from './alert.builder';
 
 @Injectable({ providedIn: 'root' })
 export class AlertService {
-    private subject = new Subject<Alert>();
 
-    publish(alert: Alert) {
-        console.log(`AlertService.publish: ${alert.message}`)
-        this.subject.next(alert);
-    }
+    private alerts: Alert[] = [];
+    private alertsSubject = new BehaviorSubject<Alert[]>([]);
+    private alertsObservable = this.alertsSubject.asObservable();
 
-    onAlert(id = Alert.defaultId): Observable<Alert> {
-        console.log(`AlertService.onAlert: ${id}`)
-        return this.subject.asObservable().pipe(filter(x => x && x.id === id));
-    }
-
-    clear(id = Alert.defaultId) {
-        this.subject.next(new AlertBuilder().id(id).build());
+    success(message: string) {
+        this.publish(new AlertBuilder()
+        .type(AlertType.Success)
+        .message(message)
+        .build())           
     }
 
     info(message: string) {
-        console.log(`AlertService.info: ${message}`)
         this.publish(new AlertBuilder()
             .type(AlertType.Info)
-            .keepAfterRouteChange(true)
             .message(message)
-            .build());
+            .build())
     }
 
     infoDump(message: string, data: string) {
-        console.log(`AlertService.info: ${message}`)
         this.publish(new AlertBuilder()
             .type(AlertType.Info)
-            .keepAfterRouteChange(true)
             .message(message)
             .dump(data)
             .build());
@@ -55,11 +46,41 @@ export class AlertService {
             .build());
     }
 
-    success(message: string) {
-        this.publish(new AlertBuilder()
-            .type(AlertType.Success)
-            .message(message)
-            .build());
+    clear() {
+        console.log(`AlertService.clear`)
+        this.alerts = []
+        this.alertsSubject.next(this.alerts);
+    }
+
+    publish(alert: Alert) {
+        console.log(`AlertService.publish`)
+        this.alerts.push(alert);
+        this.alertsSubject.next(this.alerts);
+
+        if (alert.autoClose) {
+            setTimeout(() => this.removeAlert(alert), 3000);
+        }   
+    }
+
+    getAlert(id: number): Observable<Alert> {
+        console.log(`AlertService.getAlert: id=${id}`);
+        const alert = this.alerts.find(h => h.id === id)!;
+        return of(alert);
+    }
+
+    getAlerts(): Observable<Alert[]> {
+        console.log(`AlertService.getAlerts`)
+        return this.alertsObservable; 
+    }
+    
+    removeAlert(alert: Alert) {
+        console.log(`AlertService.removeAlert: id: ${alert.id}`)
+        for (var i = this.alerts.length - 1; i >= 0; --i) {
+            if (this.alerts[i].id == alert.id) {
+                this.alerts.splice(i,1);
+            }
+        }
+        this.alertsSubject.next(this.alerts);
     }
 }
 

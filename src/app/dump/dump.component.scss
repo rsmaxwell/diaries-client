@@ -1,9 +1,13 @@
+
+@import "../../constants";
+
+
 .string-list-card {
   margin: 16px 0;
   padding: 16px;
 }
 
 .list-container {
-  max-height: 200px; /* Adjust the height as needed */
+  max-height: 300px; /* Adjust the height as needed */
   overflow-y: auto;
 }

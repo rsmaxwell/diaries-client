@@ -1,8 +1,8 @@
 <app-fullheader [title]="title"></app-fullheader>
 
 <mat-card class="string-list-card">
-  <mat-card-header *ngIf="title">
-    <mat-card-title>{{ title }}</mat-card-title>
+  <mat-card-header *ngIf="pagename">
+    <mat-card-title>{{ pagename }}</mat-card-title>
   </mat-card-header>
   <div class="list-container">
     <mat-list>

@@ -10,18 +10,8 @@ export class AlertBuilder {
         return this;
     }
 
-    id(id: string) {
-        this.alert.id = id;
-        return this;
-    }
-
     message(message: string) {
         this.alert.message = message;
-        return this;
-    }
-
-    keepAfterRouteChange(value: boolean) {
-        this.alert.keepAfterRouteChange = value;
         return this;
     }
 

@@ -1,20 +1,18 @@
 
 export class Alert {
 
-    public static readonly defaultId = 'default-alert';
+    private static nextId = 0
 
-    id!: string;
+    id: number;
     type!: AlertType;
     message!: string;
     autoClose!: boolean;
-    keepAfterRouteChange?: boolean;
     fade!: boolean;
     dump!: {};
 
     constructor() {
-        this.id = Alert.defaultId
+        this.id = Alert.nextId++
         this.autoClose = false
-        this.keepAfterRouteChange = false
     }
 }
 

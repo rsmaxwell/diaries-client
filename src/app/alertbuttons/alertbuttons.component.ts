@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { AlertService } from '../alert.service';
 import { FormsModule } from '@angular/forms';
-import { Alert, AlertType } from '../alert.model';
+import { AlertType } from '../alert.model';
 import { AlertBuilder } from '../alert.builder';
 
 @Component({
@@ -14,8 +14,7 @@ import { AlertBuilder } from '../alert.builder';
 export class AlertbuttonsComponent {
 
   options = {
-    autoClose: true,
-    keepAfterRouteChange: false
+    autoClose: true
   };
 
   constructor(public alertService: AlertService
@@ -24,42 +23,37 @@ export class AlertbuttonsComponent {
   success() {
     this.alertService.publish(new AlertBuilder()
       .type(AlertType.Success)
-      .autoClose(this.options.autoClose)
-      .keepAfterRouteChange(this.options.keepAfterRouteChange)
       .message('Success!!')
+      .autoClose(this.options.autoClose)
       .build());
   }
 
   error() {
     this.alertService.publish(new AlertBuilder()
       .type(AlertType.Error)
-      .autoClose(this.options.autoClose)
-      .keepAfterRouteChange(this.options.keepAfterRouteChange)
       .message('Error....')
+      .autoClose(this.options.autoClose)
       .build());
   }
 
   info() {
     this.alertService.publish(new AlertBuilder()
       .type(AlertType.Info)
-      .autoClose(this.options.autoClose)
-      .keepAfterRouteChange(this.options.keepAfterRouteChange)
       .message('Some info....')
+      .autoClose(this.options.autoClose)
       .build());
   }
 
   warning() {
     this.alertService.publish(new AlertBuilder()
       .type(AlertType.Warning)
-      .autoClose(this.options.autoClose)
-      .keepAfterRouteChange(this.options.keepAfterRouteChange)
       .message('Warning: ...')
+      .autoClose(this.options.autoClose)
       .build());
   }
 
   clear() {
-    this.alertService.publish(new AlertBuilder()
-      .build());
+    this.alertService.clear();
   }
 
 }

@@ -29,6 +29,8 @@ export class DumpComponent {
   // @Input() items: string[] = [];
   @Input() title?: string;
 
+  pagename = "dump";
+
   items: string[] = [
     'Item 1',
     'Item 2',
