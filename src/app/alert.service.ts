@@ -21,6 +21,7 @@ export class AlertService {
         this.publish(new AlertBuilder()
             .type(AlertType.Info)
             .message(message)
+            .autoClose(true)
             .build())
     }
 
@@ -28,6 +29,7 @@ export class AlertService {
         this.publish(new AlertBuilder()
             .type(AlertType.Info)
             .message(message)
+            .autoClose(true)
             .dump(data)
             .build());
     }
@@ -36,6 +38,7 @@ export class AlertService {
         this.publish(new AlertBuilder()
             .type(AlertType.Error)
             .message(message)
+            .autoClose(true)
             .build());
     }
 
@@ -43,6 +46,7 @@ export class AlertService {
         this.publish(new AlertBuilder()
             .type(AlertType.Warning)
             .message(message)
+            .autoClose(true)
             .build());
     }
 
@@ -64,6 +68,7 @@ export class AlertService {
 
     getAlert(id: number): Observable<Alert> {
         console.log(`AlertService.getAlert: id=${id}`);
+        console.log(`AlertService.getAlert: alerts: ${JSON.stringify(this.alerts)}`);
         const alert = this.alerts.find(h => h.id === id)!;
         return of(alert);
     }

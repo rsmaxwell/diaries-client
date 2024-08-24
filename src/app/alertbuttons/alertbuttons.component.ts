@@ -25,6 +25,13 @@ export class AlertbuttonsComponent {
       .type(AlertType.Success)
       .message('Success!!')
       .autoClose(this.options.autoClose)
+      .dump(`
+        one
+        two
+        three
+        four
+        five
+        six`)
       .build());
   }
 

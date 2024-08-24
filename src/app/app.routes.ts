@@ -15,5 +15,5 @@ export const routes: Routes = [
     { path: 'diaries', component: DiariesComponent },
     { path: 'pages', component: PagesComponent },
     { path: 'diary/:id', component: DiaryComponent },
-    { path: 'alert', component: AlertComponent },
+    { path: 'alert/:id', component: AlertComponent },
 ];

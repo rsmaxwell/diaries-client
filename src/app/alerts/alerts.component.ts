@@ -7,13 +7,13 @@ import { AlertService } from '../alert.service';
 import { CommonModule } from '@angular/common';
 
 @Component({
-  selector: 'app-alertpanel',
+  selector: 'app-alerts',
   standalone: true,
   imports: [CommonModule],
   templateUrl: './alerts.component.html',
   styleUrl: './alerts.component.scss'
 })
-export class AlertpanelComponent implements OnInit, OnDestroy {
+export class AlertsComponent implements OnInit, OnDestroy {
 
   @Input() fade = true;
 
@@ -46,7 +46,7 @@ export class AlertpanelComponent implements OnInit, OnDestroy {
   }
 
   removeAlert(alert: Alert) {
-    console.log(`AlertpanelComponent.removeAlert: ${alert.id}`)
+    console.log(`AlertComponent.removeAlert: ${alert.id}`)
     this.alertService.removeAlert(alert)
   }
 
@@ -66,15 +66,11 @@ export class AlertpanelComponent implements OnInit, OnDestroy {
           classes.push(alertTypeClass[alert.type]);
       }
 
-      if (alert.fade) {
-          classes.push('fade');
-      }
-
       return classes.join(' ');
   }
 
-  showDump(alert: Alert) {
-    console.log(`AlertpanelComponent.showDump: ${alert.dump}`)
-    this.router.navigate(['/dump']);
+  getRecord(alert: Alert) {
+    console.log(`AlertComponent.getRecord: diary: ${alert.id}`)
+    this.router.navigate([`/alert/${alert.id}`]);
   }
 }

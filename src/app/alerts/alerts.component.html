@@ -4,5 +4,5 @@
         <img src="../assets/icons/close.svg" width="8" height="8" class="m-2">
     </button>
 
-    <div class="alert-message {{ cssClass(alert) }}" [innerHTML]="alert.message" (click)="showDump(alert)"></div>
+    <div class="alert-message {{ cssClass(alert) }}" [innerHTML]="alert.message" (click)="getRecord(alert)"></div>
 </div>

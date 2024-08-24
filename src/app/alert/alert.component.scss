@@ -1,13 +1,31 @@
 
+
 @import "../../constants";
 
 
-.string-list-card {
-  margin: 16px 0;
-  padding: 16px;
+
+.alert-message{
+    white-space: pre-wrap;
 }
 
-.list-container {
-  max-height: 300px; /* Adjust the height as needed */
-  overflow-y: auto;
+.alert-success {
+    background-color: $green-100;
+}
+
+.alert-danger {
+    background-color: $red-100;
+}
+
+.alert-info {
+    background-color: $cyan-100;
+}
+
+.alert-warning {
+    background-color: $orange-100;
+}
+
+
+.alert-dump{
+    white-space: pre-wrap;
+    background-color: $neutral-200;
 }

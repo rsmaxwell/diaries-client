@@ -9,7 +9,7 @@ import { MatTableModule } from '@angular/material/table';
 import { ScrollingModule } from '@angular/cdk/scrolling';
 import { FullheaderComponent } from "../fullheader/fullheader.component";
 import { FullfooterComponent } from "../fullfooter/fullfooter.component";
-import { AlertpanelComponent } from "../alerts/alerts.component";
+import { AlertsComponent } from "../alerts/alerts.component";
 import { AlertbuttonsComponent } from "../alertbuttons/alertbuttons.component";
 import { AlertService } from '../alert.service';
 
@@ -29,7 +29,7 @@ import { AlertService } from '../alert.service';
     ScrollingModule,
     FullheaderComponent,
     FullfooterComponent,
-    AlertpanelComponent,
+    AlertsComponent,
     AlertbuttonsComponent
   ],
   templateUrl: './diaries.component.html',
@@ -56,7 +56,6 @@ export class DiariesComponent implements OnInit {
     this.diaryService.getDiaries().subscribe({
       next: value => {
         console.log(`DiariesComponent.getDiaries: value: ${JSON.stringify(value)}`)
-        this.alertService.infoDump(`DiariesComponent.getDiaries`, JSON.stringify(value))
         this.diaries = value
       },
       error: err => console.error('DiariesComponent.getDiaries: error: ' + err),
@@ -70,7 +69,6 @@ export class DiariesComponent implements OnInit {
 
   getRecord(diary: Diary) {
     console.log(`DiariesComponent.getRecord: diary: ${JSON.stringify(diary)}`)
-    this.alertService.info(`DiariesComponent.getRecord: diary: ${JSON.stringify(diary)}`)
-    // this.router.navigate([`/diary/${diary.id}`]);
+    this.router.navigate([`/diary/${diary.id}`]);
   }
 }

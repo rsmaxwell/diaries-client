@@ -105,16 +105,12 @@ export class DiaryService {
 
   getDiary(id: number): Observable<Diary> {
     console.log(`DiaryService.getDiary: id=${id}`);
-    // For now, assume that a diary with the specified `id` always exists.
-    // Error handling will be added in the next step of the tutorial.
     const diary = this.diaries.find(h => h.id === id)!;
-    this.alertService.info(`DiaryService: fetched diary id=${id}`);
     return of(diary);
   }
 
   getDiaries(): Observable<Diary[]> {
     console.log(`DiaryService.getDiaries`);
-    this.alertService.info(`DiaryService: fetched diaries`);
     return this.diariesObservable;  // Return the observable
   }
 

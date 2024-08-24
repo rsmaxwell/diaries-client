@@ -5,7 +5,7 @@ import { DiaryService } from '../diary.service';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { FullheaderComponent } from "../fullheader/fullheader.component";
 import { FullfooterComponent } from "../fullfooter/fullfooter.component";
-import { AlertpanelComponent } from "../alerts/alerts.component";
+import { AlertsComponent } from "../alerts/alerts.component";
 import { AlertbuttonsComponent } from "../alertbuttons/alertbuttons.component";
 
 @Component({
@@ -18,7 +18,7 @@ import { AlertbuttonsComponent } from "../alertbuttons/alertbuttons.component";
     RouterLinkActive,
     FullheaderComponent,
     FullfooterComponent,
-    AlertpanelComponent,
+    AlertsComponent,
     AlertbuttonsComponent
   ],
   templateUrl: './dashboard.component.html',
