@@ -2,7 +2,7 @@ import { Component } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { PagesComponent } from './pages/pages.component';
 import { DiariesComponent } from './diaries/diaries.component';
-import { DumpComponent } from './dump/dump.component';
+import { AlertComponent } from './alert/alert.component';
 
 @Component({
   selector: 'app-root',
@@ -14,7 +14,7 @@ import { DumpComponent } from './dump/dump.component';
     RouterOutlet,
     RouterLink,
     RouterLinkActive,
-    DumpComponent
+    AlertComponent
 ],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'

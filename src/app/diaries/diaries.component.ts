@@ -9,7 +9,7 @@ import { MatTableModule } from '@angular/material/table';
 import { ScrollingModule } from '@angular/cdk/scrolling';
 import { FullheaderComponent } from "../fullheader/fullheader.component";
 import { FullfooterComponent } from "../fullfooter/fullfooter.component";
-import { AlertpanelComponent } from "../alertpanel/alertpanel.component";
+import { AlertpanelComponent } from "../alerts/alerts.component";
 import { AlertbuttonsComponent } from "../alertbuttons/alertbuttons.component";
 import { AlertService } from '../alert.service';
 

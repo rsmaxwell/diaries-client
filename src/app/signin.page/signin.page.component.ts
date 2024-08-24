@@ -2,7 +2,7 @@ import { Component } from '@angular/core';
 import { SigninDetailComponent } from "../signin.detail/signin.detail.component";
 import { PlainfooterComponent } from "../plainfooter/plainfooter.component";
 import { PlainheaderComponent } from "../plainheader/plainheader.component";
-import { AlertpanelComponent } from "../alertpanel/alertpanel.component";
+import { AlertpanelComponent } from "../alerts/alerts.component";
 import { AlertbuttonsComponent } from "../alertbuttons/alertbuttons.component";
 
 @Component({

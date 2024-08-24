@@ -1,7 +1,7 @@
 import { Component, Input } from '@angular/core';
 import { FullheaderComponent } from "../fullheader/fullheader.component";
 import { FullfooterComponent } from "../fullfooter/fullfooter.component";
-import { AlertpanelComponent } from "../alertpanel/alertpanel.component";
+import { AlertpanelComponent } from "../alerts/alerts.component";
 import { AlertbuttonsComponent } from "../alertbuttons/alertbuttons.component";
 
 @Component({

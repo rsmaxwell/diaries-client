@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { DumpComponent } from './dump.component';
+import { DumpComponent } from './alert.component';
 
 describe('DumpComponent', () => {
   let component: DumpComponent;

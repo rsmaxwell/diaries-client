@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { AlertpanelComponent } from './alertpanel.component';
+import { AlertpanelComponent } from './alerts.component';
 
 describe('AlertpanelComponent', () => {
   let component: AlertpanelComponent;

@@ -10,8 +10,8 @@ import { CommonModule } from '@angular/common';
   selector: 'app-alertpanel',
   standalone: true,
   imports: [CommonModule],
-  templateUrl: './alertpanel.component.html',
-  styleUrl: './alertpanel.component.scss'
+  templateUrl: './alerts.component.html',
+  styleUrl: './alerts.component.scss'
 })
 export class AlertpanelComponent implements OnInit, OnDestroy {
 

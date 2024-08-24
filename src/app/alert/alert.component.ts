@@ -21,10 +21,10 @@ import { CommonModule } from '@angular/common';
     MatListModule,
     CommonModule
   ],
-  templateUrl: './dump.component.html',
-  styleUrl: './dump.component.scss'
+  templateUrl: './alert.component.html',
+  styleUrl: './alert.component.scss'
 })
-export class DumpComponent {
+export class AlertComponent {
 
   // @Input() items: string[] = [];
   @Input() title?: string;
