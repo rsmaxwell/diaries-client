@@ -2,7 +2,20 @@
 @import "../../constants";
 
 
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
 .list-container {
   max-height: 500px; /* Adjust the height as needed */
   overflow-y: auto;
+  margin: 10px;
 }
+
+.padding {
+  flex: 1;
+  overflow: auto;
+}
+
