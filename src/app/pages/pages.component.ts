@@ -3,6 +3,7 @@ import { FullheaderComponent } from "../fullheader/fullheader.component";
 import { FullfooterComponent } from "../fullfooter/fullfooter.component";
 import { AlertsComponent } from "../alerts/alerts.component";
 import { AlertbuttonsComponent } from "../alertbuttons/alertbuttons.component";
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 
 @Component({
   selector: 'app-pages',
@@ -11,7 +12,8 @@ import { AlertbuttonsComponent } from "../alertbuttons/alertbuttons.component";
     FullheaderComponent,
     FullfooterComponent,
     AlertsComponent,
-    AlertbuttonsComponent
+    AlertbuttonsComponent,
+    MatSlideToggleModule,
   ],
   templateUrl: './pages.component.html',
   styleUrl: './pages.component.scss'

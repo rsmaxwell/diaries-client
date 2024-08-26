@@ -1,4 +1,9 @@
 
+@import "../../constants";
+
+.footer {
+  background-color: $primary;
+}
 
 .example-spacer {
   flex: 1 1 auto;
