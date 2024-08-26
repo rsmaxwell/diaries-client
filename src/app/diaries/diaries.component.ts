@@ -12,6 +12,7 @@ import { FullfooterComponent } from "../fullfooter/fullfooter.component";
 import { AlertsComponent } from "../alerts/alerts.component";
 import { AlertbuttonsComponent } from "../alertbuttons/alertbuttons.component";
 import { AlertService } from '../alert.service';
+import { MatCardModule } from '@angular/material/card';
 
 @Component({
   selector: 'app-diaries',
@@ -30,10 +31,12 @@ import { AlertService } from '../alert.service';
     FullheaderComponent,
     FullfooterComponent,
     AlertsComponent,
-    AlertbuttonsComponent
+    AlertbuttonsComponent,
+    MatCardModule
   ],
   templateUrl: './diaries.component.html',
-  styleUrl: './diaries.component.scss'
+  styleUrl: './diaries.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DiariesComponent implements OnInit {
 
@@ -44,8 +47,7 @@ export class DiariesComponent implements OnInit {
 
   constructor(
     private diaryService: DiaryService, 
-    private router: Router,
-    private alertService: AlertService
+    private router: Router
   ) {}
 
   ngOnInit(): void {
