@@ -3,8 +3,12 @@ import { Diary } from '../diary';
 import { NgFor, NgIf, UpperCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
-import { Location } from '@angular/common';
 import { DiaryService } from '../diary.service';
+import { FullheaderComponent } from "../fullheader/fullheader.component";
+import { AlertsComponent } from "../alerts/alerts.component";
+import { AlertbuttonsComponent } from "../alertbuttons/alertbuttons.component";
+import { FullfooterComponent } from "../fullfooter/fullfooter.component";
+import { MatCardModule } from '@angular/material/card';
 
 @Component({
   selector: 'app-diary',
@@ -13,20 +17,25 @@ import { DiaryService } from '../diary.service';
     FormsModule,
     NgIf,
     NgFor,
-    UpperCasePipe
-  ],
+    UpperCasePipe,
+    FullheaderComponent,
+    AlertsComponent,
+    AlertbuttonsComponent,
+    FullfooterComponent,
+    MatCardModule
+],
   templateUrl: './diary.component.html',
   styleUrl: './diary.component.scss'
 })
 export class DiaryComponent {
 
+  @Input() title?: string;
+  @Input() diary?: Diary;
+
   constructor(
     private route: ActivatedRoute,
-    private diaryService: DiaryService,
-    private location: Location
+    private diaryService: DiaryService
   ) {}
-
-  @Input() diary?: Diary;
 
   ngOnInit(): void {
     this.getDiary();
@@ -36,9 +45,5 @@ export class DiaryComponent {
     const id = Number(this.route.snapshot.paramMap.get('id'));
     this.diaryService.getDiary(id)
       .subscribe(diary => this.diary = diary);
-  }
-
-  goBack(): void {
-    this.location.back();
   }
 }

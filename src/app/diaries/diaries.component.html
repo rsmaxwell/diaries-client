@@ -1,14 +1,11 @@
 <div class="page">
-
   <app-fullheader [title]="title"></app-fullheader>
 
 
-  <mat-card appearance="outlined" class="list-card">
-    <mat-card-content class="list-container">
+  <mat-card appearance="outlined" class="card">
+    <mat-card-content class="content">
 
-  <!--
-  <div class="list-container">
-  -->
+
       <table mat-table [dataSource]="diaries" class="mat-elevation-z8">
 
         <ng-container matColumnDef="id">
@@ -24,18 +21,13 @@
         <tr mat-row *matRowDef="let row; columns: displayedColumns;" (click)="getRecord(row)"></tr>
       </table>
 
-  <!--
-  </div>
-  -->
 
     </mat-card-content>
   </mat-card>
 
 
   <div class="padding"></div>
-
   <app-alerts></app-alerts>
   <app-alertbuttons></app-alertbuttons>
   <app-fullfooter></app-fullfooter>
-
 </div>

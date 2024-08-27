@@ -1,12 +1,29 @@
-<div *ngIf="diary">
-  <h2>{{diary.path | uppercase}} Details</h2>
-  <div>id: {{diary.id}}</div>
-  <div>
-    <div>path: {{diary.path}}</div>
-  </div>
-  <div>
-    <label for="diary">name: </label>
-    <input id="diary" [(ngModel)]="diary.path" placeholder="name">
-  </div>
-  <button type="button" (click)="goBack()">go back</button>
-</div> 
+<div class="page">
+  <app-fullheader [title]="title"></app-fullheader>
+
+
+  <mat-card appearance="outlined" class="card">
+    <mat-card-content class="content">
+
+
+      <div *ngIf="diary">
+        <h2>{{ diary.path }}</h2>
+        <div>id: {{diary.id}}</div>
+        <div>
+          <div>path: {{diary.path}}</div>
+        </div>
+        <div>
+          <label for="diary">name: </label>
+          <input id="diary" [(ngModel)]="diary.path" placeholder="name">
+        </div>
+      </div>
+
+
+    </mat-card-content>
+  </mat-card>
+
+  <div class="padding"></div>
+  <app-alerts></app-alerts>
+  <app-alertbuttons></app-alertbuttons>
+  <app-fullfooter></app-fullfooter>
+</div>
