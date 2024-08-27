@@ -35,8 +35,7 @@ import { MatCardModule } from '@angular/material/card';
     MatCardModule
   ],
   templateUrl: './diaries.component.html',
-  styleUrl: './diaries.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  styleUrl: './diaries.component.scss'
 })
 export class DiariesComponent implements OnInit {
 

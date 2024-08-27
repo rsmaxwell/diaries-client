@@ -1,5 +1,5 @@
 import { Component, Input, OnDestroy, OnInit } from '@angular/core';
-import { NavigationStart, Router } from '@angular/router';
+import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 
 import { Alert, AlertType } from '../alert.model';
@@ -33,7 +33,7 @@ export class AlertsComponent implements OnInit, OnDestroy {
   getAlerts(): void {
     this.alertService.getAlerts().subscribe({
       next: value => {
-        console.log(`AlertsComponent.getAlerts: value: ${JSON.stringify(value)}`)
+        console.log(`AlertsComponent.getAlerts: next: value: ${JSON.stringify(value)}`)
         this.alerts = value
       },
       error: err => console.error('AlertsComponent.getAlerts: error: ' + err),

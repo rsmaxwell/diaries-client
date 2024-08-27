@@ -12,9 +12,9 @@ export class AlertService {
 
     success(message: string) {
         this.publish(new AlertBuilder()
-        .type(AlertType.Success)
-        .message(message)
-        .build())           
+            .type(AlertType.Success)
+            .message(message)
+            .build())
     }
 
     info(message: string) {
@@ -63,7 +63,7 @@ export class AlertService {
 
         if (alert.autoClose) {
             setTimeout(() => this.removeAlert(alert), 3000);
-        }   
+        }
     }
 
     getAlert(id: number): Observable<Alert> {
@@ -75,16 +75,22 @@ export class AlertService {
 
     getAlerts(): Observable<Alert[]> {
         console.log(`AlertService.getAlerts`)
-        return this.alertsObservable; 
+        return this.alertsObservable;
     }
-    
+
     removeAlert(alert: Alert) {
         console.log(`AlertService.removeAlert: id: ${alert.id}`)
-        for (var i = this.alerts.length - 1; i >= 0; --i) {
-            if (this.alerts[i].id == alert.id) {
-                this.alerts.splice(i,1);
+
+        let newArray: Alert[] = []
+        this.alerts.forEach(
+            a => {
+                if (a.id != alert.id) {
+                    newArray.push(a);
+                }
             }
-        }
+        )
+
+        this.alerts = newArray
         this.alertsSubject.next(this.alerts);
     }
 }
