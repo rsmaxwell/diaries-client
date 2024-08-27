@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, Input, OnInit } from '@angular/core';
+import { Component, Input, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NgFor, NgIf, UpperCasePipe } from '@angular/common';
 import { Diary } from '../diary';
@@ -11,7 +11,6 @@ import { FullheaderComponent } from "../fullheader/fullheader.component";
 import { FullfooterComponent } from "../fullfooter/fullfooter.component";
 import { AlertsComponent } from "../alerts/alerts.component";
 import { AlertbuttonsComponent } from "../alertbuttons/alertbuttons.component";
-import { AlertService } from '../alert.service';
 import { MatCardModule } from '@angular/material/card';
 
 @Component({
