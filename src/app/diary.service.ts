@@ -96,6 +96,7 @@ export class DiaryService {
 
         if (obj.hasOwnProperty('result')) {
           this.diaries = obj['result'];
+          console.log(`onMessage: result: ${JSON.stringify(this.diaries)}`);
           this.diariesSubject.next(this.diaries);  // Emit the new diaries list
         }
       }
@@ -110,9 +111,7 @@ export class DiaryService {
   }
 
   getDiaries(): Observable<Diary[]> {
-    console.log(`DiaryService.getDiaries`);
-    return this.diariesObservable;  // Return the observable
+    return of(this.diaries)
   }
-
 }
 

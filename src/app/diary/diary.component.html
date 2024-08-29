@@ -5,18 +5,25 @@
   <mat-card appearance="outlined" class="card">
     <mat-card-content class="content">
 
+      
 
       <div *ngIf="diary">
-        <h2>{{ diary.path }}</h2>
-        <div>id: {{diary.id}}</div>
+
+        <div>
+          <div>id: {{diary.id}}</div>
+        </div>
+
         <div>
           <div>path: {{diary.path}}</div>
         </div>
+
         <div>
           <label for="diary">name: </label>
           <input id="diary" [(ngModel)]="diary.path" placeholder="name">
         </div>
+
       </div>
+
 
 
     </mat-card-content>

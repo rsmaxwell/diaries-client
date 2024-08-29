@@ -4,7 +4,7 @@
 <h2>Top Diaries</h2>
 <div class="dashboard">
   <a *ngFor="let diary of diaries" 
-     routerLink="/diary/{{diary.id}}" routerLinkActive="active" ariaCurrentWhenActive="page" >
+     routerLink="/diary/{{diary.path}}" routerLinkActive="active" ariaCurrentWhenActive="page" >
     {{diary.path}}
   </a>
 </div>

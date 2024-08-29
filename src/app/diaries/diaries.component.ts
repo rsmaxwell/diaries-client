@@ -55,7 +55,7 @@ export class DiariesComponent implements OnInit {
   getDiaries(): void {
     this.diaryService.getDiaries().subscribe({
       next: value => {
-        console.log(`DiariesComponent.getDiaries: value: ${JSON.stringify(value)}`)
+        console.log(`DiariesComponent.getDiaries: JSON.stringify(value): ${JSON.stringify(value, undefined, 2)}`);
         this.diaries = value
       },
       error: err => console.error('DiariesComponent.getDiaries: error: ' + err),
@@ -68,7 +68,7 @@ export class DiariesComponent implements OnInit {
   }
 
   getRecord(diary: Diary) {
-    console.log(`DiariesComponent.getRecord: diary: ${JSON.stringify(diary)}`)
+    console.log(`DiariesComponent.getRecord: id: ${diary.id}, path: ${diary.path}`)
     this.router.navigate([`/diary/${diary.id}`]);
   }
 }
