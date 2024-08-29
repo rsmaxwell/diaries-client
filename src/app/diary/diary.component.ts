@@ -9,6 +9,9 @@ import { AlertsComponent } from "../alerts/alerts.component";
 import { AlertbuttonsComponent } from "../alertbuttons/alertbuttons.component";
 import { FullfooterComponent } from "../fullfooter/fullfooter.component";
 import { MatCardModule } from '@angular/material/card';
+import { MatSelectModule } from '@angular/material/select';
+import { MatInputModule } from '@angular/material/input';
+import { MatFormFieldModule } from '@angular/material/form-field';
 
 @Component({
   selector: 'app-diary',
@@ -22,7 +25,10 @@ import { MatCardModule } from '@angular/material/card';
     AlertsComponent,
     AlertbuttonsComponent,
     FullfooterComponent,
-    MatCardModule
+    MatCardModule,
+    MatSelectModule,
+    MatInputModule,
+    MatFormFieldModule
   ],
   templateUrl: './diary.component.html',
   styleUrl: './diary.component.scss'

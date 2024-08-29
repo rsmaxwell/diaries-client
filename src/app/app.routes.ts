@@ -1,5 +1,5 @@
 import { RouterModule, Routes } from '@angular/router';
-import { PagesComponent } from './pages/pages.component';
+import { ThingComponent } from './thing/thing.component';
 import { DiariesComponent } from './diaries/diaries.component';
 import { DashboardComponent } from './dashboard/dashboard.component';
 import { DiaryComponent } from './diary/diary.component';
@@ -13,7 +13,7 @@ export const routes: Routes = [
     { path: 'signin', component: SigninPageComponent },
     { path: 'dashboard', component: DashboardComponent },
     { path: 'diaries', component: DiariesComponent },
-    { path: 'pages', component: PagesComponent },
+    { path: 'thing', component: ThingComponent },
     { path: 'diary/:id', component: DiaryComponent },
     { path: 'alert/:id', component: AlertComponent },
 ];

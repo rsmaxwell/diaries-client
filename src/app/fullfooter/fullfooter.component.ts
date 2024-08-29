@@ -28,8 +28,8 @@ export class FullfooterComponent {
   }
 
   pages() {
-    console.log('pages');
-    this.router.navigate(['/pages']);
+    console.log('thing');
+    this.router.navigate(['/thing']);
   }
 
 }
