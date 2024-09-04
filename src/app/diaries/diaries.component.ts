@@ -55,7 +55,7 @@ export class DiariesComponent implements OnInit {
   getDiaries(): void {
     this.diaryService.getDiaries().subscribe({
       next: value => {
-        console.log(`DiariesComponent.getDiaries: JSON.stringify(value): ${JSON.stringify(value, undefined, 2)}`);
+        console.log(`DiariesComponent.getDiaries: JSON.stringify(value): ${JSON.stringify(value)}`);
         this.diaries = value
       },
       error: err => console.error('DiariesComponent.getDiaries: error: ' + err),
