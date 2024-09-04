@@ -95,8 +95,7 @@ export class DiaryService {
         }
 
         if (obj.hasOwnProperty('result')) {
-          let x = obj['result'];
-          this.diaries = JSON.parse(x);
+          this.diaries = obj['result'];
           console.log(`onMessage: result: ${JSON.stringify(this.diaries)}`);
           this.diariesSubject.next(this.diaries);  // Emit the new diaries list
         }
