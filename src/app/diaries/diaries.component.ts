@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, Input, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NgFor, NgIf, UpperCasePipe } from '@angular/common';
 import { Diary } from '../diary';
@@ -7,11 +7,12 @@ import { DiaryComponent } from "../diary/diary.component";
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { MatTableModule } from '@angular/material/table';
 import { ScrollingModule } from '@angular/cdk/scrolling';
-import { FullheaderComponent } from "../fullheader/fullheader.component";
-import { FullfooterComponent } from "../fullfooter/fullfooter.component";
+import { FullheaderComponent } from "../headers/fullheader/fullheader.component";
+import { FullfooterComponent } from "../headers/fullfooter/fullfooter.component";
 import { AlertsComponent } from "../alerts/alerts.component";
 import { AlertbuttonsComponent } from "../alertbuttons/alertbuttons.component";
 import { MatCardModule } from '@angular/material/card';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-diaries',
@@ -36,12 +37,13 @@ import { MatCardModule } from '@angular/material/card';
   templateUrl: './diaries.component.html',
   styleUrl: './diaries.component.scss'
 })
-export class DiariesComponent implements OnInit {
+export class DiariesComponent implements OnInit, OnDestroy {
 
   @Input() title?: string;
   
-  displayedColumns: string[] = ['id', 'path'];
+  displayedColumns: string[] = ['id', 'name'];
   diaries: Diary[] = [];
+  private diarySubscription?: Subscription;
 
   constructor(
     private diaryService: DiaryService, 
@@ -53,7 +55,7 @@ export class DiariesComponent implements OnInit {
   }
 
   getDiaries(): void {
-    this.diaryService.getDiaries().subscribe({
+    this.diarySubscription = this.diaryService.getDiaries().subscribe({
       next: value => {
         console.log(`DiariesComponent.getDiaries: JSON.stringify(value): ${JSON.stringify(value)}`);
         this.diaries = value
@@ -65,10 +67,14 @@ export class DiariesComponent implements OnInit {
 
   ngOnDestroy(): void {
     console.log('DiariesComponent.ngOnDestroy')
+    if (this.diarySubscription) {
+      this.diarySubscription.unsubscribe();
+      console.log('DiariesComponent.ngOnDestroy: Unsubscribed from diaryService');
+    }
   }
 
   getRecord(diary: Diary) {
-    console.log(`DiariesComponent.getRecord: id: ${diary.id}, path: ${diary.path}`)
+    console.log(`DiariesComponent.getRecord: id: ${diary.id}, path: ${diary.name}`)
     this.router.navigate([`/diary/${diary.id}`]);
   }
 }

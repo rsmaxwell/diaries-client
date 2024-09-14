@@ -1,0 +1,38 @@
+<div class="page">
+
+   <app-plainheader [title]="title"></app-plainheader>
+
+   <div class="pagename">
+      <h3>Signin</h3>
+   </div>
+
+   <form [formGroup]="form" class="form">
+
+      <mat-form-field appearance="outline" class="item">
+         <mat-label>Username</mat-label>
+         <input matInput [formControl]="username" type="search" required>
+         <mat-error *ngIf="username.invalid">{{getErrorMessage(username)}}</mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="item">
+         <mat-label>Password</mat-label>
+         <input matInput [formControl]="password" [type]="hide ? 'password' : 'text'" required>
+         <button mat-icon-button matSuffix (click)="hide = !hide" [attr.aria-label]="'Hide password'"
+            [attr.aria-pressed]="hide">
+            <mat-icon>{{hide ? 'visibility_off' : 'visibility'}}</mat-icon>
+         </button>
+         <mat-error *ngIf="password.invalid">{{getErrorMessage(password)}}</mat-error>
+      </mat-form-field>
+
+      <mat-card-actions class="button-container">
+         <button mat-raised-button (click)="onSubmit()" [disabled]="!form.valid" color="primary">Signin</button>
+         <button mat-raised-button (click)="onRegister()" class="button">Register</button>
+      </mat-card-actions>
+
+   </form>
+
+   <div class="padding"></div>
+   <app-alerts></app-alerts>
+   <app-alertbuttons></app-alertbuttons>
+   <app-plainfooter></app-plainfooter>
+</div>

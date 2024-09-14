@@ -1,4 +1,4 @@
-export interface Diary {
+export interface Page {
   id: number;
   name: string;
 }

@@ -1,12 +1,12 @@
 import { Component, Input } from '@angular/core';
-import { FullheaderComponent } from "../fullheader/fullheader.component";
-import { FullfooterComponent } from "../fullfooter/fullfooter.component";
+import { FullheaderComponent } from "../headers/fullheader/fullheader.component";
+import { FullfooterComponent } from "../headers/fullfooter/fullfooter.component";
 import { AlertsComponent } from "../alerts/alerts.component";
 import { AlertbuttonsComponent } from "../alertbuttons/alertbuttons.component";
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 
 @Component({
-  selector: 'app-pages',
+  selector: 'app-thing',
   standalone: true,
   imports: [
     FullheaderComponent,

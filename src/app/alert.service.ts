@@ -42,6 +42,15 @@ export class AlertService {
             .build());
     }
 
+    errorDump(message: string, dump: any) {
+        this.publish(new AlertBuilder()
+            .type(AlertType.Error)
+            .message(message)
+            .autoClose(true)
+            .dump(dump)
+            .build());
+    }
+
     warning(message: string) {
         this.publish(new AlertBuilder()
             .type(AlertType.Warning)

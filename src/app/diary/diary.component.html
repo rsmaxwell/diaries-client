@@ -1,18 +1,34 @@
 <div class="page">
   <app-fullheader [title]="title"></app-fullheader>
 
+  <div class="title">
+    <div *ngIf="diary" class="title-content" >
 
-  <mat-card appearance="outlined" class="card">
-    <mat-card-content *ngIf="diary" class="content" >
+          <div class="title-item">{{diary.id}}</div>
 
-          <div>{{diary.id}}</div>
+          <div class="title-item">{{diary.name}}</div>
 
-          <div>{{diary.path}}</div>
+    </div>
+  </div>
 
-    </mat-card-content>
-  </mat-card>
+  <div class="table">
+      <table mat-table [dataSource]="pages" class="tbody">
 
-  <div class="padding"></div>
+        <ng-container matColumnDef="id">
+          <th mat-header-cell *matHeaderCellDef> id </th>
+          <td mat-cell *matCellDef="let element"> {{element.id}} </td>
+        </ng-container>
+
+        <ng-container matColumnDef="name">
+          <th mat-header-cell *matHeaderCellDef> name </th>
+          <td mat-cell *matCellDef="let element"> {{element.name}} </td>
+        </ng-container>
+
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;" (click)="getRecord(row)"></tr>
+      </table>
+  </div>
+
+
   <app-alerts></app-alerts>
   <app-alertbuttons></app-alertbuttons>
   <app-fullfooter></app-fullfooter>

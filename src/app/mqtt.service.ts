@@ -1,13 +1,21 @@
 import { Injectable } from '@angular/core';
 import { ConfigService } from './config.service';
 import mqtt from "mqtt"
+import { DiaryService } from './diary.service';
+import { PageService } from './page.service';
+import { UserService } from './user/user.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class MqttService {
 
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    private diaryService: DiaryService,
+    private pageService: PageService,
+    private userService: UserService
+  ) {
     console.log('MqttService.constructor');
   }
 
@@ -31,6 +39,10 @@ export class MqttService {
           client.on('connect', () => {
             console.log('MqttService.initializeClient: connected to MQTT broker');
             resolve(client);
+
+            this.diaryService.initialize(client, mqttConfig.clientId);
+            this.pageService.initialize(client, mqttConfig.clientId);
+            this.userService.initialize(client, mqttConfig.clientId);
           });
       
           client.on('error', (error: any) => {

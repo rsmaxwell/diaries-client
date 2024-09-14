@@ -3,17 +3,17 @@ import { ThingComponent } from './thing/thing.component';
 import { DiariesComponent } from './diaries/diaries.component';
 import { DashboardComponent } from './dashboard/dashboard.component';
 import { DiaryComponent } from './diary/diary.component';
-import { SigninPageComponent } from './signin.page/signin.page.component';
-import { AlertComponent } from './alert/alert.component';
+import { SigninComponent } from './user/signin/signin.component';
+import { RegisterComponent } from './user/register/register.component';
 
 exports: [ RouterModule ]
 
 export const routes: Routes = [
     { path: '', redirectTo: 'signin', pathMatch: 'full' },
-    { path: 'signin', component: SigninPageComponent },
+    { path: 'register', component: RegisterComponent },
+    { path: 'signin', component: SigninComponent },
     { path: 'dashboard', component: DashboardComponent },
     { path: 'diaries', component: DiariesComponent },
-    { path: 'thing', component: ThingComponent },
     { path: 'diary/:id', component: DiaryComponent },
-    { path: 'alert/:id', component: AlertComponent },
+    { path: 'thing', component: ThingComponent }
 ];

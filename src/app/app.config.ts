@@ -1,17 +1,16 @@
 import { APP_INITIALIZER, ApplicationConfig } from '@angular/core';
 import { provideRouter } from '@angular/router';
-
 import { routes } from './app.routes';
 import { provideHttpClient } from '@angular/common/http';
 import { MqttService } from './mqtt.service';
 import { ConfigService } from './config.service';
-import { Observable } from 'rxjs';
 import { DiaryService } from './diary.service';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
+import { PageService } from './page.service';
 
 
-function initializeDiaryService(diaryService: DiaryService) {
-  return () => diaryService.initializeAsync();
+function initializeMqttService(mqttService: MqttService) {
+  return () => mqttService.initializeAsync();
 }
 
 export const appConfig: ApplicationConfig = {
@@ -20,14 +19,15 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     ConfigService,
     MqttService,
-    DiaryService,
     {
       provide: APP_INITIALIZER,
-      useFactory: initializeDiaryService,
-      deps: [    DiaryService,
+      useFactory: initializeMqttService,
+      deps: [    MqttService,
       ],
       multi: true,
     }, provideAnimationsAsync(),
+    DiaryService,
+    PageService, provideAnimationsAsync(),
   ]
 };
 

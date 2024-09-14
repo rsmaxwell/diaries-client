@@ -1,9 +1,10 @@
 import { Injectable } from '@angular/core';
-import { Diary } from './diary';
+import { Page } from './page';
 import { BehaviorSubject, Observable, of } from 'rxjs';
 import { Buffer } from 'buffer';
 import { v4 as uuidv4 } from 'uuid';
 import mqtt from 'mqtt';
+import { Diary } from './diary';
 
 
 
@@ -11,32 +12,38 @@ import mqtt from 'mqtt';
 @Injectable({
   providedIn: 'root'
 })
-export class DiaryService {
+export class PageService {
 
   private mqttClient!: mqtt.MqttClient;
   private clientID!: string;
 
-  private diaries: Diary[] = [];
-  private diariesSubject = new BehaviorSubject<Diary[]>([]);
-  private diariesObservable = this.diariesSubject.asObservable();
+  private pages: Page[] = [];
+  private pagesSubject = new BehaviorSubject<Page[]>([]);
+  private pagesObservable = this.pagesSubject.asObservable();
 
 
   constructor() {
-    console.log("DiaryService.constructor");
+    console.log("PagesService.constructor");
   }
 
 
   initialize(mqttClient: mqtt.MqttClient, clientID: string) {
-    console.log(`DiaryService.initialize`);
-    const replyTopic = `reply/diaries`;
-
+    console.log(`PageService.initialize`);
     this.mqttClient = mqttClient;
     this.clientID = clientID;
+  }
+
+
+  subscribe(diary: Diary) {
+    console.log(`PageService.subscribe`);
+    const replyTopic = `reply/pages`;
+
     let myuuid = uuidv4();
-    
+
     this.mqttClient.subscribeAsync(replyTopic)
       .then((granted) => {
-        let request = { function: 'getDiaries' };
+
+        let request = { function: 'getPages', args: { "diary": diary.id} };
 
         var publishOptions: any = {
           qos: 0,
@@ -51,11 +58,11 @@ export class DiaryService {
           .then(() => {
           })
           .catch((error) => {
-            console.error('DiaryService.initialiseDiaries: error publishing: ' + error.message);
+            console.error('PageService.subscribe: error publishing: ' + error.message);
           });
       })
       .catch((error) => {
-        console.error('DiaryService.initialiseDiaries: error subscribing: ' + error.message);
+        console.error('PageService.subscribe: error subscribing: ' + error.message);
       });
 
     this.mqttClient.on('message', (topic, message) => {
@@ -72,23 +79,26 @@ export class DiaryService {
         }
 
         if (obj.hasOwnProperty('result')) {
-          this.diaries = obj['result'];
-          console.log(`onMessage: result: ${JSON.stringify(this.diaries)}`);
-          this.diariesSubject.next(this.diaries);  // Emit the new diaries list
+          this.pages = obj['result'];
+          console.log(`onMessage: result: ${JSON.stringify(this.pages)}`);
+          this.pagesSubject.next(this.pages);  // Emit the new pages list
         }
       }
     });
-
   }
 
-  getDiary(id: number): Observable<Diary> {
-    console.log(`DiaryService.getDiary: id=${id}`);
-    const diary = this.diaries.find(h => h.id === id)!;
-    return of(diary);
+  unsubscribe() {
+    console.log(`PageService.unsubscribe`);
   }
 
-  getDiaries(): Observable<Diary[]> {
-    return this.diariesObservable;
+  getPages(): Observable<Page[]> {
+    return this.pagesObservable;
+  }
+
+  getPage(id: number): Observable<Page> {
+    console.log(`PageService.getPage: id=${id}`);
+    const page = this.pages.find(h => h.id === id)!;
+    return of(page);
   }
 }
 

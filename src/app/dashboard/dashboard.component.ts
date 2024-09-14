@@ -3,8 +3,8 @@ import { Component, Input, OnInit } from '@angular/core';
 import { Diary } from '../diary';
 import { DiaryService } from '../diary.service';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { FullheaderComponent } from "../fullheader/fullheader.component";
-import { FullfooterComponent } from "../fullfooter/fullfooter.component";
+import { FullheaderComponent } from "../headers/fullheader/fullheader.component";
+import { FullfooterComponent } from "../headers/fullfooter/fullfooter.component";
 import { AlertsComponent } from "../alerts/alerts.component";
 import { AlertbuttonsComponent } from "../alertbuttons/alertbuttons.component";
 

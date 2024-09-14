@@ -32,5 +32,6 @@ To get more help on the Angular CLI use `ng help` or go check out the [Angular C
 npm install uuid
 npm install --save-dev @types/uuid
 npm install mqtt
+npm install buffer
 
 ng add @angular/material

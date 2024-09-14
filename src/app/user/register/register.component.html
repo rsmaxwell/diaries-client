@@ -1,0 +1,68 @@
+<div class="page">
+
+   <app-plainheader [title]="title"></app-plainheader>
+
+   <div class="pagename">
+      <h3>Register</h3>
+   </div>
+
+   <form [formGroup]="form" class="form">
+
+      <mat-form-field appearance="outline" class="item">
+         <mat-label>First Name</mat-label>
+         <input matInput [formControl]="firstname" type="text" required>
+         <mat-error *ngIf="firstname.invalid">{{getErrorMessage(firstname)}}</mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="item">
+         <mat-label>Last Name</mat-label>
+         <input matInput [formControl]="lastname" type='text' required>
+         <mat-error *ngIf="lastname.invalid">{{getErrorMessage(lastname)}}</mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="item">
+         <mat-label>Username</mat-label>
+         <input matInput [formControl]="username" type="search" required>
+         <mat-error *ngIf="username.invalid">{{getErrorMessage(username)}}</mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="item">
+         <mat-label>Email</mat-label>
+         <input matInput [formControl]="email" type="search" required>
+         <mat-error *ngIf="email.invalid">{{getErrorMessage(email)}}</mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="item">
+         <mat-label>Known as</mat-label>
+         <input matInput [formControl]="knownas" type="text" required>
+         <mat-error *ngIf="knownas.invalid">{{getErrorMessage(knownas)}}</mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="item">
+         <mat-label>Phone</mat-label>
+         <input matInput [formControl]="phone" type="text" required>
+         <mat-error *ngIf="phone.invalid">{{getErrorMessage(phone)}}</mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="item">
+         <mat-label>Password</mat-label>
+         <input matInput [formControl]="password" [type]="hide ? 'password' : 'text'" required>
+         <button mat-icon-button matSuffix (click)="hide = !hide" [attr.aria-label]="'Hide password'"
+            [attr.aria-pressed]="hide">
+            <mat-icon>{{hide ? 'visibility_off' : 'visibility'}}</mat-icon>
+         </button>
+         <mat-error *ngIf="password.invalid">{{getErrorMessage(password)}}</mat-error>
+      </mat-form-field>
+
+      <mat-card-actions class="button-container">
+         <button mat-raised-button (click)="onSubmit()" [disabled]="!form.valid" color="primary">Register</button>
+         <button mat-raised-button (click)="onSignin()" class="button">Signin</button>
+      </mat-card-actions>
+
+   </form>
+
+   <div class="padding"></div>
+   <app-alerts></app-alerts>
+   <app-alertbuttons></app-alertbuttons>
+   <app-plainfooter></app-plainfooter>
+</div>
