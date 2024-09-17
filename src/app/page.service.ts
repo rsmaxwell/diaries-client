@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Page } from './page';
-import { BehaviorSubject, Observable, of } from 'rxjs';
+import { BehaviorSubject, Observable, of, Subject } from 'rxjs';
 import { Buffer } from 'buffer';
 import { v4 as uuidv4 } from 'uuid';
 import mqtt from 'mqtt';
@@ -18,7 +18,7 @@ export class PageService {
   private clientID!: string;
 
   private pages: Page[] = [];
-  private pagesSubject = new BehaviorSubject<Page[]>([]);
+  private pagesSubject = new Subject<Page[]>();
   private pagesObservable = this.pagesSubject.asObservable();
 
 

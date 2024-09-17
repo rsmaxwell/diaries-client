@@ -1,22 +1,29 @@
 import { Injectable } from '@angular/core';
 import { ConfigService } from './config.service';
-import mqtt from "mqtt"
+import mqtt, { MqttClient } from "mqtt"
 import { DiaryService } from './diary.service';
 import { PageService } from './page.service';
-import { UserService } from './user/user.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class MqttService {
 
+  private accessToken: string;
+  private refreshToken: string;
+  private refreshDelta: number;
+  private client!: MqttClient;
+  private clientID!: string;
+
   constructor(
     private configService: ConfigService,
     private diaryService: DiaryService,
-    private pageService: PageService,
-    private userService: UserService
+    private pageService: PageService
   ) {
     console.log('MqttService.constructor');
+    this.accessToken = ""
+    this.refreshToken = ""
+    this.refreshDelta = 0
   }
 
   initializeAsync(): Promise<mqtt.MqttClient> {
@@ -26,7 +33,9 @@ export class MqttService {
         .then((mqttConfig) => {
           console.log('MqttService.initializeAsync: Promise resolved with value: ' + JSON.stringify(mqttConfig));
 
-          let client = mqtt.connect(mqttConfig.brokerUrl, {
+          this.clientID = mqttConfig.clientId
+
+          this.client = mqtt.connect(mqttConfig.brokerUrl, {
             clientId: mqttConfig.clientId,
             username: mqttConfig.username,
             password: mqttConfig.password,
@@ -36,21 +45,20 @@ export class MqttService {
             protocolVersion: mqttConfig.protocolVersion,
           });
       
-          client.on('connect', () => {
+          this.client.on('connect', () => {
             console.log('MqttService.initializeClient: connected to MQTT broker');
-            resolve(client);
+            resolve(this.client);
 
-            this.diaryService.initialize(client, mqttConfig.clientId);
-            this.pageService.initialize(client, mqttConfig.clientId);
-            this.userService.initialize(client, mqttConfig.clientId);
+            this.diaryService.initialize(this.client, mqttConfig.clientId);
+            this.pageService.initialize(this.client, mqttConfig.clientId);
           });
       
-          client.on('error', (error: any) => {
+          this.client.on('error', (error: any) => {
             console.error('MqttService.initializeClient: connection error:', error);
             reject(error);
           });
       
-          client.on('close', () => {
+          this.client.on('close', () => {
             console.log('MqttService.initializeClient: connection closed');
           });
         })
@@ -59,5 +67,59 @@ export class MqttService {
           reject(error);
         });
     });
+  }
+
+  public getClientID(): string {
+    return this.clientID
+  }
+
+  public getClient(): mqtt.MqttClient {
+    return this.client
+  }
+  
+  getAccessToken() {
+    return this.accessToken
+}
+
+  setRefreshDelta(refreshDelta: number) {
+    this.refreshDelta = refreshDelta;
+    console.log(`MqttService.setRefreshDelta: refreshDelta: ${this.refreshDelta}`);
+  }
+
+  setRefreshToken(refreshToken: string) {
+    this.refreshToken = refreshToken;
+    console.log(`MqttService.setRefreshToken: refreshToken: ${this.refreshToken}`);
+  }
+
+  setAccessToken(accessToken: string) {
+    this.accessToken = accessToken;
+    console.log(`MqttService.setAccessToken: accessToken: ${this.accessToken}`);
+  }
+
+  
+
+  private timerID!: number;
+
+  public startRefreshTokenTimer() {
+
+    console.log(`MqttService.startRefreshTokenTimer(): accessToken: ${this.accessToken}`)
+
+    const jwtToken = JSON.parse(atob(this.accessToken.split('.')[1]));
+    const expires = new Date(jwtToken.exp * 1000);
+    const timeout = expires.getTime() - Date.now() - (this.refreshDelta * 1000);
+
+    if (timeout < 0) {
+      console.log("MqttService.startRefreshTokenTimer(): timeout: *** EXPIRED ***")
+    }
+    else {
+      console.log(`MqttService.startRefreshTokenTimer(): timeout: ${ timeout / 1000 } seconds`)
+
+      window.clearTimeout(this.timerID)
+
+      this.timerID = window.setTimeout(
+        () => {
+          this.refreshToken
+        }, timeout);
+    }
   }
 }

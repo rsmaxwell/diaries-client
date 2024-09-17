@@ -5,15 +5,16 @@ import { DashboardComponent } from './dashboard/dashboard.component';
 import { DiaryComponent } from './diary/diary.component';
 import { SigninComponent } from './user/signin/signin.component';
 import { RegisterComponent } from './user/register/register.component';
+import { AuthGuard } from './auth.guard';
 
 exports: [ RouterModule ]
 
 export const routes: Routes = [
-    { path: '', redirectTo: 'signin', pathMatch: 'full' },
+    { path: '', redirectTo: 'diaries', pathMatch: 'full' },
     { path: 'register', component: RegisterComponent },
     { path: 'signin', component: SigninComponent },
     { path: 'dashboard', component: DashboardComponent },
-    { path: 'diaries', component: DiariesComponent },
-    { path: 'diary/:id', component: DiaryComponent },
+    { path: 'diaries', component: DiariesComponent, canActivate: [AuthGuard] },
+    { path: 'diary/:id', component: DiaryComponent, canActivate: [AuthGuard] },
     { path: 'thing', component: ThingComponent }
 ];

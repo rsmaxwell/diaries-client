@@ -60,13 +60,13 @@ export class AlertService {
     }
 
     clear() {
-        console.log(`AlertService.clear`)
+        // console.log(`AlertService.clear`)
         this.alerts = []
         this.alertsSubject.next(this.alerts);
     }
 
     publish(alert: Alert) {
-        console.log(`AlertService.publish`)
+        // console.log(`AlertService.publish`)
         this.alerts.push(alert);
         this.alertsSubject.next(this.alerts);
 
@@ -76,19 +76,19 @@ export class AlertService {
     }
 
     getAlert(id: number): Observable<Alert> {
-        console.log(`AlertService.getAlert: id=${id}`);
-        console.log(`AlertService.getAlert: alerts: ${JSON.stringify(this.alerts)}`);
+        // console.log(`AlertService.getAlert: id=${id}`);
+        // console.log(`AlertService.getAlert: alerts: ${JSON.stringify(this.alerts)}`);
         const alert = this.alerts.find(h => h.id === id)!;
         return of(alert);
     }
 
     getAlerts(): Observable<Alert[]> {
-        console.log(`AlertService.getAlerts`)
+        // console.log(`AlertService.getAlerts`)
         return this.alertsObservable;
     }
 
     removeAlert(alert: Alert) {
-        console.log(`AlertService.removeAlert: id: ${alert.id}`)
+        // console.log(`AlertService.removeAlert: id: ${alert.id}`)
 
         let newArray: Alert[] = []
         this.alerts.forEach(

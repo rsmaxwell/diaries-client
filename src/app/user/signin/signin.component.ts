@@ -13,8 +13,9 @@ import { AlertsComponent } from "../../alerts/alerts.component";
 import { AlertbuttonsComponent } from "../../alertbuttons/alertbuttons.component";
 import { ActivatedRoute, Router } from '@angular/router';
 import { AlertService } from '../../alert.service';
-import { UserService } from '../user.service';
 import { Signin } from '../../model/signin';
+import { MqttSigninService } from '../mqtt.signin.service';
+import { MqttService } from '../../mqtt.service';
 
 @Component({
   selector: 'app-signin.page',
@@ -41,9 +42,11 @@ export class SigninComponent implements OnDestroy {
 
   @Input() title?: string;
 
-  submitted = false;
+  private submitted = false;
+  private subscription!: Subscription
+  private mqttSigninService: MqttSigninService;
+
   hide = true;
-  subscription!: Subscription
 
   username = new FormControl('', [
     Validators.required,
@@ -62,9 +65,11 @@ export class SigninComponent implements OnDestroy {
   constructor(
     private route: ActivatedRoute,
     private router: Router,
-    private userService: UserService,
+    private mqttService: MqttService,
     private alertService: AlertService
-  ) { }
+  ) {
+    this.mqttSigninService = new MqttSigninService(this.mqttService)
+   }
 
 
   onSubmit(): void {
@@ -82,20 +87,25 @@ export class SigninComponent implements OnDestroy {
     }
 
     let value: Signin = Signin.fromFormGroup(this.form)
-    this.subscription = this.userService.signin(value)
+    this.subscription = this.mqttSigninService.signin(value)
       .subscribe({
         next: (response: any) => {
-          console.log(`SigninComponent.onSubmit: response: ${response}`)
-          this.alertService.info(`username: '${value.username}' signed in`);
+          console.log(`SigninComponent.onSubmit: next: response: ${response}`)
+          this.alertService.info(`${value.username} signed in`);
           const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/';
+
+          console.log(`SigninComponent.onSubmit: next: returnUrl: ${returnUrl}`)          
           this.router.navigateByUrl(returnUrl);
+          this.subscription.unsubscribe();
         },
         error: (err: any) => {
           console.log(`SigninComponent.onSubmit: signin: error: ${err}`)
           this.alertService.error(err);
+          this.subscription.unsubscribe();
         },
         complete: () => {
           console.log("SigninComponent.onSubmit: complete")
+          this.subscription.unsubscribe();
         }
       })
   }

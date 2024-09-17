@@ -13,9 +13,10 @@ import { AlertsComponent } from "../../alerts/alerts.component";
 import { AlertbuttonsComponent } from "../../alertbuttons/alertbuttons.component";
 import { ActivatedRoute, Router } from '@angular/router';
 import { AlertService } from '../../alert.service';
-import { UserService } from '../user.service';
 import { PasswordStrength } from '../../utilities/passwordStrength';
 import { Register } from '../../model/register';
+import { MqttService } from '../../mqtt.service';
+import { MqttRegisterService } from '../mqtt.register.service';
 
 @Component({
   selector: 'app-register.page',
@@ -42,9 +43,11 @@ export class RegisterComponent implements OnDestroy {
 
   @Input() title?: string;
 
-  submitted = false;
+  private submitted = false;
+  private subscription!: Subscription
+  private mqttRegisterService: MqttRegisterService;
+
   hide = true;
-  subscription!: Subscription
 
   firstname = new FormControl('', [
     Validators.required,
@@ -94,9 +97,11 @@ export class RegisterComponent implements OnDestroy {
   constructor(
     private route: ActivatedRoute,
     private router: Router,
-    private userService: UserService,
+    private mqttService: MqttService,
     private alertService: AlertService   
-  ) { }
+  ) { 
+    this.mqttRegisterService = new MqttRegisterService(this.mqttService)
+  }
 
   onSubmit(): void {
     console.log(`RegisterComponent.onSubmit()`);
@@ -110,18 +115,21 @@ export class RegisterComponent implements OnDestroy {
     }
 
     let value: Register = Register.fromFormGroup(this.form)
-    this.subscription = this.userService.register(value)
+    this.subscription = this.mqttRegisterService.register(value)
       .subscribe({
         next: (id: any) => {
           console.log(`RegisterComponent.onSubmit: '${value.username}' registered with id: '${id}'`)
           this.alertService.info(`username: '${value.username}' registered with id: '${id}'`);
+          this.subscription.unsubscribe();
         },
         error: (err: any) => {
           console.log(`RegisterComponent.onSubmit: register: error: ${err}`)
           this.alertService.error(err);
+          this.subscription.unsubscribe();
         },
         complete: () => {
           console.log("RegisterComponent.onSubmit: register: complete")
+          this.subscription.unsubscribe();
         }
       });
   }
