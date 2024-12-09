@@ -1,8 +1,9 @@
 
-  import { Component } from '@angular/core';
+  import { Component, Input } from '@angular/core';
   import { MatIconModule } from '@angular/material/icon';
   import { MatButtonModule } from '@angular/material/button';
   import { MatToolbarModule } from '@angular/material/toolbar';
+import { environment } from '../../../environments/environment';
   
   @Component({
     selector: 'app-fullheader',
@@ -13,5 +14,7 @@
   })
   export class FullheaderComponent {
   
+    title = environment.title
+    
   }
   

@@ -17,6 +17,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { Subscription } from 'rxjs';
+import { AlertService } from '../alert.service';
 
 
 @Component({
@@ -53,7 +54,8 @@ export class DiaryComponent implements OnInit {
   constructor(
     private route: ActivatedRoute,
     private diaryService: DiaryService,
-    private pageService: PageService
+    private pageService: PageService,
+    private alertService: AlertService
   ) { }
 
   ngOnInit(): void {
@@ -81,7 +83,10 @@ export class DiaryComponent implements OnInit {
         console.log(`DiaryComponent.getPages: JSON.stringify(value): ${JSON.stringify(value)}`);
         this.pages = value
       },
-      error: err => console.error('DiaryComponent.getPages: error: ' + err),
+      error: err => {
+         console.error(`DiaryComponent.getPages: error: ${JSON.stringify(err)}`);
+         this.alertService.info(err.message)
+      },
       complete: () => console.log('DiaryComponent.getPages: complete')
     })
   }

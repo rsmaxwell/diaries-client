@@ -5,6 +5,8 @@ import { Buffer } from 'buffer';
 import { v4 as uuidv4 } from 'uuid';
 import mqtt from 'mqtt';
 import { Diary } from './diary';
+import { MqttService } from './mqtt.service';
+import { MqttSigninService } from './user/mqtt.signin.service';
 
 
 
@@ -14,23 +16,15 @@ import { Diary } from './diary';
 })
 export class PageService {
 
-  private mqttClient!: mqtt.MqttClient;
-  private clientID!: string;
-
   private pages: Page[] = [];
   private pagesSubject = new Subject<Page[]>();
   private pagesObservable = this.pagesSubject.asObservable();
 
 
-  constructor() {
+  constructor(
+    private mqttSigninService: MqttSigninService
+  ) {
     console.log("PagesService.constructor");
-  }
-
-
-  initialize(mqttClient: mqtt.MqttClient, clientID: string) {
-    console.log(`PageService.initialize`);
-    this.mqttClient = mqttClient;
-    this.clientID = clientID;
   }
 
 
@@ -40,7 +34,7 @@ export class PageService {
 
     let myuuid = uuidv4();
 
-    this.mqttClient.subscribeAsync(replyTopic)
+    this.mqttSigninService.authorisedConnection.connection.client.subscribeAsync(replyTopic)
       .then((granted) => {
 
         let request = { function: 'getPages', args: { "diary": diary.id} };
@@ -54,7 +48,7 @@ export class PageService {
           }
         };
 
-        this.mqttClient.publishAsync('request', JSON.stringify(request), publishOptions)
+        this.mqttSigninService.authorisedConnection.connection.client.publishAsync('request', JSON.stringify(request), publishOptions)
           .then(() => {
           })
           .catch((error) => {
@@ -65,7 +59,7 @@ export class PageService {
         console.error('PageService.subscribe: error subscribing: ' + error.message);
       });
 
-    this.mqttClient.on('message', (topic, message) => {
+      this.mqttSigninService.authorisedConnection.connection.client.on('message', (topic, message) => {
       if (topic === replyTopic) {
         var obj = JSON.parse(message.toString());
 

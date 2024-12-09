@@ -13,6 +13,7 @@ import { AlertsComponent } from "../alerts/alerts.component";
 import { AlertbuttonsComponent } from "../alertbuttons/alertbuttons.component";
 import { MatCardModule } from '@angular/material/card';
 import { Subscription } from 'rxjs';
+import { AlertService } from '../alert.service';
 
 @Component({
   selector: 'app-diaries',
@@ -39,15 +40,14 @@ import { Subscription } from 'rxjs';
 })
 export class DiariesComponent implements OnInit, OnDestroy {
 
-  @Input() title?: string;
-  
   displayedColumns: string[] = ['id', 'name'];
   diaries: Diary[] = [];
   private diarySubscription?: Subscription;
 
   constructor(
     private diaryService: DiaryService, 
-    private router: Router
+    private router: Router,
+    private alertService: AlertService
   ) {}
 
   ngOnInit(): void {
@@ -55,12 +55,17 @@ export class DiariesComponent implements OnInit, OnDestroy {
   }
 
   getDiaries(): void {
+    console.log(`DiariesComponent.getDiaries`);
+
     this.diarySubscription = this.diaryService.getDiaries().subscribe({
       next: value => {
         console.log(`DiariesComponent.getDiaries: JSON.stringify(value): ${JSON.stringify(value)}`);
         this.diaries = value
       },
-      error: err => console.error('DiariesComponent.getDiaries: error: ' + err),
+      error: err => {
+        console.error(`DiariesComponent.getDiaries: error:  + ${JSON.stringify(err)}`)
+        this.alertService.info(err.message)
+     },
       complete: () => console.log('DiariesComponent.getDiaries: complete')
     })
   }

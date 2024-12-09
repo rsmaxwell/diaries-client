@@ -1,40 +1,48 @@
-import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, Subject, Subscription } from 'rxjs';
-import * as mqtt from 'mqtt';
+
 import { v4 as uuidv4 } from 'uuid';
-import { User } from '../model/user';
 import { Register } from '../model/register';
 import { Buffer } from 'buffer';
-import { Signin } from '../model/signin';
 import { MqttService } from '../mqtt.service';
+import { ReplyHandler } from '../utilities/replyHandler';
+import { Injectable } from '@angular/core';
+import { Connection } from '../model/connection';
+import { Reply } from '../utilities/reply';
 
-class RegisterResponse {
-  message!: string;
-}
 
+@Injectable({ providedIn: 'root' })
 export class MqttRegisterService {
 
-  private mqttService: MqttService;
+  constructor(
+    private mqttService: MqttService
+  ) { }
 
-  private id: Number = 0;
-  private userSubject = new Subject<any>();
-  private userObservable = this.userSubject.asObservable();
+  register(register: Register): Promise<number> {
+    console.log(`MqttRegisterService.register`);
 
-  constructor(mqttService: MqttService) {
-    console.log("MqttRegisterService.constructor");
-    this.mqttService = mqttService
+    let promise: Promise<number> = new Promise((resolve, reject) => {
+
+      this.mqttService.getConnection()
+        .then((connection) => {
+          this.connected(connection, register, resolve, reject)
+        })
+        .catch((err) => { `MqttRegisterService.register: ${err}` })
+    })
+
+    return promise
   }
 
 
-  register(register: Register): Observable<User> {
-    console.log(`MqttRegisterService.register`);
-    const replyTopic = `reply/${this.mqttService.getClientID()}/register`;
+  connected(connection: Connection, register: Register, resolve: (value: number) => void, reject: (reason?: any) => void) {
+    console.log(`MqttRegisterService.register.connected`);
+
+    const replyTopic = `reply/${connection.clientId}/register`;
     let myuuid = uuidv4();
 
-    console.log(`MqttRegisterService.register: subscribing to topic: ${replyTopic}`);
-    this.mqttService.getClient().subscribeAsync(replyTopic)
-      .then((granted) => {
-        console.log(`MqttRegisterService.register: subscribed: ${ JSON.stringify(granted) }`);
+    console.log(`MqttRegisterService.register.connected: subscribing to topic: ${replyTopic}`);
+    connection.client.subscribeAsync(replyTopic)
+      .then(() => {
+        console.log(`MqttRegisterService.register.connected: subscribed`);
+
         let request = { function: 'register', args: register };
 
         var publishOptions: any = {
@@ -46,70 +54,60 @@ export class MqttRegisterService {
           }
         };
 
-        console.log(`MqttRegisterService.register: subscribed: publishing request: ${JSON.stringify(request)}`);
-        this.mqttService.getClient().publishAsync('request', JSON.stringify(request), publishOptions)
+        console.log(`MqttRegisterService.register.connected: subscribed: publishing request: ${JSON.stringify(request)}`);
+        connection.client.publishAsync('request', JSON.stringify(request), publishOptions)
           .then(() => {
-            console.log('MqttRegisterService.register: publish request succeeded');
+            console.log('MqttRegisterService.register.connected: publish request succeeded');
           })
           .catch((error) => {
-            console.error('MqttRegisterService.register: error publishing: ' + error.message);
+            console.error('MqttRegisterService.register.connected: error publishing: ' + error.message);
           });
       })
       .catch((error) => {
         console.error('MqttRegisterService.register: error subscribing: ' + error.message);
       });
 
-    this.mqttService.getClient().on('message', (topic, message) => {
-      console.log(`MqttRegisterService.register: on message: topic: ${topic}, message: ${message}`);
+    connection.client.on('message', (topic, payload, packet) => {
+      console.log(`MqttRegisterService.register.connected: on message: topic: ${topic}`);
+      console.log(`MqttRegisterService.register.connected: on message: payload: ${payload}`);
+
+      var correlationString: string | null = null
+
+      if (packet.properties != null) {
+        var correlationData = packet.properties.correlationData;
+        if (correlationData != undefined) {
+          correlationString = correlationData.toString();
+          console.log(`MqttSigninService.register.connected: correlationString: ${correlationString}`);
+          console.log(`MqttSigninService.register.connected: myuuid:            ${myuuid}`);
+        }
+      }
+
 
       if (topic === replyTopic) {
-        var obj = JSON.parse(message.toString());
+        let result = ReplyHandler.parsePayload(payload)
+        if (result == null) {
+          return 
+        } 
 
-        if (obj.hasOwnProperty('code')) {
-          let code = obj['code'];
-          if (typeof code !== "number") {
-            console.log(`MqttRegisterService.register: Unexpected reply`);
-            this.userSubject.error(`Unexpected reply`);
-            return;
-          }
+        let reply = (result as Reply)
+        console.log(`MqttSigninService.register.connected: result: ${JSON.stringify(reply)}`);
 
-          if (code !== 200) {
-            if (obj.hasOwnProperty('message')) {
-              let errorMessage = obj['message'];
-              this.userSubject.error(errorMessage);
-            }
-            else {
-              console.log(`MqttRegisterService.register: Missing 'message'`);
-              this.userSubject.error(`Unexpected reply: ${code}`);
-            }
-            return;
+        if (ReplyHandler.isGoodReply(reply)) {
+          var id: number = Number(reply.result)
+
+          if (isNaN(id)) {
+            let message = `MqttSigninService.register.connected: reply is NaN: ${reply.result}`
+            console.log(message);
+            reject(message)
+          } else {
+            resolve(id)
           }
         }
         else {
-          console.log(`MqttRegisterService.register: Missing 'code'`);
-          this.userSubject.error(`Unexpected reply`);
+          reject(ReplyHandler.getMessage(reply))
         }
-
-        if (obj.hasOwnProperty('result')) {
-          this.id = obj['result'];
-          console.log(`MqttRegisterService.register: onMessage: result: ${JSON.stringify(this.id)}`);
-          this.userSubject.next(this.id);
-        }
-        else {
-          console.log(`MqttRegisterService.register: Missing 'result'`);
-          this.userSubject.error(`Unexpected reply`);
-        }
-
-        this.mqttService.getClient().unsubscribeAsync(replyTopic)
-        .then(() => {
-          console.log(`MqttRegisterService.register: unsubscribeAsync from '${replyTopic}' succeeded`);
-        })
-        .catch((error) => {
-          console.error('MqttRegisterService.sigregisternin: unsubscribeAsync failed: ' + error.message);
-        });
       }
     })
 
-    return this.userObservable;
   }
 }

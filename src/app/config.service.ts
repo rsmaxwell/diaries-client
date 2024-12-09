@@ -1,12 +1,11 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
 
 export interface MqttConfig {
   brokerUrl: string;
   clientId: string;
-  username?: string;
-  password?: string;
+  username: string;
+  password: string;
   keepalive?: number;
   reconnectPeriod?: number;
   connectTimeout?: number;
@@ -31,11 +30,11 @@ export class ConfigService {
     return new Promise<MqttConfig>((resolve, reject) => {
       this.http.get<MqttConfig>(this.configUrl).subscribe({
         next: config => {
-          console.info('ConfigService.loadConfig => next')  
+          console.info(`ConfigService.loadConfig: configuration: ${JSON.stringify(config)}`)
           resolve(config);
         },
         error: err => {
-          console.error('ConfigService.loadConfig => error: Could not load MQTT configuration', err);
+          console.error('ConfigService.loadConfig: error', err);
           reject(err);
         },
         complete: () => console.info('ConfigService.loadConfig => complete')        

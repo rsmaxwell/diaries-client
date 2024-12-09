@@ -20,7 +20,5 @@ import { AlertComponent } from './alert/alert.component';
   styleUrl: './app.component.scss'
 })
 export class AppComponent {
-
-  title = 'Diaries';
-  
+ 
 }

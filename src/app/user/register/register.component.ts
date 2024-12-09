@@ -17,11 +17,12 @@ import { PasswordStrength } from '../../utilities/passwordStrength';
 import { Register } from '../../model/register';
 import { MqttService } from '../../mqtt.service';
 import { MqttRegisterService } from '../mqtt.register.service';
+import { User } from '../../model/user';
 
 @Component({
   selector: 'app-register.page',
   standalone: true,
-  imports: [  
+  imports: [
     FormsModule,
     ReactiveFormsModule,
     MatFormFieldModule,
@@ -29,8 +30,8 @@ import { MqttRegisterService } from '../mqtt.register.service';
     MatCardModule,
     MatIconModule,
     MatButtonModule,
-    AlertbuttonsComponent, 
-    PlainfooterComponent, 
+    AlertbuttonsComponent,
+    PlainfooterComponent,
     PlainheaderComponent,
     AlertsComponent,
     AlertbuttonsComponent,
@@ -44,8 +45,6 @@ export class RegisterComponent implements OnDestroy {
   @Input() title?: string;
 
   private submitted = false;
-  private subscription!: Subscription
-  private mqttRegisterService: MqttRegisterService;
 
   hide = true;
 
@@ -95,13 +94,10 @@ export class RegisterComponent implements OnDestroy {
 
 
   constructor(
-    private route: ActivatedRoute,
     private router: Router,
-    private mqttService: MqttService,
-    private alertService: AlertService   
-  ) { 
-    this.mqttRegisterService = new MqttRegisterService(this.mqttService)
-  }
+    private mqttRegisterService: MqttRegisterService,
+    private alertService: AlertService
+  ) { }
 
   onSubmit(): void {
     console.log(`RegisterComponent.onSubmit()`);
@@ -115,34 +111,25 @@ export class RegisterComponent implements OnDestroy {
     }
 
     let value: Register = Register.fromFormGroup(this.form)
-    this.subscription = this.mqttRegisterService.register(value)
-      .subscribe({
-        next: (id: any) => {
-          console.log(`RegisterComponent.onSubmit: '${value.username}' registered with id: '${id}'`)
-          this.alertService.info(`username: '${value.username}' registered with id: '${id}'`);
-          this.subscription.unsubscribe();
-        },
-        error: (err: any) => {
-          console.log(`RegisterComponent.onSubmit: register: error: ${err}`)
-          this.alertService.error(err);
-          this.subscription.unsubscribe();
-        },
-        complete: () => {
-          console.log("RegisterComponent.onSubmit: register: complete")
-          this.subscription.unsubscribe();
-        }
-      });
+
+    this.mqttRegisterService.register(value)
+      .then((id) => {
+        console.log(`RegisterComponent.registered: '${value.username}' registered with id: '${id}'`)
+        this.alertService.info(`username: '${value.username}' registered with id: '${id}'`);
+        this.router.navigateByUrl('signin');
+      })
+      .catch((error) => {
+        console.log(`RegisterComponent.onSubmit: error registering: '${error.message}'`)
+        this.alertService.error(error.message);
+      })
   }
-  
+
   ngOnDestroy(): void {
     console.log("RegisterComponent.ngOnDestroy")
-    if (this.subscription) {
-      this.subscription.unsubscribe();
-    }
   }
 
   onSignin(): void {
-    console.log(`RegisterComponent.onRegister()`);
+    console.log(`RegisterComponent.onSignin()`);
     this.router.navigateByUrl('signin');
   }
 
@@ -151,19 +138,19 @@ export class RegisterComponent implements OnDestroy {
       return "This field is required";
     }
     if (formControl.hasError('minlength')) {
-      let requiredLength = formControl.errors!['minlength'].requiredLength     
+      let requiredLength = formControl.errors!['minlength'].requiredLength
       return "The minimum length for this field is " + String(requiredLength) + " characters.";
     }
     if (formControl.hasError('maxlength')) {
-      let requiredLength = formControl.errors!['maxlength'].requiredLength     
+      let requiredLength = formControl.errors!['maxlength'].requiredLength
       return "The maximum length for this field is " + String(requiredLength) + " characters.";
     }
-    if (formControl.hasError('email')) {     
+    if (formControl.hasError('email')) {
       return "Not a valid email address";
     }
-    if (formControl.hasError('pattern')) {     
+    if (formControl.hasError('pattern')) {
       return "Not a valid phone number";
-    } 
+    }
     if (formControl.hasError('passwordStrength')) {
       let key = formControl.errors!['passwordStrength']
       return PasswordStrength.getErrorMessage(key)

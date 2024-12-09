@@ -4,15 +4,12 @@ export class Signin {
     username: string;
     password: string;
 
-    constructor() {
-        this.username = ''
-        this.password = ''
+    constructor(username: string, password: string) {
+        this.username = username
+        this.password = password
     }
 
     static fromFormGroup(form: FormGroup): Signin {
-        let s = new Signin()
-        s.username = form.value.username!
-        s.password = form.value.password!
-        return s
+        return new Signin(form.value.username, form.value.password)
     }
 }
