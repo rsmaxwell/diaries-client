@@ -14,6 +14,7 @@ export class AlertService {
         this.publish(new AlertBuilder()
             .type(AlertType.Success)
             .message(message)
+            .autoClose(false)
             .build())
     }
 
@@ -38,7 +39,7 @@ export class AlertService {
         this.publish(new AlertBuilder()
             .type(AlertType.Error)
             .message(message)
-            .autoClose(true)
+            .autoClose(false)
             .build());
     }
 
@@ -46,7 +47,7 @@ export class AlertService {
         this.publish(new AlertBuilder()
             .type(AlertType.Error)
             .message(message)
-            .autoClose(true)
+            .autoClose(false)
             .dump(dump)
             .build());
     }
@@ -55,7 +56,7 @@ export class AlertService {
         this.publish(new AlertBuilder()
             .type(AlertType.Warning)
             .message(message)
-            .autoClose(true)
+            .autoClose(false)
             .build());
     }
 

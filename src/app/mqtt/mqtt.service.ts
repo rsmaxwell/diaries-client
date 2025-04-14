@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
-import { ConfigService } from './config.service';
-import { Connection } from './model/connection';
+import { ConfigService } from '../config/config.service';
+import { Connection } from '../model/connection';
 import mqtt from 'mqtt';
 
 

@@ -2,11 +2,15 @@ import { Injectable } from '@angular/core';
 import { v4 as uuidv4 } from 'uuid';
 import { Buffer } from 'buffer';
 import { Signin } from '../model/signin';
-import { MqttService } from '../mqtt.service';
+import { MqttService } from '../mqtt/mqtt.service';
 import { Connection } from '../model/connection';
 import { AuthorisedConnection } from '../model/authorisedConnection';
 import { TokenRequestor } from './tokenRequestor';
 import { catchError, interval, Subscription, switchMap } from 'rxjs';
+import { ReplyHandler } from '../utilities/replyHandler';
+import { Reply, SigninReply } from '../utilities/reply';
+import { Router } from '@angular/router';
+import { AlertService } from '../alerts/alert.service';
 
 
 @Injectable({ providedIn: 'root' })
@@ -18,7 +22,9 @@ export class MqttSigninService {
   private refreshInterval$!: Subscription;
 
   constructor(
-    private mqttService: MqttService
+    private mqttService: MqttService,
+    private router: Router,
+    private alertService: AlertService
   ) { }
 
   signin(signin: Signin): Promise<number> {
@@ -98,92 +104,57 @@ export class MqttSigninService {
         return
       }
 
-      this.processSigninReply(connection, signin, payload, resolve, reject)
-    })
+      let {reply, reason} = ReplyHandler.getReply(payload)
+      if (reply == null) {
+        reject(reason);
+        return
+      }
 
+      console.log(`MqttSigninService.signin.connected: result: ${JSON.stringify(reply)}`);
+
+      if (!isSigninReply(reply)) {
+        console.log(`MqttSigninService.processSigninReply: Invalid SigninReply structure`);
+        reject(`Unexpected reply`);
+        return;
+      }
+      let signinReply: SigninReply = reply;
+
+      this.processSigninReply(connection, signin, signinReply, resolve, reject);
+    })
   }
 
 
 
 
 
-  private processSigninReply(connection: Connection, signin: Signin, payload: Buffer, resolve: (value: number) => void, reject: (reason?: any) => void) {
-    console.log(`MqttSigninService.processSigninReply: ${payload.toString()}`);
-    var message = JSON.parse(payload.toString());
+  private processSigninReply(connection: Connection, signin: Signin, signinReply: SigninReply, resolve: (value: number) => void, reject: (reason?: any) => void) {
+    console.log(`MqttSigninService.processSigninReply`);
 
-    if (message.hasOwnProperty('code')) {
-      let code = message['code'];
-      if (typeof code !== "number") {
-        console.log(`MqttSigninService.processSigninReply: Unexpected typeof reply: ${typeof code}`);
-        reject(`Unexpected reply`);
-        return;
-      }
 
-      if (code !== 200) {
-        if (message.hasOwnProperty('message')) {
-          let errorMessage = message['message'];
-          reject(errorMessage);
-        }
-
-        console.log(`MqttSigninService.processSigninReply: Missing 'message'`);
-        reject(`Unexpected reply: ${code}`);
-        return;
-      }
-    }
-    else {
-      console.log(`MqttSigninService.processSigninReply: Missing 'code'`);
-      reject(`Unexpected reply`);
-      return;
-    }
-
-    if (!message.hasOwnProperty('accessToken')) {
-      console.log(`MqttSigninService.processSigninReply: Missing 'accessToken'`);
-      reject(`Unexpected reply`);
-      return;
-    }
-
-    if (!message.hasOwnProperty('refreshToken')) {
-      console.log(`MqttSigninService.processSigninReply: Missing 'refreshToken'`);
-      reject(`Unexpected reply`);
-      return;
-    }
-
-    if (!message.hasOwnProperty('refreshPeriod')) {
-      console.log(`MqttSigninService.processSigninReply: Missing 'refreshPeriod'`);
-      reject(`Unexpected reply`);
-      return;
-    }
-
-    if (!message.hasOwnProperty('id')) {
-      console.log(`MqttSigninService.processSigninReply: Missing 'id'`);
-      reject(`Unexpected reply`);
-      return;
-    }
-
-    // console.log(`MqttSigninService.processSigninReply: onMessage`);
-    // console.log(`MqttSigninService.processSigninReply: message: ${JSON.stringify(message)}`)
-
-    let accessToken = message['accessToken'];
-    let refreshToken = message['refreshToken'];
-    let refreshPeriod = message['refreshPeriod'];
-    let id = message['id'];
-    this.authorisedConnection = new AuthorisedConnection(connection, accessToken, refreshToken, refreshPeriod, signin, id)
-    console.log(`MqttSigninService.processSigninReply: username: userId: ${id}, username: ${signin.username}, refreshPeriod: ${refreshPeriod}`)
-    resolve(id)
+    this.authorisedConnection = new AuthorisedConnection(connection, signinReply.accessToken, signinReply.refreshToken, signinReply.refreshPeriod, signin, signinReply.id)
+    console.log(`MqttSigninService.processSigninReply: username: userId: ${signinReply.id}, username: ${signin.username}, refreshPeriod: ${signinReply.refreshPeriod}`)
+    resolve(signinReply.id)
 
     console.log(`MqttSigninService.processSigninReply: Starting TokenRequestor`)
     this.tokenRequestor = new TokenRequestor(this.authorisedConnection)
 
     this.tokenRequestor.getUpdates().subscribe({
       next: token => {
-        // console.log(`MqttSigninService.requestNewTokenReply: next: token: ${token}`)
+        // console.log(`MqttSigninService.processSigninReply: getUpdates.subscribe --> next: token: ${token}`)
         this.authorisedConnection.accessToken = token
       },
-      error: err => { 
-        console.log(`MqttSigninService.requestNewTokenReply: error: ${err}`)
+      error: err => {
+        console.log(`MqttSigninService.processSigninReply: getUpdates.subscribe --> error: ${err}`)
         this.stopTokenRefresh(); // Stop the refresh interval on error
+
+        this.alertService.error("Token expired. Please signin again")
+
+        // ✅ Navigate back to SigninComponent
+        this.router.navigate(['/signin']).then(() => {
+        console.log('Navigated back to SigninComponent due to token error.');
+    });
       },
-      complete: () =>  console.log(`MqttSigninService.requestNewTokenReply: complete`) 
+      complete: () => console.log(`MqttSigninService.processSigninReply: getUpdates.subscribe --> complete`)
     })
 
     this.startTokenRefresh();
@@ -202,9 +173,9 @@ export class MqttSigninService {
         })
       ))
     ).subscribe({
-      next: () => { 
+      next: () => {
         // console.log('Token refreshed successfully.')
-       },
+      },
       error: err => console.error(`Error in token refresh subscription: ${err}`)
     });
   }
@@ -220,3 +191,14 @@ export class MqttSigninService {
     this.stopTokenRefresh(); // Clean up when the service is destroyed
   }
 }
+
+
+function isSigninReply(obj: any): obj is SigninReply {
+  return obj !== null &&
+         typeof obj === 'object' &&
+         'accessToken' in obj && typeof obj.accessToken === 'string' &&
+         'refreshToken' in obj && typeof obj.refreshToken === 'string' &&
+         'refreshPeriod' in obj && typeof obj.refreshPeriod === 'number' &&
+         'id' in obj && typeof obj.id === 'number';
+}
+

@@ -1,8 +1,8 @@
 import { Component } from '@angular/core';
-import { AlertService } from '../alert.service';
+import { AlertService } from '../alerts/alert.service';
 import { FormsModule } from '@angular/forms';
-import { AlertType } from '../alert.model';
-import { AlertBuilder } from '../alert.builder';
+import { AlertType } from '../alerts/alert.model';
+import { AlertBuilder } from '../alerts/alert.builder';
 
 @Component({
   selector: 'app-alertbuttons',

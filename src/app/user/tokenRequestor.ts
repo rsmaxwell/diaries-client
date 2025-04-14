@@ -22,7 +22,6 @@ export class TokenRequestor {
       // console.log(`TokenRequestor.onMessage: ${payload.toString()}`);
 
       if (topic !== this.replyTopic) {
-        console.log(`TokenRequestor.onMessage: wrong topic: topic: ${topic}, this.myuuid: ${this.replyTopic}`)
         return;
       }
 

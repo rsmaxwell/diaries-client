@@ -12,11 +12,11 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 
-import { Alert, AlertType } from '../alert.model';
-import { AlertService } from '../alert.service';
+import { Alert, AlertType } from '../alerts/alert.model';
+import { AlertService } from '../alerts/alert.service';
 import { ActivatedRoute } from '@angular/router';
 import { AlertsComponent } from '../alerts/alerts.component';
-import { AlertBuilder } from '../alert.builder';
+import { AlertBuilder } from '../alerts/alert.builder';
 
 @Component({
   selector: 'app-dump',

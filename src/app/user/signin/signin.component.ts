@@ -9,9 +9,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { PlainfooterComponent } from "../../headers/plainfooter/plainfooter.component";
 import { PlainheaderComponent } from "../../headers/plainheader/plainheader.component";
 import { AlertsComponent } from "../../alerts/alerts.component";
-import { AlertbuttonsComponent } from "../../alertbuttons/alertbuttons.component";
 import { ActivatedRoute, Router } from '@angular/router';
-import { AlertService } from '../../alert.service';
+import { AlertService } from '../../alerts/alert.service';
 import { Signin } from '../../model/signin';
 import { MqttSigninService } from '../mqtt.signin.service';
 
@@ -26,11 +25,9 @@ import { MqttSigninService } from '../mqtt.signin.service';
     MatCardModule,
     MatIconModule,
     MatButtonModule,
-    AlertbuttonsComponent,
     PlainfooterComponent,
     PlainheaderComponent,
     AlertsComponent,
-    AlertbuttonsComponent,
     CommonModule
   ],
   templateUrl: './signin.component.html',

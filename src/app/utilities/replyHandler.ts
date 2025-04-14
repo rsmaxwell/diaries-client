@@ -1,106 +1,86 @@
 
 import { Subject } from 'rxjs';
-import { Reply } from './reply';
+import { ErrorReply, Reply } from './reply';
 import { Buffer } from 'buffer';
+import { AlertType } from '../alerts/alert.model';
+import { AlertBuilder } from '../alerts/alert.builder';
+import { AlertService } from '../alerts/alert.service';
 
-export class ReplyHandler  {
+export class ReplyHandler {
 
-  static handle(payload: Buffer, subject: Subject<any>): void {
+  constructor(public alertService: AlertService
+  ) { }
 
-    let result = ReplyHandler.parsePayload(payload)
-    if (result == null) {
-      subject.error(`Unexpected reply`);
-      return 
-    } 
+  static getBufferAsObject(buffer: Buffer): { object: any; reason: string } {
 
-    let reply = (result as Reply)
-    console.log(`ReplyHandler.handle: result: ${JSON.stringify(reply)}`);
-
-    if (ReplyHandler.isGoodReply(reply)) {
-      subject.next(reply.result);
-    } else { 
-      subject.error(ReplyHandler.getMessage(reply));
+    // Step 1: Ensure the payload is a Buffer
+    if (!Buffer.isBuffer(buffer)) {
+      let reason = 'Payload is not a Buffer.'
+      console.error(`ReplyHandler.getReply: ${reason}`)
+      return {object: null, reason: reason};
     }
+
+    let jsonString: string;
+    try {
+      // Step 2: Convert Buffer to String
+      jsonString = buffer.toString();
+    } catch (error) {
+      let reason = 'Error converting payload to string: ${error}'
+      console.error(`ReplyHandler.getReply: ${reason}`)
+      return {object: null, reason: reason};
+    }
+
+    let object: unknown;
+    try {
+      // Step 3: Parse JSON
+      object = JSON.parse(jsonString);
+    } catch (error) {
+      let reason = 'Error parsing JSON: ${error}'
+      console.error(`ReplyHandler.getReply: ${reason}`)
+      return {object: null, reason: reason};
+    }
+
+    return {object: object, reason: ""}
   }
 
+  static getReply(buffer: Buffer): { reply: Reply | null; reason: string } {
 
-static parsePayload(payload: Buffer): Reply | null {
+    let { object: object, reason } =  ReplyHandler.getBufferAsObject(buffer) 
+    if (object == null) {
+      return {reply: null, reason: reason};
+    }
 
-      // Step 1: Ensure the payload is a Buffer
-      if (!Buffer.isBuffer(payload)) {
-        let message = 'ReplyHandler.handle: Payload is not a Buffer.'
-        console.error(message)
-        return null;
-      }
-  
-      let jsonString: string;
-      try {
-        // Step 2: Convert Buffer to String
-        jsonString = payload.toString();
-      } catch (error) {
-        let message = 'ReplyHandler.handle: Error converting payload to string: ${error}'
-        console.error(message)
-        return null;
-      }
-  
-      let parsedPayload: unknown;
-      try {
-        // Step 3: Parse JSON
-        parsedPayload = JSON.parse(jsonString);
-      } catch (error) {
-        let message = 'ReplyHandler.handle: Error parsing JSON: ${error}'
-        console.error(message)
-        return null;
-      }
+    // Step 4: Check the payload object is of type "Reply"
+    if (!isReply(object)) {
+      let reason = `payload does not match Reply interface`;
+      console.error(`ReplyHandler.getReply: ${reason}`)
+      return {reply: null, reason: reason};
+    }
 
-      // Step 4: Validate the parsed object
-      if (!ReplyHandler.isValidReply(parsedPayload)) {
-        return null
-      }
-      
-      return  parsedPayload as Reply
+    // Now it's safely typed as Reply
+    let reply: Reply = object;
+    if (reply.code == 200) {
+      return {reply: reply, reason: ""};
+    }
+
+    if (isErrorReply(reply)) {
+      let errorReply = reply as ErrorReply;
+      console.error(errorReply.message);
+      return {reply: null, reason: errorReply.message};
+    }
+
+    let unexpectedReason = `Unexpected reply. code: ${reply.code}`;
+    return {reply: null, reason: unexpectedReason};
   }
+}
 
-  static isValidReply(payload: any): boolean {
-    console.log(`ReplyHandler.isValidReply: message: ${payload}`);
-    console.log(`ReplyHandler.isValidReply: JSON message: ${JSON.stringify(payload)}`);
+function isReply(obj: unknown): obj is Reply {
+  return typeof obj === 'object' && obj !== null &&
+         'code' in obj && typeof (obj as any).code === 'number';
+}
 
-    if (!(typeof payload === 'object')) {
-      console.log(`ReplyHandler.isValidReply: payload is an unextected type: ${typeof payload}`);
-      return false
-    }
-
-    if (payload.hasOwnProperty('code')) {
-      let code = payload['code'];
-      if (typeof code !== "number") {
-        console.log(`ReplyHandler.isValidReply: Unexpected typeof code: ${typeof code}`);
-        return false
-      }
-    }
-    else {
-      console.log(`ReplyHandler.isValidReply: Missing 'code'`);
-      return false
-    }
-
-    if (!payload.hasOwnProperty('result')) {
-      console.log(`ReplyHandler.isValidReply: Missing 'result'`);
-      return false      
-    }
-
-    return true
-  }
-
-  static isGoodReply(reply: Reply): boolean {
-    return (reply.code == 200) 
-  }
-
-  static getMessage(reply: Reply): string {
-    console.log(`ReplyHandler.getMessage: JSON message: ${JSON.stringify(reply)}`);
-
-    if (reply.hasOwnProperty('message')) {
-      return `Unexpected code: ${reply.code}, message: ${reply.message}`
-    }
-
-    return `Unexpected code: ${reply.code}`
-  }  
+function isErrorReply(obj: any): obj is ErrorReply {
+  return obj !== null &&
+         typeof obj === 'object' &&
+         'message' in obj && typeof obj.accessToken === 'string'
 }

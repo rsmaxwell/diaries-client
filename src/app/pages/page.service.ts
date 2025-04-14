@@ -1,12 +1,10 @@
 import { Injectable } from '@angular/core';
 import { Page } from './page';
-import { BehaviorSubject, Observable, of, Subject } from 'rxjs';
+import { Observable, of, Subject } from 'rxjs';
 import { Buffer } from 'buffer';
 import { v4 as uuidv4 } from 'uuid';
-import mqtt from 'mqtt';
-import { Diary } from './diary';
-import { MqttService } from './mqtt.service';
-import { MqttSigninService } from './user/mqtt.signin.service';
+import { Diary } from '../diary/diary';
+import { MqttSigninService } from '../user/mqtt.signin.service';
 
 
 
@@ -29,7 +27,7 @@ export class PageService {
 
 
   subscribe(diary: Diary) {
-    console.log(`PageService.subscribe`);
+    console.log(`PageService.subscribe: diary: id: ${diary.id}, name: ${diary.name}`);
     const replyTopic = `reply/pages`;
 
     let myuuid = uuidv4();

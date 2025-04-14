@@ -2,11 +2,11 @@
 import { v4 as uuidv4 } from 'uuid';
 import { Register } from '../model/register';
 import { Buffer } from 'buffer';
-import { MqttService } from '../mqtt.service';
+import { MqttService } from '../mqtt/mqtt.service';
 import { ReplyHandler } from '../utilities/replyHandler';
 import { Injectable } from '@angular/core';
 import { Connection } from '../model/connection';
-import { Reply } from '../utilities/reply';
+import { RegisterReply, Reply } from '../utilities/reply';
 
 
 @Injectable({ providedIn: 'root' })
@@ -68,8 +68,10 @@ export class MqttRegisterService {
       });
 
     connection.client.on('message', (topic, payload, packet) => {
-      console.log(`MqttRegisterService.register.connected: on message: topic: ${topic}`);
-      console.log(`MqttRegisterService.register.connected: on message: payload: ${payload}`);
+
+      if (topic != replyTopic) {
+        return
+      }
 
       var correlationString: string | null = null
 
@@ -82,32 +84,41 @@ export class MqttRegisterService {
         }
       }
 
-
-      if (topic === replyTopic) {
-        let result = ReplyHandler.parsePayload(payload)
-        if (result == null) {
-          return 
-        } 
-
-        let reply = (result as Reply)
-        console.log(`MqttSigninService.register.connected: result: ${JSON.stringify(reply)}`);
-
-        if (ReplyHandler.isGoodReply(reply)) {
-          var id: number = Number(reply.result)
-
-          if (isNaN(id)) {
-            let message = `MqttSigninService.register.connected: reply is NaN: ${reply.result}`
-            console.log(message);
-            reject(message)
-          } else {
-            resolve(id)
-          }
-        }
-        else {
-          reject(ReplyHandler.getMessage(reply))
-        }
+      let {reply, reason} = ReplyHandler.getReply(payload)
+      if (reply == null) {
+        reject(reason);
+        return
       }
-    })
 
+      console.log(`MqttSigninService.register.connected: result: ${JSON.stringify(reply)}`);
+
+      if (!isRegisterReply(reply)) {
+        console.log(`MqttRegisterService.processRegisterReply: Invalid RegisterReply structure`);
+        reject(`Unexpected reply`);
+        return;
+      }
+      let registerReply: RegisterReply = reply;
+
+      processRegisterReply(connection, register, registerReply, resolve, reject);
+    })
   }
+}
+
+function processRegisterReply(connection: Connection, register: Register, registerReply: RegisterReply, resolve: (value: number) => void, reject: (reason?: any) => void) {
+  console.log(`MqttSigninService.processSigninReply`);
+
+  if (isNaN(registerReply.id)) {
+    let reason = `MqttSigninService.register.connected: reply is NaN: ${registerReply.id}`
+    console.log(reason);
+    reject(reason)
+  } else {
+    resolve(registerReply.id)
+  }
+  return
+}
+
+function isRegisterReply(obj: any): obj is RegisterReply {
+  return obj !== null &&
+         typeof obj === 'object' &&
+         'id' in obj && typeof obj.id === 'string';
 }

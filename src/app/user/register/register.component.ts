@@ -6,18 +6,15 @@ import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
-import { Subscription } from 'rxjs';
 import { PlainfooterComponent } from "../../headers/plainfooter/plainfooter.component";
 import { PlainheaderComponent } from "../../headers/plainheader/plainheader.component";
 import { AlertsComponent } from "../../alerts/alerts.component";
 import { AlertbuttonsComponent } from "../../alertbuttons/alertbuttons.component";
-import { ActivatedRoute, Router } from '@angular/router';
-import { AlertService } from '../../alert.service';
+import { Router } from '@angular/router';
+import { AlertService } from '../../alerts/alert.service';
 import { PasswordStrength } from '../../utilities/passwordStrength';
 import { Register } from '../../model/register';
-import { MqttService } from '../../mqtt.service';
 import { MqttRegisterService } from '../mqtt.register.service';
-import { User } from '../../model/user';
 
 @Component({
   selector: 'app-register.page',

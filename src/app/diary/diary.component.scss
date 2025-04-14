@@ -41,15 +41,34 @@
   margin: 10px;
 }
 
-.tbody {
-  max-height: 100%;
-  overflow-y: auto;
-  background-color: $neutral-100;
+.full-width-table {
+  width: 100%;
+  table-layout: fixed; // 🚨 This is key for column widths to work!
+
+  .mat-column-id {
+    width: 80px;
+    flex: 0 0 80px;
+    overflow: hidden;
+  }
+
+  .mat-column-name {
+    width: auto;
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 
-.padding {
-  flex: 1;
-  overflow: auto;
+::ng-deep .column-id {
+  width: 80px;
+  flex: 0 0 80px; /* fixed width */
 }
 
-
+::ng-deep  .column-name {
+  width: auto;
+  flex: 1 1 auto; /* take up the rest */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
