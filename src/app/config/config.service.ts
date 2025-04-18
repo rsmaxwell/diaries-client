@@ -10,6 +10,7 @@ export interface MqttConfig {
   reconnectPeriod?: number;
   connectTimeout?: number;
   protocolVersion?: 4 | 5 | 3 | undefined;
+  clean: boolean;
 }
 
 @Injectable({

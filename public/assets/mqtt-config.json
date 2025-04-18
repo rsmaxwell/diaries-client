@@ -6,6 +6,7 @@
     "keepalive": 60,
     "reconnectPeriod": 1000,
     "connectTimeout": 30000,
-    "protocolVersion": 5
+    "protocolVersion": 5,
+    "clean": false
   }
   

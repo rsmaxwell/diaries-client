@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { Diary } from './diary';
+import { Diary, DiaryResponse } from './diary';
 import { Observable, Subject, Subscription } from 'rxjs';
 import { Buffer } from 'buffer';
 import { v4 as uuidv4 } from 'uuid';
@@ -14,14 +14,14 @@ import { AlertService } from '../alerts/alert.service';
   providedIn: 'root'
 })
 export class DiaryService {
-  private diarySubject = new Subject<Diary>();
+  private diarySubject = new Subject<DiaryResponse>();
   private diaryObservable = this.diarySubject.asObservable();
   private topic = "";
   private diarySubscription: Subscription | null = null;
 
   constructor(private mqttSigninService: MqttSigninService) {}
 
-  getDiary(id: number): Observable<Diary> {
+  getDiary(id: number): Observable<DiaryResponse> {
     console.log(`DiaryService.getDiary: id: ${id}`);
 
     this.topic = `diary/${id}`;
@@ -57,8 +57,8 @@ export class DiaryService {
 
       console.log(`DiaryService.on 'message': payload object: ${JSON.stringify(object)}`);
 
-      let diary = object as Diary;
-      this.diarySubject.next(diary);
+      let diaryResponse = object as DiaryResponse;
+      this.diarySubject.next(diaryResponse);
     });
 
     // Track the subscription

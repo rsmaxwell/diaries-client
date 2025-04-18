@@ -2,17 +2,17 @@
   <app-fullheader [title]="title"></app-fullheader>
 
   <div class="title">
-    <div *ngIf="diary" class="title-content">
+    <div *ngIf="response.diary" class="title-content">
 
-      <div class="title-item">{{diary.id}}</div>
+      <div class="title-item">{{response.diary.id}}</div>
 
-      <div class="title-item">{{diary.name}}</div>
+      <div class="title-item">{{response.diary.name}}</div>
 
     </div>
   </div>
 
   <div class="table">
-    <table mat-table [dataSource]="diary.pages" class="mat-elevation-z1 diary-table">
+    <table mat-table [dataSource]="response.pages" class="mat-elevation-z8 diary-table">
 
       <ng-container matColumnDef="id">
         <th mat-header-cell *matHeaderCellDef class="column-id"> id </th>

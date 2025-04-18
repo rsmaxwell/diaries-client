@@ -42,6 +42,7 @@ export class MqttService {
             reconnectPeriod: mqttConfig.reconnectPeriod,
             connectTimeout: mqttConfig.connectTimeout,
             protocolVersion: mqttConfig.protocolVersion,
+            clean: mqttConfig.clean, // ✅ Retain session between reconnects
           });
   
           client.on('connect', () => {

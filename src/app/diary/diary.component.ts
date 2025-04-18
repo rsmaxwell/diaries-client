@@ -1,5 +1,5 @@
 import { Component, Input, OnDestroy, OnInit } from '@angular/core';
-import { Diary } from './diary';
+import { Diary, DiaryResponse } from './diary';
 import { NgIf } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -42,7 +42,7 @@ export class DiaryComponent implements OnInit, OnDestroy {
   @Input() title?: string;
 
   displayedColumns: string[] = ['id', 'name'];
-  diary: Diary = new Diary();
+  response: DiaryResponse = new DiaryResponse(new Diary(), []);
   private subscription?: Subscription;
 
   constructor(
@@ -74,18 +74,14 @@ export class DiaryComponent implements OnInit, OnDestroy {
           'pages' in value &&
           Array.isArray((value as any).pages)
         ) {
-          const response = value as {
+          const object = value as {
             diary: { id: number; name: string };
             pages: Page[];
           };
   
-          // ✅ Combine diary + pages in one assignment
-          this.diary = {
-            ...response.diary,
-            pages: response.pages
-          };
-  
-          this.displayedColumns = ['id', 'name']; // Optional: set if using material table
+          this.response = object;
+          console.log(`DiaryComponent.getDiary: response: ${JSON.stringify(this.response)}`);
+
         } else {
           console.error('DiaryComponent.getDiary: Invalid response structure', value);
           this.alertService.error('Unexpected response from server');
@@ -111,8 +107,8 @@ export class DiaryComponent implements OnInit, OnDestroy {
 
   selectItem(id: number) {
     console.log(`DiaryComponent.selectItem: id: ${id}`)
-    if (this.diary != null) {
-      this.router.navigate([`/diary/${this.diary.id}/${id}`]);
+    if (this.response != null) {
+      this.router.navigate([`/diary/${this.response.diary.id}/${id}`]);
     }
   }
 }

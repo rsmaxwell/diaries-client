@@ -7,12 +7,10 @@ import { ScrollingModule } from '@angular/cdk/scrolling';
 import { FullheaderComponent } from "../headers/fullheader/fullheader.component";
 import { FullfooterComponent } from "../headers/fullfooter/fullfooter.component";
 import { AlertsComponent } from "../alerts/alerts.component";
-import { AlertbuttonsComponent } from "../alertbuttons/alertbuttons.component";
 import { MatCardModule } from '@angular/material/card';
 import { Subscription } from 'rxjs';
 import { AlertService } from '../alerts/alert.service';
 import { DiariesService } from './diaries.service';
-import { DiaryComponent } from "../diary/diary.component";
 
 @Component({
   selector: 'app-diaries',
@@ -24,8 +22,7 @@ import { DiaryComponent } from "../diary/diary.component";
     FullheaderComponent,
     FullfooterComponent,
     AlertsComponent,
-    MatCardModule,
-    DiaryComponent
+    MatCardModule
 ],
   templateUrl: './diaries.component.html',
   styleUrl: './diaries.component.scss'

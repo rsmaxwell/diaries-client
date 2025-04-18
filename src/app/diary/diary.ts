@@ -5,20 +5,20 @@ import { Page } from '../page/page';
 export class Diary {
   id: number;
   name: string;
-  pages: Page[];
+  // pages: Page[];
 
   constructor() {
     this.id = 0;
     this.name = ``;
-    this.pages = [];
+    // this.pages = [];
   }
 }
 
-export class RawDiaryResponse {
+export class DiaryResponse {
   diary: Diary;
-  pages: string[];
+  pages: Page[];
 
-  constructor(diary: Diary, pages: string[]) {
+  constructor(diary: Diary, pages: Page[]) {
     this.diary = diary;
     this.pages = pages;
   }
