@@ -1,5 +1,5 @@
 import { Component, Input, OnDestroy, OnInit } from '@angular/core';
-import { Diary, RawDiaryResponse } from './diary';
+import { Diary } from './diary';
 import { NgIf } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -15,7 +15,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { Subscription } from 'rxjs';
 import { AlertService } from '../alerts/alert.service';
-import { Page } from '../pages/page';
+import { Page } from '../page/page';
 
 
 @Component({
@@ -43,7 +43,7 @@ export class DiaryComponent implements OnInit, OnDestroy {
 
   displayedColumns: string[] = ['id', 'name'];
   diary: Diary = new Diary();
-  subscription?: Subscription;
+  private subscription?: Subscription;
 
   constructor(
     private route: ActivatedRoute,
@@ -59,7 +59,7 @@ export class DiaryComponent implements OnInit, OnDestroy {
 
 
   getDiary(): void {
-    const idstring = this.route.snapshot.paramMap.get('id');
+    const idstring = this.route.snapshot.paramMap.get('diaryId');
     console.log(`DiaryComponent.getDiary: id: ${idstring}`);
     const id = Number(idstring);
   
@@ -74,12 +74,18 @@ export class DiaryComponent implements OnInit, OnDestroy {
           'pages' in value &&
           Array.isArray((value as any).pages)
         ) {
-          const response = value as { diary: { id: number; name: string }, pages: Page[] };
-          this.diary.id = response.diary.id;
-          this.diary.name = response.diary.name;
-          this.diary.pages = response.pages; // ✅ already well-formed!
+          const response = value as {
+            diary: { id: number; name: string };
+            pages: Page[];
+          };
   
-          console.log('DiaryComponent.getDiary: Successfully updated this.diary');
+          // ✅ Combine diary + pages in one assignment
+          this.diary = {
+            ...response.diary,
+            pages: response.pages
+          };
+  
+          this.displayedColumns = ['id', 'name']; // Optional: set if using material table
         } else {
           console.error('DiaryComponent.getDiary: Invalid response structure', value);
           this.alertService.error('Unexpected response from server');
@@ -92,7 +98,6 @@ export class DiaryComponent implements OnInit, OnDestroy {
       complete: () => console.log('DiaryComponent.getDiary: complete')
     });
   }
-  
   
 
   ngOnDestroy(): void {

@@ -6,7 +6,7 @@ import { provideAnimationsAsync } from '@angular/platform-browser/animations/asy
 import { ConfigService } from './config/config.service';
 import { MqttService } from './mqtt/mqtt.service';
 import { DiaryService } from './diary/diary.service';
-import { PageService } from './pages/page.service';
+import { PageService } from './page/page.service';
 import { MqttRegisterService } from './user/mqtt.register.service';
 import { MqttSigninService } from './user/mqtt.signin.service';
 import { AuthGuard } from './auth.guard';

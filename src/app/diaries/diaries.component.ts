@@ -12,6 +12,7 @@ import { MatCardModule } from '@angular/material/card';
 import { Subscription } from 'rxjs';
 import { AlertService } from '../alerts/alert.service';
 import { DiariesService } from './diaries.service';
+import { DiaryComponent } from "../diary/diary.component";
 
 @Component({
   selector: 'app-diaries',
@@ -23,8 +24,9 @@ import { DiariesService } from './diaries.service';
     FullheaderComponent,
     FullfooterComponent,
     AlertsComponent,
-    MatCardModule
-  ],
+    MatCardModule,
+    DiaryComponent
+],
   templateUrl: './diaries.component.html',
   styleUrl: './diaries.component.scss'
 })

@@ -41,25 +41,6 @@
   margin: 10px;
 }
 
-.full-width-table {
-  width: 100%;
-  table-layout: fixed; // 🚨 This is key for column widths to work!
-
-  .mat-column-id {
-    width: 80px;
-    flex: 0 0 80px;
-    overflow: hidden;
-  }
-
-  .mat-column-name {
-    width: auto;
-    flex: 1 1 auto;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-}
-
 ::ng-deep .column-id {
   width: 80px;
   flex: 0 0 80px; /* fixed width */
@@ -71,4 +52,30 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.diary-table {
+  width: 100%;
+  table-layout: fixed;
+
+  .mat-header-cell,
+  .mat-cell {
+    padding: 8px;
+  }
+
+  .column-id {
+    width: 80px;
+    flex: 0 0 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .column-name {
+    width: auto;
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }

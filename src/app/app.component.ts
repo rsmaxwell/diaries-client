@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { PagesComponent } from './pages/pages.component';
+import { PageComponent } from './page/page.component';
 import { DiariesComponent } from './diaries/diaries.component';
 import { AlertComponent } from './alert/alert.component';
 
@@ -9,12 +9,7 @@ import { AlertComponent } from './alert/alert.component';
   standalone: true,
   imports: [
     RouterOutlet,
-    DiariesComponent,
-    PagesComponent,
-    RouterOutlet,
-    RouterLink,
-    RouterLinkActive,
-    AlertComponent
+    RouterOutlet
 ],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'

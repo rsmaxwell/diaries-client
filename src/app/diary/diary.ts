@@ -1,6 +1,6 @@
 
 
-import { Page } from '../pages/page';
+import { Page } from '../page/page';
 
 export class Diary {
   id: number;
