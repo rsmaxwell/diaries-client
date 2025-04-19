@@ -2,7 +2,18 @@
 
     <app-fullheader [title]="title"></app-fullheader>
 
-    <p>pages works!</p>
+    <div id="svg-container">
+        <svg id="zoomable-svg"
+             xmlns="http://www.w3.org/2000/svg"
+             [attr.viewBox]="viewBox"
+             preserveAspectRatio="xMidYMid meet">
+          <image *ngIf="diary && page"
+                 [attr.href]="'http://localhost:8081/images/' + diary.name + '/' + page.name + (page.extension || '.jpg')"
+                 x="0" y="0"
+                 [attr.width]="page.width"
+                 [attr.height]="page.height" />
+        </svg>
+      </div>
 
     <div class="padding"></div>
     

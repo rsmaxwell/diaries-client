@@ -42,7 +42,8 @@ export class DiaryComponent implements OnInit, OnDestroy {
   @Input() title?: string;
 
   displayedColumns: string[] = ['id', 'name'];
-  response: DiaryResponse = new DiaryResponse(new Diary(), []);
+  diary: Diary = new Diary();
+  pages: Page[] = [];
   private subscription?: Subscription;
 
   constructor(
@@ -74,13 +75,15 @@ export class DiaryComponent implements OnInit, OnDestroy {
           'pages' in value &&
           Array.isArray((value as any).pages)
         ) {
-          const object = value as {
+          const response = value as {
             diary: { id: number; name: string };
             pages: Page[];
           };
-  
-          this.response = object;
-          console.log(`DiaryComponent.getDiary: response: ${JSON.stringify(this.response)}`);
+
+          this.diary = response.diary;
+          this.pages = response.pages;
+
+          console.log(`DiaryComponent.getDiary: response: ${JSON.stringify(response)}`);
 
         } else {
           console.error('DiaryComponent.getDiary: Invalid response structure', value);
@@ -107,8 +110,12 @@ export class DiaryComponent implements OnInit, OnDestroy {
 
   selectItem(id: number) {
     console.log(`DiaryComponent.selectItem: id: ${id}`)
-    if (this.response != null) {
-      this.router.navigate([`/diary/${this.response.diary.id}/${id}`]);
+
+    if (typeof id !== 'number') {
+      console.error('Expected numeric page ID, got:', id);
+      return;
     }
+    
+    this.router.navigate([`/diary/${this.diary.id}/${id}`]);
   }
 }
