@@ -8,6 +8,12 @@
   height: 100%;
 }
 
+.card {
+  height: 90% !important;
+  position: relative;
+  overflow: hidden;
+}
+
 .title {
   position: relative;
   overflow: hidden;
@@ -31,27 +37,25 @@
   font-size:24px;
 }
 
-.table {
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.card {
+  height: 90% !important;
   position: relative;
-  overflow-y: auto;
-  overflow-x: hidden;
-  flex-grow: 1;
-  border-style:inset; 
-  border-radius: 6px;
-  margin: 10px;
-}
-
-::ng-deep .column-id {
-  width: 80px;
-  flex: 0 0 80px; /* fixed width */
-}
-
-::ng-deep  .column-name {
-  width: auto;
-  flex: 1 1 auto; /* take up the rest */
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+}
+
+.content {
+  max-height: 100%;
+  overflow-y: auto;
+}
+
+.padding {
+  flex-grow: 1;
 }
 
 .diary-table {
@@ -61,21 +65,16 @@
   .mat-header-cell,
   .mat-cell {
     padding: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .column-id {
     width: 80px;
-    flex: 0 0 80px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .column-name {
     width: auto;
-    flex: 1 1 auto;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 }
