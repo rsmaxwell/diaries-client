@@ -1,6 +1,6 @@
-import { Component, Input, OnDestroy, OnInit } from '@angular/core';
-import { Diary, DiaryResponse } from './diary';
-import { NgIf } from '@angular/common';
+import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Diary } from './diary';
+import { CommonModule, NgIf } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { DiaryService } from './diary.service';
@@ -13,7 +13,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatSelectModule } from '@angular/material/select';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
-import { Subscription } from 'rxjs';
+import { BehaviorSubject, Subscription } from 'rxjs';
 import { AlertService } from '../alerts/alert.service';
 import { Page } from '../page/page';
 
@@ -22,8 +22,8 @@ import { Page } from '../page/page';
   selector: 'app-diary',
   standalone: true,
   imports: [
+    CommonModule,        // ✅ <-- this line is essential
     FormsModule,
-    NgIf,
     FullheaderComponent,
     AlertsComponent,
     FullfooterComponent,
@@ -39,7 +39,7 @@ import { Page } from '../page/page';
 })
 export class DiaryComponent implements OnInit, OnDestroy {
 
-  @Input() title?: string;
+  title$ = new BehaviorSubject<string>('Loading...');
 
   displayedColumns: string[] = ['id', 'name'];
   diary: Diary = new Diary();
@@ -82,6 +82,7 @@ export class DiaryComponent implements OnInit, OnDestroy {
 
           this.diary = response.diary;
           this.pages = response.pages;
+          this.title$.next(`${this.diary.name}`);
 
           console.log(`DiaryComponent.getDiary: response: ${JSON.stringify(response)}`);
 

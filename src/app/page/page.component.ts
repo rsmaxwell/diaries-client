@@ -1,6 +1,6 @@
 import { ChangeDetectorRef, Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FullheaderComponent } from "../headers/fullheader/fullheader.component";
+import { PageheaderComponent } from "../headers/pageheader/pageheader.component";
 import { FullfooterComponent } from "../headers/fullfooter/fullfooter.component";
 import { AlertsComponent } from "../alerts/alerts.component";
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
@@ -10,6 +10,8 @@ import { ActivatedRoute } from '@angular/router';
 import { DiaryService } from '../diary/diary.service';
 import { AlertService } from '../alerts/alert.service';
 import { ConfigService } from '../config/config.service';
+import { BehaviorSubject } from 'rxjs';
+
 
 
 @Component({
@@ -17,21 +19,23 @@ import { ConfigService } from '../config/config.service';
   standalone: true,
   imports: [
     CommonModule,
-    FullheaderComponent,
+    PageheaderComponent,
     FullfooterComponent,
     AlertsComponent,
-    MatSlideToggleModule,
+    MatSlideToggleModule
   ],
   templateUrl: './page.component.html',
   styleUrl: './page.component.scss'
 })
 export class PageComponent implements OnInit {
 
-  @Input() title?: string;
+  title$ = new BehaviorSubject<string>('Loading...');
+  
   diary: Diary = new Diary();
   page: Page = new Page();
   viewBox = '0 0 800 600'; // default value
   fileServerUrl: string = "";
+  isAddMode = false;
 
   constructor(
     private route: ActivatedRoute,
@@ -77,6 +81,9 @@ export class PageComponent implements OnInit {
               } else {
                 console.error('Page not found in diary.pages');
               }
+
+              console.log(`pageComponent.ngOnInit: updating the title`);
+              this.title$.next(`${this.diary.name} - ${this.page.name}`);
             }
 
             console.log(`pageComponent.ngOnInit: diary: ${this.diary.name}: page: ${this.page.name}`);
@@ -95,6 +102,16 @@ export class PageComponent implements OnInit {
       .catch((error) => {
         console.error(`MqttService.getConnection: configuration error: ${error}`);
       });
+  }
+
+  onAddClick(): void {
+    console.log('PageComponent.onAddClick')
+    this.isAddMode = true;
+  }
+
+  onSelectClick(): void {
+    console.log('PageComponent.onSelectClick')
+    this.isAddMode = false;
   }
 
   setupZoomPan(): void {

@@ -3,7 +3,6 @@
   import { MatIconModule } from '@angular/material/icon';
   import { MatButtonModule } from '@angular/material/button';
   import { MatToolbarModule } from '@angular/material/toolbar';
-import { environment } from '../../../environments/environment';
   
   @Component({
     selector: 'app-fullheader',
@@ -14,7 +13,7 @@ import { environment } from '../../../environments/environment';
   })
   export class FullheaderComponent {
   
-    title = environment.title
+    @Input() title?: string | null;
     
   }
   

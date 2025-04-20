@@ -1,24 +1,22 @@
-<div class="page">
+<div class="page" [class.custom-cursor]="isAddMode">
 
-    <app-fullheader [title]="title"></app-fullheader>
+  <app-pageheader (add)="onAddClick()" (select)="onSelectClick()" [title]="title$ | async"></app-pageheader>
 
-    <div id="svg-container">
-        <svg id="zoomable-svg"
-             xmlns="http://www.w3.org/2000/svg"
-             [attr.viewBox]="viewBox"
-             preserveAspectRatio="xMidYMid meet">
-          <image *ngIf="diary && page"
-                 [attr.href]="fileServerUrl + '/' + diary.name + '/' + page.name + (page.extension || '.jpg')"
-                 x="0" y="0"
-                 [attr.width]="page.width"
-                 [attr.height]="page.height" />
-        </svg>
-      </div>
+  <div id="svg-container">
+    <svg id="zoomable-svg" xmlns="http://www.w3.org/2000/svg" [attr.viewBox]="viewBox"
+      preserveAspectRatio="xMidYMid meet">
+      <image *ngIf="diary && page"
+        [attr.href]="fileServerUrl + '/' + diary.name + '/' + page.name + (page.extension || '.jpg')" x="0" y="0"
+        [attr.width]="page.width" [attr.height]="page.height" />
+    </svg>
+  </div>
 
-    <div class="padding"></div>
-    
-    <app-alerts></app-alerts>
-    <!-- <app-alertbuttons></app-alertbuttons> -->
-    <app-fullfooter></app-fullfooter>
+  <div *ngIf="isAddMode" class="debug">Add mode ON</div>
+
+  <div class="padding"></div>
+
+  <app-alerts></app-alerts>
+  <!-- <app-alertbuttons></app-alertbuttons> -->
+  <app-fullfooter></app-fullfooter>
 
 </div>

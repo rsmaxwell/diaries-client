@@ -1,0 +1,29 @@
+<mat-toolbar class="header">
+    <button mat-icon-button class="example-icon" aria-label="Example icon-button with menu icon">
+      <mat-icon>menu</mat-icon>
+    </button>
+    <span>{{title}}</span>
+
+    <span class="example-spacer"></span>
+
+    <button mat-icon-button class="example-icon ArrowBack-icon" aria-label="Example icon-button with ArrowBack icon" (click)="onBackClick()">
+      <mat-icon>arrow_back</mat-icon>
+    </button>
+
+    <button mat-icon-button class="example-icon ArrowUpward-icon" aria-label="Example icon-button with ArrowUpward icon" (click)="onUpClick()">
+      <mat-icon>arrow_upward</mat-icon>
+    </button>
+
+    <button mat-icon-button class="example-icon ArrowForward-icon" aria-label="Example icon-button with ArrowForward icon" (click)="onForwardClick()">
+      <mat-icon>arrow_forward</mat-icon>
+    </button>
+
+    <button mat-icon-button class="example-icon select-icon" aria-label="Example icon-button with select icon" (click)="onSelectClick()">
+      <mat-icon svgIcon="select"></mat-icon>
+    </button>
+
+    <button mat-icon-button class="example-icon add-icon" aria-label="Example icon-button with add icon" (click)="onAddClick()">
+      <mat-icon>add</mat-icon>
+    </button>
+
+  </mat-toolbar>

@@ -19,7 +19,8 @@
   height: auto;
 }
 
-// .padding {
-//   flex: 1;
-//   overflow: auto;
-// }
+.custom-cursor {
+  cursor: url('/assets/cursors/add-cursor.svg') 16 16, auto;
+}
+
+
