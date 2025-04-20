@@ -53,7 +53,13 @@ export class DiaryService {
         return;
       }
 
-      console.log(`DiaryService.on 'message': payload string: ${payload}`);
+      const maxLength = 150;
+      const payloadString = payload.toString();
+      const trimmedPayload = payloadString.length > maxLength 
+        ? payloadString.substring(0, maxLength) + '...'
+        : payloadString;
+      
+      console.log(`DiaryService.on 'message': payload string: ${trimmedPayload}`);
 
       let {object, reason} = ReplyHandler.getBufferAsObject(payload);
       if (!object) {
@@ -61,7 +67,7 @@ export class DiaryService {
         return;
       }
 
-      console.log(`DiaryService.on 'message': payload object: ${JSON.stringify(object)}`);
+      // console.log(`DiaryService.on 'message': payload object: ${JSON.stringify(object)}`);
 
       let diaryResponse = object as DiaryResponse;
       this.cachedResponse = diaryResponse;

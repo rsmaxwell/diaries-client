@@ -66,7 +66,7 @@ export class DiaryComponent implements OnInit, OnDestroy {
   
     this.subscription = this.diaryService.getDiary(id).subscribe({
       next: (value: unknown) => {
-        console.log(`DiaryComponent.getDiary: JSON.stringify(value): ${JSON.stringify(value)}`);
+        // console.log(`DiaryComponent.getDiary: JSON.stringify(value): ${JSON.stringify(value)}`);
   
         if (
           typeof value === 'object' &&
@@ -84,7 +84,7 @@ export class DiaryComponent implements OnInit, OnDestroy {
           this.pages = response.pages;
           this.title$.next(`${this.diary.name}`);
 
-          console.log(`DiaryComponent.getDiary: response: ${JSON.stringify(response)}`);
+          // console.log(`DiaryComponent.getDiary: response: ${JSON.stringify(response)}`);
 
         } else {
           console.error('DiaryComponent.getDiary: Invalid response structure', value);
