@@ -1,7 +1,9 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
+import { lastValueFrom } from 'rxjs';
 
-export interface MqttConfig {
+export interface Config {
+  fileServerUrl: string;
   brokerUrl: string;
   clientId: string;
   username: string;
@@ -17,30 +19,28 @@ export interface MqttConfig {
   providedIn: 'root'
 })
 export class ConfigService {
+  private configUrl = 'assets/config.json';
+  private configCache: Config | null = null;
 
-  private configUrl = './assets/mqtt-config.json';
-
-  constructor(private http: HttpClient) { 
+  constructor(private http: HttpClient) {
     console.log('ConfigService.constructor');
   }
 
-  loadConfig(): Promise<MqttConfig> {
+  async getConfig(): Promise<Config> {
+    console.log(`ConfigService.getConfig`);
 
-    console.log('ConfigService.loadConfig');
+    if (this.configCache) {
+      console.log(`ConfigService.getConfig: returning cached value. config: ${JSON.stringify(this.configCache)}`);      
+      return this.configCache;
+    }
 
-    return new Promise<MqttConfig>((resolve, reject) => {
-      this.http.get<MqttConfig>(this.configUrl).subscribe({
-        next: config => {
-          console.info(`ConfigService.loadConfig: configuration: ${JSON.stringify(config)}`)
-          resolve(config);
-        },
-        error: err => {
-          console.error('ConfigService.loadConfig: error', err);
-          reject(err);
-        },
-        complete: () => console.info('ConfigService.loadConfig => complete')        
-      });
-    });
+    console.log('ConfigService.getConfig: loading config');
+
+    const config = await lastValueFrom(this.http.get<Config>(this.configUrl));
+
+    console.log('ConfigService.getConfig: config:', JSON.stringify(config));
+
+    this.configCache = config;
+    return config;
   }
 }
-

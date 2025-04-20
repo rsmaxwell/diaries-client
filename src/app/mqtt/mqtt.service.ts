@@ -30,24 +30,24 @@ export class MqttService {
       this.cachedPromise = new Promise((resolve, reject) => {
         console.log("MqttService.getConnection: getting configuration");
 
-        this.configService.loadConfig()
-        .then((mqttConfig) => {
+        this.configService.getConfig()
+        .then((config) => {
           console.log(`MqttService.getConnection: connecting`);
   
-          let client: mqtt.MqttClient = mqtt.connect(mqttConfig.brokerUrl, {
-            clientId: mqttConfig.clientId,
-            username: mqttConfig.username,
-            password: mqttConfig.password,
-            keepalive: mqttConfig.keepalive,
-            reconnectPeriod: mqttConfig.reconnectPeriod,
-            connectTimeout: mqttConfig.connectTimeout,
-            protocolVersion: mqttConfig.protocolVersion,
-            clean: mqttConfig.clean, // ✅ Retain session between reconnects
+          let client: mqtt.MqttClient = mqtt.connect(config.brokerUrl, {
+            clientId: config.clientId,
+            username: config.username,
+            password: config.password,
+            keepalive: config.keepalive,
+            reconnectPeriod: config.reconnectPeriod,
+            connectTimeout: config.connectTimeout,
+            protocolVersion: config.protocolVersion,
+            clean: config.clean, // ✅ Retain session between reconnects
           });
   
           client.on('connect', () => {
             console.log(`MqttService.getConnection: connected to broker`);
-            this.connection = new Connection(client, mqttConfig.clientId)
+            this.connection = new Connection(client, config.clientId)
             resolve(this.connection);
           });
   

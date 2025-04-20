@@ -1,14 +1,15 @@
-import { ChangeDetectorRef, AfterViewInit, Component, Input, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FullheaderComponent } from "../headers/fullheader/fullheader.component";
 import { FullfooterComponent } from "../headers/fullfooter/fullfooter.component";
 import { AlertsComponent } from "../alerts/alerts.component";
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
-import { Diary, DiaryResponse } from '../diary/diary';
+import { Diary } from '../diary/diary';
 import { Page } from './page';
 import { ActivatedRoute } from '@angular/router';
 import { DiaryService } from '../diary/diary.service';
 import { AlertService } from '../alerts/alert.service';
+import { ConfigService } from '../config/config.service';
 
 
 @Component({
@@ -24,94 +25,77 @@ import { AlertService } from '../alerts/alert.service';
   templateUrl: './page.component.html',
   styleUrl: './page.component.scss'
 })
-export class PageComponent implements OnInit, AfterViewInit {
+export class PageComponent implements OnInit {
 
   @Input() title?: string;
   diary: Diary = new Diary();
   page: Page = new Page();
   viewBox = '0 0 800 600'; // default value
+  fileServerUrl: string = "";
 
   constructor(
     private route: ActivatedRoute,
     private diaryService: DiaryService,
     private alertService: AlertService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private configService: ConfigService
   ) { }
 
   ngOnInit(): void {
     console.log(`pageComponent.ngOnInit`);
 
-    const diaryId = Number(this.route.snapshot.paramMap.get('diaryId'));
-    const pageId = Number(this.route.snapshot.paramMap.get('pageId'));
+    this.configService.getConfig()
+      .then((config) => {
+        console.log(`pageComponent.ngOnInit: config: ${JSON.stringify(config)}`);
+        this.fileServerUrl = config.fileServerUrl;
 
-    this.diaryService.getDiary(diaryId).subscribe({
-      next: (value: unknown) => {
-        console.log(`pageComponent.ngOnInit: JSON.stringify(value): ${JSON.stringify(value)}`);
+        const diaryId = Number(this.route.snapshot.paramMap.get('diaryId'));
+        const pageId = Number(this.route.snapshot.paramMap.get('pageId'));
 
-        if (
-          typeof value === 'object' &&
-          value !== null &&
-          'diary' in value &&
-          'pages' in value &&
-          Array.isArray((value as any).pages)
-        ) {
-          const response = value as {
-            diary: { id: number; name: string };
-            pages: Page[];
-          };
+        this.diaryService.getDiary(diaryId).subscribe({
+          next: (value: unknown) => {
+            // console.log(`pageComponent.ngOnInit: JSON.stringify(value): ${JSON.stringify(value)}`);
+            console.log(`pageComponent.ngOnInit: got diary and its pages`);
 
-          this.diary = response.diary;
+            if (
+              typeof value === 'object' &&
+              value !== null &&
+              'diary' in value &&
+              'pages' in value &&
+              Array.isArray((value as any).pages)
+            ) {
+              const response = value as {
+                diary: { id: number; name: string };
+                pages: Page[];
+              };
 
-          const found = response.pages.find(p => p.id === pageId);
-          if (found) {
-            this.page = found;
-          } else {
-            console.error('Page not found in diary.pages');
-          }
+              this.diary = response.diary;
 
-          const svg = this.generateSvg(this.page);
-          console.log(`pageComponent.ngOnInit: page.svg:`);
-          console.log(`${svg}`);
-        }
-      },
-      error: err => {
-        console.error(`PageComponent.ngOnInit: error: ${err}`);
-        this.alertService.error(err);
-      },
-      complete: () => console.log('PageComponent.ngOnInit: complete')
-    });
+              const found = response.pages.find(p => p.id === pageId);
+              if (found) {
+                this.page = found;
+              } else {
+                console.error('Page not found in diary.pages');
+              }
+            }
+
+            console.log(`pageComponent.ngOnInit: diary: ${this.diary.name}: page: ${this.page.name}`);
+
+            this.viewBox = `0 0 ${this.page.width} ${this.page.height}`;
+            this.setupZoomPan();
+            this.cdr.detectChanges();
+          },
+          error: err => {
+            console.error(`PageComponent.ngOnInit: error: ${err}`);
+            this.alertService.error(err);
+          },
+          complete: () => console.log('PageComponent.ngOnInit: complete')
+        });
+      })
+      .catch((error) => {
+        console.error(`MqttService.getConnection: configuration error: ${error}`);
+      });
   }
-
-  ngAfterViewInit(): void {
-    console.log(`pageComponent.ngAfterViewInit: JSON.stringify(this.page): ${JSON.stringify(this.page)}`);
-    if (this.page) {
-      this.viewBox = `0 0 ${this.page.width} ${this.page.height}`;
-      this.setupZoomPan();
-      this.cdr.detectChanges();
-    }
-  }
-
-
-
-  generateSvg(page: Page): string {
-    if (!this.diary || !page) {
-      return '';
-    }
-
-    const width = page.width || 800;
-    const height = page.height || 600;
-
-    const imageUrl = `http://localhost:8081/images/${this.diary.name}/${page.name}${page.extension}`;
-
-    const svg = `
-<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
-  <image href="${imageUrl}" x="0" y="0" height="${height}px" width="${width}px"/>
-</svg>
-    `.trim();
-
-    return svg;
-  }
-
 
   setupZoomPan(): void {
 
