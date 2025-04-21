@@ -20,16 +20,15 @@ export class PageheaderComponent {
 
   @Input() title: string | null = '';
   @Output() add = new EventEmitter<void>();
+  @Output() view = new EventEmitter<void>();
   @Output() select = new EventEmitter<void>();
 
   constructor(
     private iconRegistry: MatIconRegistry,
     private sanitizer: DomSanitizer
   ) {
-    this.iconRegistry.addSvgIcon(
-      'select',
-      this.sanitizer.bypassSecurityTrustResourceUrl('assets/icons/select.svg')
-    );
+    this.iconRegistry.addSvgIcon('hand-pointer', this.sanitizer.bypassSecurityTrustResourceUrl('assets/icons/hand-pointer.svg'));
+    this.iconRegistry.addSvgIcon('select', this.sanitizer.bypassSecurityTrustResourceUrl('assets/icons/select.svg'));    
   }
 
   onMenuClick() {
@@ -46,6 +45,11 @@ export class PageheaderComponent {
 
   onForwardClick() {
     console.log('Forward button clicked');
+  }
+
+  onViewClick() {
+    console.log('View button clicked');
+    this.view.emit();
   }
 
   onSelectClick() {

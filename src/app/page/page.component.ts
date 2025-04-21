@@ -35,7 +35,7 @@ export class PageComponent implements OnInit {
   page: Page = new Page();
   viewBox = '0 0 800 600'; // default value
   fileServerUrl: string = "";
-  mode: string = "select";
+  mode: 'select' | 'add' | 'edit' = 'select';
 
   constructor(
     private route: ActivatedRoute,
@@ -136,6 +136,7 @@ export class PageComponent implements OnInit {
     let start = { x: 0, y: 0 };
 
     svg.addEventListener('wheel', (e) => {
+      if (this.mode !== 'select') return;
       e.preventDefault();
       const zoomFactor = 1.1;
       const direction = e.deltaY < 0 ? 1 / zoomFactor : zoomFactor;
@@ -156,11 +157,13 @@ export class PageComponent implements OnInit {
     });
 
     svg.addEventListener('mousedown', (e) => {
+      if (this.mode !== 'select') return;
       isPanning = true;
       start = { x: e.clientX, y: e.clientY };
     });
 
     svg.addEventListener('mousemove', (e) => {
+      if (this.mode !== 'select') return;
       if (!isPanning) return;
 
       const dx = (e.clientX - start.x) * (viewBox.w / svg.clientWidth);
@@ -174,6 +177,7 @@ export class PageComponent implements OnInit {
     });
 
     window.addEventListener('mouseup', () => {
+      if (this.mode !== 'select') return;
       isPanning = false;
     });
   }
