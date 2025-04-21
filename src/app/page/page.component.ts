@@ -35,7 +35,7 @@ export class PageComponent implements OnInit {
   page: Page = new Page();
   viewBox = '0 0 800 600'; // default value
   fileServerUrl: string = "";
-  isAddMode = false;
+  mode: string = "select";
 
   constructor(
     private route: ActivatedRoute,
@@ -106,12 +106,12 @@ export class PageComponent implements OnInit {
 
   onAddClick(): void {
     console.log('PageComponent.onAddClick')
-    this.isAddMode = true;
+    this.mode = "add";
   }
 
   onSelectClick(): void {
     console.log('PageComponent.onSelectClick')
-    this.isAddMode = false;
+    this.mode = "select";
   }
 
   setupZoomPan(): void {

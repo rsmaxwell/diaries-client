@@ -11,6 +11,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
+  cursor: pointer;
 }
 
 #zoomable-svg {
@@ -19,8 +20,9 @@
   height: auto;
 }
 
-.custom-cursor {
-  cursor: url('/assets/cursors/add-cursor.svg') 16 16, auto;
+#svg-container.custom-cursor {
+  cursor: url('/assets/cursors/cross-cursor.svg') 16 16, pointer;
+  // border: 5px solid red; // DEBUGGING ONLY
 }
 
 

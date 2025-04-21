@@ -1,8 +1,8 @@
-<div class="page" [class.custom-cursor]="isAddMode">
+<div class="page">
 
   <app-pageheader (add)="onAddClick()" (select)="onSelectClick()" [title]="title$ | async"></app-pageheader>
 
-  <div id="svg-container">
+  <div id="svg-container" [class.custom-cursor]="mode == 'add'">
     <svg id="zoomable-svg" xmlns="http://www.w3.org/2000/svg" [attr.viewBox]="viewBox"
       preserveAspectRatio="xMidYMid meet">
       <image *ngIf="diary && page"
@@ -11,7 +11,7 @@
     </svg>
   </div>
 
-  <div *ngIf="isAddMode" class="debug">Add mode ON</div>
+  <div *ngIf="mode == 'add'" class="debug">Add mode ON</div>
 
   <div class="padding"></div>
 
