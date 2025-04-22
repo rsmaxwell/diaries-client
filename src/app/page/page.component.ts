@@ -1,18 +1,22 @@
 import { ChangeDetectorRef, Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageheaderComponent } from "../headers/pageheader/pageheader.component";
-import { FullfooterComponent } from "../headers/fullfooter/fullfooter.component";
 import { AlertsComponent } from "../alerts/alerts.component";
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { Diary } from '../diary/diary';
 import { Page } from './page';
+import { ViewModeHandler } from './modehandlers/viewModeHandler';
+import { SelectModeHandler } from './modehandlers/selectModehandler';
+import { AddModeHandler } from './modehandlers/addModehandler';
 import { ActivatedRoute } from '@angular/router';
 import { DiaryService } from '../diary/diary.service';
 import { AlertService } from '../alerts/alert.service';
 import { ConfigService } from '../config/config.service';
 import { BehaviorSubject } from 'rxjs';
+import { PageModeHandler } from './modehandlers/pageModeHandler';
+import { PagefooterComponent } from '../headers/pagefooter/pagefooter.component';
 
-
+type Mode = 'view' | 'select' | 'add';
 
 @Component({
   selector: 'app-pages',
@@ -20,7 +24,7 @@ import { BehaviorSubject } from 'rxjs';
   imports: [
     CommonModule,
     PageheaderComponent,
-    FullfooterComponent,
+    PagefooterComponent,
     AlertsComponent,
     MatSlideToggleModule
   ],
@@ -30,12 +34,36 @@ import { BehaviorSubject } from 'rxjs';
 export class PageComponent implements OnInit {
 
   title$ = new BehaviorSubject<string>('Loading...');
-  
+
   diary: Diary = new Diary();
   page: Page = new Page();
   viewBox = '0 0 800 600'; // default value
   fileServerUrl: string = "";
-  mode: 'select' | 'add' | 'edit' = 'select';
+  mode: 'select' | 'add' | 'view' = 'view';
+
+  handlers!: Record<Mode, PageModeHandler>;
+
+  currentHandler!: PageModeHandler;
+
+  getCurrentHandler(): PageModeHandler {
+    return this.handlers[this.mode];
+  }
+
+  onClick(event: MouseEvent) {
+    this.currentHandler.onClick(event);
+  }
+
+  onMouseMove(event: MouseEvent) {
+    this.currentHandler.onMouseMove(event);
+  }
+
+  onMouseDown(event: MouseEvent) {
+    this.currentHandler.onMouseDown(event);
+  }
+
+  onWheel(event: WheelEvent) {
+    this.currentHandler.onWheel(event);
+  }
 
   constructor(
     private route: ActivatedRoute,
@@ -109,6 +137,11 @@ export class PageComponent implements OnInit {
     this.mode = "add";
   }
 
+  onViewClick(): void {
+    console.log('PageComponent.onViewClick')
+    this.mode = "view";
+  }
+
   onSelectClick(): void {
     console.log('PageComponent.onSelectClick')
     this.mode = "select";
@@ -125,60 +158,39 @@ export class PageComponent implements OnInit {
 
     const svg = svgEl; // svg is now safely typed as SVGSVGElement
 
-    let viewBox = {
-      x: 0,
-      y: 0,
-      w: this.page?.width ?? 800,
-      h: this.page?.height ?? 600
+    this.handlers = {
+      view: new ViewModeHandler(svg, 0, 0, this.page.width, this.page.height),
+      select: new SelectModeHandler(svg),
+      add: new AddModeHandler(svg)
     };
 
-    let isPanning = false;
-    let start = { x: 0, y: 0 };
+    this.currentHandler = this.handlers['view'];
+    this.viewBox = this.currentHandler.getViewBox();
 
     svg.addEventListener('wheel', (e) => {
-      if (this.mode !== 'select') return;
-      e.preventDefault();
-      const zoomFactor = 1.1;
-      const direction = e.deltaY < 0 ? 1 / zoomFactor : zoomFactor;
-
-      const newW = viewBox.w * direction;
-      const newH = viewBox.h * direction;
-      const dx = (e.offsetX / svg.clientWidth) * (viewBox.w - newW);
-      const dy = (e.offsetY / svg.clientHeight) * (viewBox.h - newH);
-
-      viewBox = {
-        x: viewBox.x + dx,
-        y: viewBox.y + dy,
-        w: newW,
-        h: newH
-      };
-
-      this.viewBox = `${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`;
+      let handler = this.handlers[this.mode];
+      handler.onWheel(e);
+      if (handler.hasViewBox()) { 
+        this.viewBox = handler.getViewBox();
+      }
     });
 
     svg.addEventListener('mousedown', (e) => {
-      if (this.mode !== 'select') return;
-      isPanning = true;
-      start = { x: e.clientX, y: e.clientY };
+      let handler = this.handlers[this.mode];
+      handler.onMouseDown(e);
     });
 
     svg.addEventListener('mousemove', (e) => {
-      if (this.mode !== 'select') return;
-      if (!isPanning) return;
-
-      const dx = (e.clientX - start.x) * (viewBox.w / svg.clientWidth);
-      const dy = (e.clientY - start.y) * (viewBox.h / svg.clientHeight);
-
-      viewBox.x -= dx;
-      viewBox.y -= dy;
-
-      this.viewBox = `${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`;
-      start = { x: e.clientX, y: e.clientY };
+      let handler = this.handlers[this.mode];
+      handler.onMouseMove(e);
+      if (handler.hasViewBox()) { 
+        this.viewBox = handler.getViewBox();
+      }
     });
 
-    window.addEventListener('mouseup', () => {
-      if (this.mode !== 'select') return;
-      isPanning = false;
+    window.addEventListener('mouseup', (e) => {
+      let handler = this.handlers[this.mode];
+      handler.onMouseUp(e);
     });
   }
 }

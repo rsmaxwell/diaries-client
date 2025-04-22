@@ -4,6 +4,11 @@
   height: 100vh;
 }
 
+#zoomable-svg {
+  display: block;
+  width: auto;
+  height: auto;
+}
 
 #svg-container {
   flex: 1;
@@ -12,17 +17,22 @@
   justify-content: center;
   align-items: center;
   cursor: pointer;
+
+  &.view {
+    cursor: grab
+    // cursor: url('/assets/cursors/view-cursor.svg') 16 16, default;
+    // border: 5px solid red; // DEBUGGING ONLY
+  }
+
+  &.select {
+    cursor: default
+    // cursor: url('/assets/cursors/select-cursor.svg') 16 16, default;
+    // border: 5px solid green; // DEBUGGING ONLY
+  }
+
+  &.add {
+    cursor: crosshair
+    // cursor: url('/assets/cursors/add-cursor.svg') 16 16, default;
+    // border: 5px solid blue; // DEBUGGING ONLY
+  }
 }
-
-#zoomable-svg {
-  display: block;
-  width: auto;
-  height: auto;
-}
-
-#svg-container.custom-cursor {
-  cursor: url('/assets/cursors/cross-cursor.svg') 16 16, pointer;
-  // border: 5px solid red; // DEBUGGING ONLY
-}
-
-

@@ -29,22 +29,11 @@ export class PageheaderComponent {
   ) {
     this.iconRegistry.addSvgIcon('hand-pointer', this.sanitizer.bypassSecurityTrustResourceUrl('assets/icons/hand-pointer.svg'));
     this.iconRegistry.addSvgIcon('select', this.sanitizer.bypassSecurityTrustResourceUrl('assets/icons/select.svg'));    
+    this.iconRegistry.addSvgIcon('cross', this.sanitizer.bypassSecurityTrustResourceUrl('assets/icons/cross.svg')); 
   }
 
   onMenuClick() {
     console.log('Menu button clicked');
-  }
-
-  onBackClick() {
-    console.log('Back button clicked');
-  }
-
-  onUpClick() {
-    console.log('Up button clicked');
-  }
-
-  onForwardClick() {
-    console.log('Forward button clicked');
   }
 
   onViewClick() {

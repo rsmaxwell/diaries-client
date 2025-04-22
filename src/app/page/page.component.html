@@ -1,8 +1,8 @@
 <div class="page">
 
-  <app-pageheader (add)="onAddClick()" (select)="onSelectClick()" [title]="title$ | async"></app-pageheader>
+  <app-pageheader (add)="onAddClick()" (view)="onViewClick()" (select)="onSelectClick()" [title]="title$ | async"></app-pageheader>
 
-  <div id="svg-container" [class.custom-cursor]="mode == 'add'">
+  <div id="svg-container" [ngClass]="mode">
     <svg id="zoomable-svg" xmlns="http://www.w3.org/2000/svg" [attr.viewBox]="viewBox"
       preserveAspectRatio="xMidYMid meet">
       <image *ngIf="diary && page"
@@ -17,6 +17,6 @@
 
   <app-alerts></app-alerts>
   <!-- <app-alertbuttons></app-alertbuttons> -->
-  <app-fullfooter></app-fullfooter>
+  <app-pagefooter></app-pagefooter>
 
 </div>
