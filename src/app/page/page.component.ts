@@ -14,6 +14,7 @@ import { ConfigService } from '../config/config.service';
 import { BehaviorSubject } from 'rxjs';
 import { PageModeHandler } from './modehandlers/pageModeHandler';
 import { PagefooterComponent } from '../headers/pagefooter/pagefooter.component';
+import { Fragment } from '../model/fragment/fragment';
 
 type Mode = 'view' | 'select' | 'add';
 
@@ -38,6 +39,8 @@ export class PageComponent implements OnInit {
   viewBox = '0 0 800 600'; // default value
   fileServerUrl: string = "";
   mode: 'select' | 'add' | 'view' = 'view';
+  currentFragment: Fragment | null = null;
+  fragments: Fragment[] = [];
 
   handlers!: Record<Mode, PageModeHandler>;
 
@@ -169,7 +172,7 @@ export class PageComponent implements OnInit {
     svg.addEventListener('wheel', (e) => {
       let handler = this.handlers[this.mode];
       handler.onWheel(e);
-      if (handler.hasViewBox()) { 
+      if (handler.hasViewBox()) {
         this.viewBox = handler.getViewBox();
       }
     });
@@ -182,14 +185,32 @@ export class PageComponent implements OnInit {
     svg.addEventListener('mousemove', (e) => {
       let handler = this.handlers[this.mode];
       handler.onMouseMove(e);
-      if (handler.hasViewBox()) { 
+      if (handler.hasViewBox()) {
         this.viewBox = handler.getViewBox();
+      }
+      if (handler.hasRectangleInProgress()) {
+        // console.log('PageComponent.mousemove: rectangleInProgress');
+        const r = handler.getRectangle();
+        const n = this.fragments.length + 1;
+        const id = "rect" + n.toString();
+        const style = "fill:none;fill-opacity:1;stroke:#ff0000;stroke-width:10;stroke-dasharray:10, 10;stroke-dashoffset:0;stroke-opacity:1;paint-order:stroke fill markers";
+        this.currentFragment = new Fragment(id, r.x, r.y, r.width, r.height, style);
       }
     });
 
     window.addEventListener('mouseup', (e) => {
       let handler = this.handlers[this.mode];
       handler.onMouseUp(e);
+      if (handler.hasRectangleComplete()) {
+        const r = handler.getRectangle();
+        const n = this.fragments.length + 1;
+        const id = "rect" + n.toString();
+        const style = "fill:none;fill-opacity:1;stroke:#000000;stroke-width:10;stroke-dasharray:10, 10;stroke-dashoffset:0;stroke-opacity:1;paint-order:stroke fill markers";
+        const fragment = new Fragment(id, r.x, r.y, r.width, r.height, style);
+        this.fragments.push(fragment);
+
+        this.currentFragment = null;
+      }
     });
   }
 }

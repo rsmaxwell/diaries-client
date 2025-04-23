@@ -1,3 +1,4 @@
+import { Rectangle } from "../../utilities/rectangle";
 
 
 
@@ -17,6 +18,10 @@ export abstract class PageModeHandler {
 
     hasViewBox(): boolean { return false; }
     getViewBox(): string { return ""; }
+
+    hasRectangleInProgress(): boolean { return false; }
+    hasRectangleComplete(): boolean { return false; }
+    getRectangle(): Rectangle { return new Rectangle(0,0,0,0); }
   }
   
 
