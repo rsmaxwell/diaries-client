@@ -117,6 +117,7 @@ export class PageComponent implements OnInit {
             console.log(`pageComponent.ngOnInit: diary: ${this.diary.name}: page: ${this.page.name}`);
 
             this.viewBox = `0 0 ${this.page.width} ${this.page.height}`;
+
             this.setupZoomPan();
             this.cdr.detectChanges();
           },
