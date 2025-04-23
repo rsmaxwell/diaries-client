@@ -3,11 +3,17 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { Router } from '@angular/router';
+import { AlertsComponent } from "../../alerts/alerts.component";
 
 @Component({
   selector: 'app-pagefooter',
   standalone: true,
-  imports: [MatToolbarModule, MatButtonModule, MatIconModule],
+  imports: [
+    MatToolbarModule, 
+    MatButtonModule, 
+    MatIconModule, 
+    AlertsComponent
+  ],
   templateUrl: './pagefooter.component.html',
   styleUrl: './pagefooter.component.scss'
 })

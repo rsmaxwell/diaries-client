@@ -5,7 +5,6 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { DiaryService } from './diary.service';
 import { FullheaderComponent } from "../headers/fullheader/fullheader.component";
-import { AlertsComponent } from "../alerts/alerts.component";
 import { MatTableModule } from '@angular/material/table';
 import { ScrollingModule } from '@angular/cdk/scrolling';
 import { FullfooterComponent } from "../headers/fullfooter/fullfooter.component";
@@ -22,10 +21,9 @@ import { Page } from '../page/page';
   selector: 'app-diary',
   standalone: true,
   imports: [
-    CommonModule,        // ✅ <-- this line is essential
+    CommonModule, 
     FormsModule,
     FullheaderComponent,
-    AlertsComponent,
     FullfooterComponent,
     MatCardModule,
     MatSelectModule,

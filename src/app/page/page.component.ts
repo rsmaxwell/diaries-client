@@ -1,7 +1,6 @@
 import { ChangeDetectorRef, Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageheaderComponent } from "../headers/pageheader/pageheader.component";
-import { AlertsComponent } from "../alerts/alerts.component";
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { Diary } from '../diary/diary';
 import { Page } from './page';
@@ -25,7 +24,6 @@ type Mode = 'view' | 'select' | 'add';
     CommonModule,
     PageheaderComponent,
     PagefooterComponent,
-    AlertsComponent,
     MatSlideToggleModule
   ],
   templateUrl: './page.component.html',

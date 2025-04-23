@@ -6,7 +6,6 @@ import { MatTableModule } from '@angular/material/table';
 import { ScrollingModule } from '@angular/cdk/scrolling';
 import { FullheaderComponent } from "../headers/fullheader/fullheader.component";
 import { FullfooterComponent } from "../headers/fullfooter/fullfooter.component";
-import { AlertsComponent } from "../alerts/alerts.component";
 import { MatCardModule } from '@angular/material/card';
 import { Subscription } from 'rxjs';
 import { AlertService } from '../alerts/alert.service';
@@ -21,7 +20,6 @@ import { DiariesService } from './diaries.service';
     ScrollingModule,
     FullheaderComponent,
     FullfooterComponent,
-    AlertsComponent,
     MatCardModule
 ],
   templateUrl: './diaries.component.html',
