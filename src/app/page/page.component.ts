@@ -15,6 +15,8 @@ import { BehaviorSubject } from 'rxjs';
 import { PageModeHandler } from './modehandlers/pageModeHandler';
 import { PagefooterComponent } from '../headers/pagefooter/pagefooter.component';
 import { Fragment } from '../model/fragment/fragment';
+import { Rectangle } from '../utilities/rectangle';
+import { NgZone } from '@angular/core';
 
 type Mode = 'view' | 'select' | 'add';
 
@@ -36,34 +38,37 @@ export class PageComponent implements OnInit {
 
   diary: Diary = new Diary();
   page: Page = new Page();
-  viewBox = '0 0 800 600'; // default value
+  public viewBox = '0 0 800 600'; // default value
   fileServerUrl: string = "";
   mode: 'select' | 'add' | 'view' = 'view';
+  selectedFragment: Fragment | null = null;
   currentFragment: Fragment | null = null;
   fragments: Fragment[] = [];
 
   handlers!: Record<Mode, PageModeHandler>;
 
-  currentHandler!: PageModeHandler;
-
-  getCurrentHandler(): PageModeHandler {
-    return this.handlers[this.mode];
-  }
-
   onClick(event: MouseEvent) {
-    this.currentHandler.onClick(event);
+    console.log(`PageComponent.onClick: mode: ${this.mode}`)
+    let handler = this.handlers[this.mode];
+    handler.onClick(event);
   }
 
   onMouseMove(event: MouseEvent) {
-    this.currentHandler.onMouseMove(event);
+    console.log(`PageComponent.onMouseMove: mode: ${this.mode}`)
+    let handler = this.handlers[this.mode];
+    handler.onMouseMove(event);
   }
 
   onMouseDown(event: MouseEvent) {
-    this.currentHandler.onMouseDown(event);
+    console.log(`PageComponent.onMouseDown: mode: ${this.mode}`)
+    let handler = this.handlers[this.mode];
+    handler.onMouseDown(event);
   }
 
   onWheel(event: WheelEvent) {
-    this.currentHandler.onWheel(event);
+    console.log(`PageComponent.onWheel: mode: ${this.mode}`)
+    let handler = this.handlers[this.mode];
+    handler.onWheel(event);
   }
 
   constructor(
@@ -71,7 +76,8 @@ export class PageComponent implements OnInit {
     private diaryService: DiaryService,
     private alertService: AlertService,
     private cdr: ChangeDetectorRef,
-    private configService: ConfigService
+    private configService: ConfigService,
+    private ngZone: NgZone
   ) { }
 
   ngOnInit(): void {
@@ -118,8 +124,11 @@ export class PageComponent implements OnInit {
             console.log(`pageComponent.ngOnInit: diary: ${this.diary.name}: page: ${this.page.name}`);
 
             this.viewBox = `0 0 ${this.page.width} ${this.page.height}`;
+            console.log(`PageComponent.ngOnInit: getDiary.next: viewBox: ${this.viewBox}`);
 
             this.setupZoomPan();
+
+            console.log('Set viewBox to:', this.viewBox);
             this.cdr.detectChanges();
           },
           error: err => {
@@ -161,56 +170,73 @@ export class PageComponent implements OnInit {
     const svg = svgEl; // svg is now safely typed as SVGSVGElement
 
     this.handlers = {
-      view: new ViewModeHandler(svg, 0, 0, this.page.width, this.page.height),
-      select: new SelectModeHandler(svg),
-      add: new AddModeHandler(svg)
+      view: new ViewModeHandler(this, svg),
+      select: new SelectModeHandler(this, svg),
+      add: new AddModeHandler(this, svg)
     };
 
-    this.currentHandler = this.handlers['view'];
-    this.viewBox = this.currentHandler.getViewBox();
-
     svg.addEventListener('wheel', (e) => {
+      console.log(`PageComponent.addEventListener - wheel`)
       let handler = this.handlers[this.mode];
       handler.onWheel(e);
-      if (handler.hasViewBox()) {
-        this.viewBox = handler.getViewBox();
-      }
     });
 
     svg.addEventListener('mousedown', (e) => {
+      console.log(`PageComponent.addEventListener - mousedown`)
       let handler = this.handlers[this.mode];
       handler.onMouseDown(e);
     });
 
     svg.addEventListener('mousemove', (e) => {
+      console.log(`PageComponent.addEventListener - mousemove`)
       let handler = this.handlers[this.mode];
       handler.onMouseMove(e);
-      if (handler.hasViewBox()) {
-        this.viewBox = handler.getViewBox();
-      }
-      if (handler.hasRectangleInProgress()) {
-        // console.log('PageComponent.mousemove: rectangleInProgress');
-        const r = handler.getRectangle();
-        const n = this.fragments.length + 1;
-        const id = "rect" + n.toString();
-        const style = "fill:none;fill-opacity:1;stroke:#ff0000;stroke-width:10;stroke-dasharray:10, 10;stroke-dashoffset:0;stroke-opacity:1;paint-order:stroke fill markers";
-        this.currentFragment = new Fragment(id, r.x, r.y, r.width, r.height, style);
-      }
     });
 
     window.addEventListener('mouseup', (e) => {
+      console.log(`PageComponent.addEventListener - mouseup`)
       let handler = this.handlers[this.mode];
       handler.onMouseUp(e);
-      if (handler.hasRectangleComplete()) {
-        const r = handler.getRectangle();
-        const n = this.fragments.length + 1;
-        const id = "rect" + n.toString();
-        const style = "fill:none;fill-opacity:1;stroke:#000000;stroke-width:10;stroke-dasharray:10, 10;stroke-dashoffset:0;stroke-opacity:1;paint-order:stroke fill markers";
-        const fragment = new Fragment(id, r.x, r.y, r.width, r.height, style);
-        this.fragments.push(fragment);
-
-        this.currentFragment = null;
-      }
     });
+  }
+
+  onSelectFragment(fragment: Fragment) {
+    console.log(`PageComponent.onSelectFragment: mode: ${this.mode}`)
+    let handler = this.handlers[this.mode];
+    handler.onSelectFragment(fragment);
+  }
+
+  onKeyDown(e: KeyboardEvent) {
+    console.log(`PageComponent.onKeyDown: mode: ${this.mode}`)
+    let handler = this.handlers[this.mode];
+    handler.onKeyDown(e);
+  }
+
+  cancelSelection() {
+    this.selectedFragment = null;
+  }
+  setViewBox(viewBox: string) {
+    this.viewBox = viewBox;
+  }
+  setSelection(fragment: Fragment) {
+    this.selectedFragment = fragment;
+  }
+  resizeSelectedFragment(fragment: Fragment) {
+    this.selectedFragment = fragment;
+  }
+  updateCurrentFragment(rectangle: Rectangle) {
+    this.currentFragment = new Fragment("currentFragment", rectangle);
+  }
+  addNewFragment(rectangle: Rectangle) {
+    const n = this.fragments.length + 1;
+    const id = "rect" + n.toString();
+    const fragment = new Fragment(id, rectangle);
+    this.fragments.push(fragment);
+  }
+  clearCurrentFragment() {
+    this.currentFragment = null;
+  }
+  getViewBox(): string {
+    return this.viewBox;
   }
 }

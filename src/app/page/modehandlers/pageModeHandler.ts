@@ -1,4 +1,8 @@
+
+import { Fragment } from "../../model/fragment/fragment";
+import { Point } from "../../utilities/point";
 import { Rectangle } from "../../utilities/rectangle";
+import { PageComponent } from "../page.component";
 
 
 
@@ -7,6 +11,7 @@ import { Rectangle } from "../../utilities/rectangle";
 export abstract class PageModeHandler {
 
     constructor(
+        protected pageComponent: PageComponent,
         protected svg: SVGSVGElement
     ) {}    
 
@@ -15,13 +20,24 @@ export abstract class PageModeHandler {
     abstract onMouseUp(event: MouseEvent): void;
     abstract onMouseDown(event: MouseEvent): void;
     abstract onWheel(event: WheelEvent): void;
+    abstract onKeyDown(event: KeyboardEvent): void;
+    abstract onSelectFragment(fragment: Fragment): void;
 
-    hasViewBox(): boolean { return false; }
-    getViewBox(): string { return ""; }
+    getMousePosition(event: MouseEvent): Point | null {
+        const svg = event.target instanceof SVGElement
+            ? event.target.ownerSVGElement
+            : (event.target as Element).closest('svg');
 
-    hasRectangleInProgress(): boolean { return false; }
-    hasRectangleComplete(): boolean { return false; }
-    getRectangle(): Rectangle { return new Rectangle(0,0,0,0); }
+        if (!svg) return null;
+
+        const pt = svg.createSVGPoint();
+        pt.x = event.clientX;
+        pt.y = event.clientY;
+
+        // Transform to SVG user coordinates
+        const transformedPoint = pt.matrixTransform(svg.getScreenCTM()?.inverse());
+        return new Point(transformedPoint.x, transformedPoint.y);
+    }
   }
   
 

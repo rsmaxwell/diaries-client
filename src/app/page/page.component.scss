@@ -36,3 +36,31 @@
     // border: 5px solid blue; // DEBUGGING ONLY
   }
 }
+
+.inprogress {
+  stroke: red;
+  stroke-width: 4;
+  fill: transparent;
+  stroke-width: 10;
+  stroke-dasharray: 10
+}
+
+.selected {
+  stroke: green;
+  stroke-width: 4;
+  fill: transparent;
+  stroke-width: 10;
+  stroke-dasharray: 10
+}
+
+.selectable {
+  stroke: #000;
+  stroke-width: 4;
+  fill: transparent;
+  stroke-width: 10;
+  stroke-dasharray: 10
+}
+
+rect, path {
+  pointer-events: all;
+}

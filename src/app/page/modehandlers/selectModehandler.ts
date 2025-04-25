@@ -1,20 +1,31 @@
+import { Fragment } from "../../model/fragment/fragment";
 import { PageModeHandler } from "./pageModeHandler";
 
 export class SelectModeHandler extends PageModeHandler {
 
-    onClick(event: MouseEvent) {
-        console.log('Selecting');
+    isCancelPending: boolean = false;
+
+
+    onMouseDown(event: MouseEvent) {
+        this.isCancelPending = true;
     }
-    onMouseMove(event: MouseEvent) {
-        // Handle select mode mouse move
+    onSelectFragment(fragment: Fragment): void {
+        this.isCancelPending = false;
+        this.pageComponent.setSelection(fragment);
     }
     onMouseUp(event: MouseEvent) {
+        if (this.isCancelPending) {
+            this.isCancelPending = false;
+            this.pageComponent.cancelSelection();
+        }
+    }
+    onKeyDown(event: KeyboardEvent): void {
+        if (event.key === 'Escape') {
+            this.pageComponent.cancelSelection();
+        }
+    }
 
-    }
-    onMouseDown(event: MouseEvent) {
-        // Handle view mode mouse move
-    }
-    onWheel(event: WheelEvent) {
-        // Handle view mode mouse move
-    }
+    onClick(event: MouseEvent) { }
+    onMouseMove(event: MouseEvent) { }
+    onWheel(event: WheelEvent) { }
 }

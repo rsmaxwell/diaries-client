@@ -10,4 +10,8 @@ export class Rectangle {
         this.width = width;
         this.height = height;
     }
+    
+    toString(): string {
+        return `${this.x} ${this.y} ${this.width} ${this.height}`;
+    }
 }

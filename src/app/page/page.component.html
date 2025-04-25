@@ -1,9 +1,9 @@
-<div class="page">
+<div class="page" (keydown)="onKeyDown($event)" tabindex="0">
 
   <app-pageheader (add)="onAddClick()" (view)="onViewClick()" (select)="onSelectClick()" [title]="title$ | async"></app-pageheader>
 
   <div id="svg-container" [ngClass]="mode">
-    <svg id="zoomable-svg" xmlns="http://www.w3.org/2000/svg" [attr.viewBox]="viewBox"
+    <svg id="zoomable-svg" xmlns="http://www.w3.org/2000/svg" [attr.viewBox]="getViewBox()"
       preserveAspectRatio="xMidYMid meet">
       <image *ngIf="diary && page"
         [attr.href]="fileServerUrl + '/' + diary.name + '/' + page.name + (page.extension || '.jpg')" x="0" y="0"
@@ -15,7 +15,8 @@
         [attr.y]="currentFragment.y"
         [attr.width]="currentFragment.width"
         [attr.height]="currentFragment.height"
-        [attr.style]="currentFragment.style" />
+        class='inprogress'
+        />
 
         <rect *ngFor="let fragment of fragments"
         [attr.id]="fragment.id"
@@ -23,7 +24,9 @@
         [attr.y]="fragment.y"
         [attr.width]="fragment.width"
         [attr.height]="fragment.height"
-        [attr.style]="fragment.style" />
+        [attr.class]="fragment === selectedFragment ? 'selected' : 'selectable'"
+        (click)="onSelectFragment(fragment)"
+         />
 
     </svg>
   </div>
