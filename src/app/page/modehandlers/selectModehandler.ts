@@ -114,7 +114,7 @@ export class SelectModeHandler extends PageModeHandler {
                         cursor = 'horizontal-resize';
                     } else if (top || bottom) {
                         cursor = 'vertical-resize';
-                    } else  {
+                    } else {
                         cursor = 'move';
                     }
                 }
@@ -125,11 +125,8 @@ export class SelectModeHandler extends PageModeHandler {
     }
 
     dragSelectedFragment(event: MouseEvent) {
-        // console.log(`SelectModeHandler: dragSelectedFragment`);
         if (!this.pageComponent.selectedFragment) return;
-        // console.log(`SelectModeHandler: dragSelectedFragment: selectedfragment: ${JSON.stringify(this.pageComponent.selectedFragment)}`);
         if (!(this.isDraggingLeft || this.isDraggingRight || this.isDraggingTop || this.isDraggingBottom || this.isDraggingAll)) return;
-        // console.log(`SelectModeHandler: dragSelectedFragment: isDragging`);
 
         let newMouse = this.getMousePosition(event);
         if (!newMouse) return;
@@ -137,28 +134,60 @@ export class SelectModeHandler extends PageModeHandler {
         const dx = newMouse.x - this.lastMouseX;
         const dy = newMouse.y - this.lastMouseY;
 
-        // console.log(`SelectModeHandler: dragSelectedFragment: before: selectedFragment: ${JSON.stringify(this.pageComponent.selectedFragment)}`);
-
+        const fragment = this.pageComponent.selectedFragment;
         if (this.isDraggingLeft) {
-            this.pageComponent.selectedFragment.x += dx;
-            this.pageComponent.selectedFragment.width -= dx;
-        }
-        if (this.isDraggingTop) {
-            this.pageComponent.selectedFragment.y += dy;
-            this.pageComponent.selectedFragment.height -= dy;
+            fragment.x += dx;
+            fragment.width -= dx;
         }
         if (this.isDraggingRight) {
-            this.pageComponent.selectedFragment.width += dx;
+            fragment.width += dx;
+        }
+        if (this.isDraggingTop) {
+            fragment.y += dy;
+            fragment.height -= dy;
         }
         if (this.isDraggingBottom) {
-            this.pageComponent.selectedFragment.height += dy;
+            fragment.height += dy;
         }
         if (this.isDraggingAll) {
-            this.pageComponent.selectedFragment.x += dx;
-            this.pageComponent.selectedFragment.y += dy;
+            fragment.x += dx;
+            fragment.y += dy;
         }
 
-        // console.log(`SelectModeHandler: dragSelectedFragment: after: selectedFragment: ${JSON.stringify(this.pageComponent.selectedFragment)}`);
+        // Flipping logic to handle negative width
+        if (this.pageComponent.selectedFragment.width < 0) {
+            // If we were dragging the left, now we should drag the right
+            if (this.isDraggingLeft) {
+                this.isDraggingLeft = false;
+                this.isDraggingRight = true;
+            } else if (this.isDraggingRight) {
+                this.isDraggingRight = false;
+                this.isDraggingLeft = true;
+            }
+
+            fragment.x += fragment.width;
+            fragment.width = Math.abs(fragment.width);
+            this.lastMouseX = newMouse.x;
+            return;
+        }
+
+        // Flipping logic to handle negative height
+        if (this.pageComponent.selectedFragment.height < 0) {
+
+            // If we were dragging the top, now we should drag the bottom
+            if (this.isDraggingTop) {
+                this.isDraggingTop = false;
+                this.isDraggingBottom = true;
+            } else if (this.isDraggingBottom) {
+                this.isDraggingBottom = false;
+                this.isDraggingTop = true;
+            }
+
+            fragment.y += fragment.height;
+            fragment.height = Math.abs(fragment.height);
+            this.lastMouseY = newMouse.y;
+            return;
+        }
 
         // After applying, **update last mouse**
         this.lastMouseX = newMouse.x;

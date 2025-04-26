@@ -182,9 +182,6 @@ export class PageComponent implements OnInit {
   setSelection(fragment: Fragment) {
     this.selectedFragment = fragment;
   }
-  resizeSelectedFragment(fragment: Fragment) {
-    this.selectedFragment = fragment;
-  }
   updateCurrentFragment(rectangle: Rectangle) {
     this.currentFragment = new Fragment("currentFragment", rectangle);
   }
