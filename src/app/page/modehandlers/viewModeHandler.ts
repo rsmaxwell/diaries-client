@@ -6,62 +6,82 @@ import { PageModeHandler } from "./pageModeHandler";
 
 export class ViewModeHandler extends PageModeHandler {
 
-    private viewBox;
-    private start = new Point(0, 0);
-    private isPanning = false;
-
-    constructor(
-        pageConponent: PageComponent,
-        svg: SVGSVGElement
-    ) {
-        super(pageConponent, svg);
-
-        this.viewBox = new Rectangle(0, 0, this.pageComponent.page.width, this.pageComponent.page.height);
-        
-        console.log(`ViewModeHandler.constructor: this.viewBox: ${this.viewBox}, this.viewBox.toString(): ${this.viewBox.toString()}`);
-        this.pageComponent.setViewBox(this.viewBox.toString());
-    }
+    private viewBox = new Rectangle(0, 0, 0, 0);
+    private lastMouseX = 0;
+    private lastMouseY = 0;
+    private isDragging = false;
 
     onMouseDown(event: MouseEvent) {
-        this.isPanning = true;
-        this.start = new Point(event.clientX, event.clientY);
+        this.isDragging = true;
+        this.lastMouseX = event.clientX;
+        this.lastMouseY = event.clientY;
     }
 
     onMouseMove(event: MouseEvent) {
-        if (!this.isPanning) return;
+        if (!this.isDragging) return;
 
-        const dx = (event.clientX - this.start.x) * (this.viewBox.width / this.svg.clientWidth);
-        const dy = (event.clientY - this.start.y) * (this.viewBox.height / this.svg.clientHeight);
-
-        this.viewBox.x -= dx;
-        this.viewBox.y -= dy;
-
-        console.log("ViewModeHandler.onMouseMove");
-        this.pageComponent.setViewBox(this.viewBox.toString());
-        this.start = { x: event.clientX, y: event.clientY };
+        const dx = event.clientX - this.lastMouseX;
+        const dy = event.clientY - this.lastMouseY;
+        
+        const rect = this.pageComponent.svg.getBoundingClientRect();
+        const scaleX = this.viewBox.width / rect.width;
+        const scaleY = this.viewBox.height / rect.height;
+        
+        // Update viewBox position based on mouse movement
+        this.viewBox.x -= dx * scaleX;
+        this.viewBox.y -= dy * scaleY;
+        
+        // Save current mouse position for next move
+        this.lastMouseX = event.clientX;
+        this.lastMouseY = event.clientY;
+        
+        // Now update the PageComponent's viewBox so Angular refreshes
+        this.pageComponent.updateViewBox(this.viewBox);
     }
 
     onMouseUp(event: MouseEvent) {
-        this.isPanning = false;
+        this.isDragging = false;
     }
 
     onWheel(event: WheelEvent) {
-        console.log("ViewModeHandler.onWheel");
+        console.log(`ViewModeHandler.onWheel: viewBox: ${this.pageComponent.viewBox.toString()}`);
         event.preventDefault();
-        const zoomFactor = 1.1;
-        const direction = event.deltaY < 0 ? 1 / zoomFactor : zoomFactor;
 
-        const newW = this.viewBox.width * direction;
-        const newH = this.viewBox.height * direction;
-        const dx = (event.offsetX / this.svg.clientWidth) * (this.viewBox.width - newW);
-        const dy = (event.offsetY / this.svg.clientHeight) * (this.viewBox.height - newH);
+        if (!this.pageComponent.svg || !this.viewBox) {
+            console.warn('SVG element or viewBox is not initialized');
+            return;
+        }
 
-        this.viewBox = new Rectangle(this.viewBox.x + dx, this.viewBox.y + dy, newW, newH);
-        console.log("ViewModeHandler.onWheel");
-        this.pageComponent.setViewBox(this.viewBox.toString());
+        if (this.viewBox.width === 0 || this.viewBox.height === 0) {
+            console.warn('ViewBox dimensions are zero. Skipping zoom.');
+            return;
+        }
+
+        const scaleFactor = (event.deltaY < 0) ? 0.9 : 1.1;
+
+        // Center point to zoom on
+        const rect = this.pageComponent.svg.getBoundingClientRect();
+        const svgX = (event.clientX - rect.left) * (this.viewBox.width / rect.width) + this.viewBox.x;
+        const svgY = (event.clientY - rect.top) * (this.viewBox.height / rect.height) + this.viewBox.y;
+
+        // Zoom logic
+        this.viewBox.x = svgX - (svgX - this.viewBox.x) * scaleFactor;
+        this.viewBox.y = svgY - (svgY - this.viewBox.y) * scaleFactor;
+        this.viewBox.width *= scaleFactor;
+        this.viewBox.height *= scaleFactor;
+
+        console.log('Updated viewBox after zoom:', this.viewBox);
+
+        // Update the PageComponent after zoom
+        this.pageComponent.updateViewBox(this.viewBox);
     }
 
     onClick(event: MouseEvent) { }
     onKeyDown(event: KeyboardEvent): void { }
     onSelectFragment(fragment: Fragment): void { }
+
+    
+    setViewBox(viewBox: Rectangle) {
+        this.viewBox = viewBox;
+      }
 }

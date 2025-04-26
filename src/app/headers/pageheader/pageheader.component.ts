@@ -18,6 +18,7 @@ import { DomSanitizer } from '@angular/platform-browser';
 })
 export class PageheaderComponent {
 
+
   @Input() title: string | null = '';
   @Output() add = new EventEmitter<void>();
   @Output() view = new EventEmitter<void>();

@@ -38,50 +38,42 @@ export class PageComponent implements OnInit {
 
   diary: Diary = new Diary();
   page: Page = new Page();
-  public viewBox = '0 0 800 600'; // default value
+  viewBox = '0 0 0 0';
   fileServerUrl: string = "";
   mode: 'select' | 'add' | 'view' = 'view';
+  style = '';
   selectedFragment: Fragment | null = null;
   currentFragment: Fragment | null = null;
   fragments: Fragment[] = [];
+  svg: HTMLElement | SVGSVGElement = {} as HTMLElement;
+  viewModeHandler = new ViewModeHandler(this);
 
-  handlers!: Record<Mode, PageModeHandler>;
-
-  onClick(event: MouseEvent) {
-    console.log(`PageComponent.onClick: mode: ${this.mode}`)
-    let handler = this.handlers[this.mode];
-    handler.onClick(event);
-  }
-
-  onMouseMove(event: MouseEvent) {
-    console.log(`PageComponent.onMouseMove: mode: ${this.mode}`)
-    let handler = this.handlers[this.mode];
-    handler.onMouseMove(event);
-  }
-
-  onMouseDown(event: MouseEvent) {
-    console.log(`PageComponent.onMouseDown: mode: ${this.mode}`)
-    let handler = this.handlers[this.mode];
-    handler.onMouseDown(event);
-  }
-
-  onWheel(event: WheelEvent) {
-    console.log(`PageComponent.onWheel: mode: ${this.mode}`)
-    let handler = this.handlers[this.mode];
-    handler.onWheel(event);
-  }
+  handlers = {
+    view: this.viewModeHandler,
+    select: new SelectModeHandler(this),
+    add: new AddModeHandler(this)
+  };
 
   constructor(
     private route: ActivatedRoute,
     private diaryService: DiaryService,
     private alertService: AlertService,
     private cdr: ChangeDetectorRef,
-    private configService: ConfigService,
-    private ngZone: NgZone
+    private configService: ConfigService
   ) { }
+
 
   ngOnInit(): void {
     console.log(`pageComponent.ngOnInit`);
+
+    const svgEl = document.getElementById('zoomable-svg');
+    if (!(svgEl instanceof SVGSVGElement)) {
+        console.error('zoomable-svg is not an SVG element');
+        return;
+    }
+    this.svg = svgEl; // svg is now safely typed as SVGSVGElement
+
+
 
     this.configService.getConfig()
       .then((config) => {
@@ -122,13 +114,9 @@ export class PageComponent implements OnInit {
             }
 
             console.log(`pageComponent.ngOnInit: diary: ${this.diary.name}: page: ${this.page.name}`);
-
-            this.viewBox = `0 0 ${this.page.width} ${this.page.height}`;
-            console.log(`PageComponent.ngOnInit: getDiary.next: viewBox: ${this.viewBox}`);
-
-            this.setupZoomPan();
-
-            console.log('Set viewBox to:', this.viewBox);
+            const rect = new Rectangle(0, 0, this.page.width, this.page.height);
+            this.viewModeHandler.setViewBox(rect);
+            this.updateViewBox(rect);
             this.cdr.detectChanges();
           },
           error: err => {
@@ -143,80 +131,50 @@ export class PageComponent implements OnInit {
       });
   }
 
-  onAddClick(): void {
-    console.log('PageComponent.onAddClick')
+  onClick(event: MouseEvent) {
+    let handler = this.handlers[this.mode];
+    handler.onClick(event);
+  }
+  onMouseMove(event: MouseEvent) {
+    let handler = this.handlers[this.mode];
+    handler.onMouseMove(event);
+  }
+  onMouseDown(event: MouseEvent) {
+    let handler = this.handlers[this.mode];
+    handler.onMouseDown(event);
+  }
+  onMouseUp(event: MouseEvent) {
+    let handler = this.handlers[this.mode];
+    handler.onMouseUp(event);
+  }
+  onWheel(event: WheelEvent) {
+    let handler = this.handlers[this.mode];
+    handler.onWheel(event);
+  }
+  onAddButtonClick(): void {
     this.mode = "add";
   }
-
-  onViewClick(): void {
-    console.log('PageComponent.onViewClick')
+  onViewButtonClick(): void {
     this.mode = "view";
   }
-
-  onSelectClick(): void {
-    console.log('PageComponent.onSelectClick')
+  onSelectButtonClick(): void {
     this.mode = "select";
   }
-
-  setupZoomPan(): void {
-
-    const svgEl = document.getElementById('zoomable-svg');
-
-    if (!(svgEl instanceof SVGSVGElement)) {
-      console.error('zoomable-svg is not an SVG element');
-      return;
-    }
-
-    const svg = svgEl; // svg is now safely typed as SVGSVGElement
-
-    this.handlers = {
-      view: new ViewModeHandler(this, svg),
-      select: new SelectModeHandler(this, svg),
-      add: new AddModeHandler(this, svg)
-    };
-
-    svg.addEventListener('wheel', (e) => {
-      console.log(`PageComponent.addEventListener - wheel`)
-      let handler = this.handlers[this.mode];
-      handler.onWheel(e);
-    });
-
-    svg.addEventListener('mousedown', (e) => {
-      console.log(`PageComponent.addEventListener - mousedown`)
-      let handler = this.handlers[this.mode];
-      handler.onMouseDown(e);
-    });
-
-    svg.addEventListener('mousemove', (e) => {
-      console.log(`PageComponent.addEventListener - mousemove`)
-      let handler = this.handlers[this.mode];
-      handler.onMouseMove(e);
-    });
-
-    window.addEventListener('mouseup', (e) => {
-      console.log(`PageComponent.addEventListener - mouseup`)
-      let handler = this.handlers[this.mode];
-      handler.onMouseUp(e);
-    });
-  }
-
   onSelectFragment(fragment: Fragment) {
-    console.log(`PageComponent.onSelectFragment: mode: ${this.mode}`)
     let handler = this.handlers[this.mode];
     handler.onSelectFragment(fragment);
   }
-
   onKeyDown(e: KeyboardEvent) {
-    console.log(`PageComponent.onKeyDown: mode: ${this.mode}`)
     let handler = this.handlers[this.mode];
     handler.onKeyDown(e);
   }
 
+
   cancelSelection() {
     this.selectedFragment = null;
   }
-  setViewBox(viewBox: string) {
-    this.viewBox = viewBox;
+  updateViewBox(viewBox: Rectangle) {
+    this.viewBox = `${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`;
   }
   setSelection(fragment: Fragment) {
     this.selectedFragment = fragment;
@@ -235,8 +193,5 @@ export class PageComponent implements OnInit {
   }
   clearCurrentFragment() {
     this.currentFragment = null;
-  }
-  getViewBox(): string {
-    return this.viewBox;
   }
 }

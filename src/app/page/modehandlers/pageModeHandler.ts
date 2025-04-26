@@ -1,7 +1,6 @@
 
 import { Fragment } from "../../model/fragment/fragment";
 import { Point } from "../../utilities/point";
-import { Rectangle } from "../../utilities/rectangle";
 import { PageComponent } from "../page.component";
 
 
@@ -11,9 +10,8 @@ import { PageComponent } from "../page.component";
 export abstract class PageModeHandler {
 
     constructor(
-        protected pageComponent: PageComponent,
-        protected svg: SVGSVGElement
-    ) {}    
+        protected pageComponent: PageComponent
+    ) {}
 
     abstract onClick(event: MouseEvent): void;
     abstract onMouseMove(event: MouseEvent): void;
@@ -24,12 +22,7 @@ export abstract class PageModeHandler {
     abstract onSelectFragment(fragment: Fragment): void;
 
     getMousePosition(event: MouseEvent): Point | null {
-        const svg = event.target instanceof SVGElement
-            ? event.target.ownerSVGElement
-            : (event.target as Element).closest('svg');
-
-        if (!svg) return null;
-
+        const svg = this.pageComponent.svg as SVGSVGElement; 
         const pt = svg.createSVGPoint();
         pt.x = event.clientX;
         pt.y = event.clientY;
@@ -38,7 +31,6 @@ export abstract class PageModeHandler {
         const transformedPoint = pt.matrixTransform(svg.getScreenCTM()?.inverse());
         return new Point(transformedPoint.x, transformedPoint.y);
     }
-  }
-  
+}
 
-  
+

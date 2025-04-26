@@ -20,20 +20,30 @@
 
   &.view {
     cursor: grab
-    // cursor: url('/assets/cursors/view-cursor.svg') 16 16, default;
-    // border: 5px solid red; // DEBUGGING ONLY
-  }
-
-  &.select {
-    cursor: default
-    // cursor: url('/assets/cursors/select-cursor.svg') 16 16, default;
-    // border: 5px solid green; // DEBUGGING ONLY
   }
 
   &.add {
     cursor: crosshair
-    // cursor: url('/assets/cursors/add-cursor.svg') 16 16, default;
-    // border: 5px solid blue; // DEBUGGING ONLY
+  }
+
+  &.select {
+    cursor: default
+  }
+
+  &.select.corner-1-resize {
+    cursor: url('/assets/cursors/corner-1-resize.svg') 16 16, default;
+  }
+
+  &.select.corner-2-resize {
+    cursor: url('/assets/cursors/corner-2-resize.svg') 16 16, default;
+  }
+
+  &.select.horizontal-resize {
+    cursor: url('/assets/cursors/horizontal-resize.svg') 16 16, default;
+  }
+
+  &.select.vertical-resize {
+    cursor: url('/assets/cursors/vertical-resize.svg') 16 16, default;
   }
 }
 
