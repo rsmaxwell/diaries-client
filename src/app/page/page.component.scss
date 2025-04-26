@@ -45,6 +45,10 @@
   &.select.vertical-resize {
     cursor: url('/assets/cursors/vertical-resize.svg') 16 16, default;
   }
+
+  &.select.move {
+    cursor: url('/assets/cursors/move.svg') 16 16, default;
+  }
 }
 
 .inprogress {

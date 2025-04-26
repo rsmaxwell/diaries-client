@@ -11,4 +11,16 @@
      style="fill:none;stroke:#000000;stroke-width:1.5;stroke-linecap:round;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
      d="m 20.8,26.0 5.4,0.0 0.0,-5.4"
      id="path1-1" />
+  <path
+     style="fill:none;stroke:#000000;stroke-width:1.5;stroke-linecap:round;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+     d="M 26.141615,10.89441 V 5.5944099 h -5.4"
+     id="path1-0" />
+  <path
+     style="fill:none;stroke:#000000;stroke-width:1.5;stroke-linecap:round;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+     d="M 25.241615,6.4944099 6.7416149,24.89441"
+     id="path2-1" />
+  <path
+     style="fill:none;stroke:#000000;stroke-width:1.5;stroke-linecap:round;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+     d="m 5.7416149,20.69441 v 5.4 h 5.4000001"
+     id="path1-1-5" />
 </svg>

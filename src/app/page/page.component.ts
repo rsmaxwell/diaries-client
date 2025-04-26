@@ -38,7 +38,8 @@ export class PageComponent implements OnInit {
 
   diary: Diary = new Diary();
   page: Page = new Page();
-  viewBox = '0 0 0 0';
+  viewBox = new Rectangle(0, 0, 0, 0);
+  viewBoxAsString = '0 0 0 0';  
   fileServerUrl: string = "";
   mode: 'select' | 'add' | 'view' = 'view';
   style = '';
@@ -140,6 +141,7 @@ export class PageComponent implements OnInit {
     handler.onMouseMove(event);
   }
   onMouseDown(event: MouseEvent) {
+    console.log(`PageComponent.onMouseDown`);
     let handler = this.handlers[this.mode];
     handler.onMouseDown(event);
   }
@@ -174,7 +176,8 @@ export class PageComponent implements OnInit {
     this.selectedFragment = null;
   }
   updateViewBox(viewBox: Rectangle) {
-    this.viewBox = `${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`;
+    this.viewBox = viewBox
+    this.viewBoxAsString = `${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`;
   }
   setSelection(fragment: Fragment) {
     this.selectedFragment = fragment;

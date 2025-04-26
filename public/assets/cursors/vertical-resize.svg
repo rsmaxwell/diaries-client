@@ -1,14 +1,40 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32">
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="32"
+   height="32"
+   version="1.1"
+   id="svg1"
+   sodipodi:docname="vertical-resize.svg"
+   inkscape:version="1.3 (0e150ed6c4, 2023-07-21)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="45.3125"
+     inkscape:cx="16"
+     inkscape:cy="16"
+     inkscape:current-layer="svg1" />
   <path
-    style="fill:none;stroke:#000000;stroke-width:3;stroke-linecap:round;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
-    d="M 23.1,9.34 16,2.14 8.9,9.34"
-    id="path1" />
+     style="fill:none;stroke:#000000;stroke-width:1.5;stroke-linecap:round;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+     d="M 19.662311,5.0873321 15.914645,1.3396661 12.096268,5.1580427"
+     id="path1" />
   <path
-    style="fill:none;stroke:#000000;stroke-width:2.98472;stroke-linecap:round;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
-    d="m 9,22.78 7,7.1 7.1,-7.1"
-    id="path1-5" />
+     style="fill:none;stroke:#000000;stroke-width:1.5;stroke-linecap:round;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+     d="M 15.914645,2.6124583 15.843935,28.704699"
+     id="path2" />
   <path
-    style="fill:none;stroke:#000000;stroke-width:3;stroke-linecap:round;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
-    d="M 16.0,3.8 V 28.3"
-    id="path2" />
+     style="fill:none;stroke:#000000;stroke-width:1.5;stroke-linecap:round;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+     d="m 12.166979,26.441957 3.818376,3.818377 3.818377,-3.818377"
+     id="path1-1" />
 </svg>

@@ -3,7 +3,7 @@
   <app-pageheader (add)="onAddButtonClick()" (view)="onViewButtonClick()" (select)="onSelectButtonClick()" [title]="title$ | async"></app-pageheader>
 
   <div id="svg-container" [ngClass]="[mode, style]">
-    <svg id="zoomable-svg" xmlns="http://www.w3.org/2000/svg" [attr.viewBox]="viewBox" preserveAspectRatio="xMidYMid meet" 
+    <svg id="zoomable-svg" xmlns="http://www.w3.org/2000/svg" [attr.viewBox]="viewBoxAsString" preserveAspectRatio="xMidYMid meet" 
       (wheel)="onWheel($event)"
       (mousedown)="onMouseDown($event)"
       (mousemove)="onMouseMove($event)"
