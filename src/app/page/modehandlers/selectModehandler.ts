@@ -13,6 +13,7 @@ export class SelectModeHandler extends PageModeHandler {
     isDraggingAll = false;
     lastMouseX = 0;
     lastMouseY = 0;
+    pendingCancel = false;
 
 
     onMouseDown(event: MouseEvent) {
@@ -33,16 +34,10 @@ export class SelectModeHandler extends PageModeHandler {
         const bodyHorizontal = (fragment.x < this.lastMouseX + margin) && (this.lastMouseX < fragment.x + fragment.width + margin);
         const bodyVertical = (fragment.y < this.lastMouseY + margin) && (this.lastMouseY < fragment.y + fragment.height + margin);
 
-        // console.log(`SelectModeHandler: onMouseDown: fragment.x: ${fragment.x}`);
-        // console.log(`SelectModeHandler: onMouseDown: lastMouseX: ${this.lastMouseX}, margin: ${margin} --> ${this.lastMouseX + margin}`);
-        // console.log(`SelectModeHandler: onMouseDown: lastMouseX: ${this.lastMouseX}`);
-        // console.log(`SelectModeHandler: onMouseDown: fragment.x: ${fragment.x}, fragment.width: ${fragment.width}, margin: ${margin} --> ${this.lastMouseX + fragment.width + margin}`);
-        // console.log(`SelectModeHandler: onMouseDown: bodyHorizontal: ${bodyHorizontal}`);
-
+        this.pendingCancel = true;
         if (!bodyHorizontal) return;
-        // console.log(`SelectModeHandler: onMouseDown: bodyHorizontal`);
         if (!bodyVertical) return;
-        // console.log(`SelectModeHandler: onMouseDown: bodyVertical`);
+        this.pendingCancel = false;
 
         const left = Math.abs(fragment.x - this.lastMouseX) < margin;
         const top = Math.abs(fragment.y - this.lastMouseY) < margin;
@@ -74,7 +69,11 @@ export class SelectModeHandler extends PageModeHandler {
         this.isDraggingTop = false;
         this.isDraggingBottom = false;
         this.isDraggingAll = false
-        // this.pageComponent.cancelSelection();
+
+        if (this.pendingCancel) {
+            this.pendingCancel = false;
+            this.pageComponent.cancelSelection();
+    }
     }
     onKeyDown(event: KeyboardEvent): void {
         if (event.key === 'Escape') {
