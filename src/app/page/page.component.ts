@@ -190,6 +190,7 @@ export class PageComponent implements OnInit {
     const id = "rect" + n.toString();
     const fragment = new Fragment(id, rectangle);
     this.fragments.push(fragment);
+    this.selectedFragment = fragment;
   }
   clearCurrentFragment() {
     this.currentFragment = null;
