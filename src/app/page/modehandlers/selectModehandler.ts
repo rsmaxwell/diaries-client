@@ -29,7 +29,6 @@ export class SelectModeHandler extends PageModeHandler {
 
         if (!this.pageComponent.selectedFragment) return
         const fragment = this.pageComponent.selectedFragment;
-        // console.log(`SelectModeHandler: onMouseDown: selectedfragment: ${JSON.stringify(this.pageComponent.selectedFragment)}`);
 
         const bodyHorizontal = (fragment.x < this.lastMouseX + margin) && (this.lastMouseX < fragment.x + fragment.width + margin);
         const bodyVertical = (fragment.y < this.lastMouseY + margin) && (this.lastMouseY < fragment.y + fragment.height + margin);
@@ -52,8 +51,6 @@ export class SelectModeHandler extends PageModeHandler {
         if (!(this.isDraggingLeft || this.isDraggingTop || this.isDraggingRight || this.isDraggingBottom)) {
             this.isDraggingAll = true
         }
-
-        // console.log(`SelectModeHandler: onMouseDown: isDragging: left:${this.isDraggingLeft}, right:${this.isDraggingRight}, top:${this.isDraggingTop}, bottom:${this.isDraggingBottom}, move:${this.isDraggingAll}`);
     }
     onSelectFragment(fragment: Fragment): void {
         this.isDraggingLeft = false;

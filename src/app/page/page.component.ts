@@ -48,6 +48,7 @@ export class PageComponent implements OnInit {
   fragments: Fragment[] = [];
   svg: HTMLElement | SVGSVGElement = {} as HTMLElement;
   viewModeHandler = new ViewModeHandler(this);
+  private fragmentCounter = 0;
 
   handlers = {
     view: this.viewModeHandler,
@@ -186,9 +187,11 @@ export class PageComponent implements OnInit {
     this.currentFragment = new Fragment("currentFragment", rectangle);
   }
   addNewFragment(rectangle: Rectangle) {
+    this.fragmentCounter++; // always increment
     const n = this.fragments.length + 1;
-    const id = "rect" + n.toString();
+    const id =  `fragment-${this.fragmentCounter}`;
     const fragment = new Fragment(id, rectangle);
+    
     this.fragments.push(fragment);
     this.selectedFragment = fragment;
   }
