@@ -188,10 +188,9 @@ export class PageComponent implements OnInit {
   }
   addNewFragment(rectangle: Rectangle) {
     this.fragmentCounter++; // always increment
-    const n = this.fragments.length + 1;
     const id =  `fragment-${this.fragmentCounter}`;
     const fragment = new Fragment(id, rectangle);
-    
+
     this.fragments.push(fragment);
     this.selectedFragment = fragment;
   }
