@@ -27,8 +27,7 @@ import { DiariesService } from './diaries.service';
 })
 export class DiariesComponent implements OnInit, OnDestroy {
 
-  @Input() title?: string;
-  
+  title = "Diaries";
   displayedColumns: string[] = ['id', 'name'];
   diaries: Diary[] = [];
   private subscription?: Subscription;

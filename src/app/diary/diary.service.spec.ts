@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { DiaryService } from './diary.service';
+import { DiaryService } from './diary.service.original';
 
 
 

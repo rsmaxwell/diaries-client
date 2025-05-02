@@ -1,164 +1,164 @@
-
+import { Injectable } from "@angular/core";
+import { catchError, EMPTY, from, interval, Observable, of, Subscription, switchMap, take, throwError, timeout } from "rxjs";
+import { MqttService } from "../mqtt/mqtt.service";
+import { TokenService } from "./tokenService";
+import { Refresh } from "../model/refresh";
+import { Config, ConfigService } from "../config/config.service";
 import { v4 as uuidv4 } from 'uuid';
+import { getUnexpectedReplyMessage, isRequestTokenReply, RequestTokenReply } from "../utilities/reply";
+import { ReplyHandler } from "../utilities/replyHandler";
+import mqtt from "mqtt";
 import { Buffer } from 'buffer';
-import { Refresh } from '../model/refresh';
-import { AuthorisedConnection } from '../model/authorisedConnection';
-import { Observable, Subject, Subscription } from 'rxjs';
-import { IClientPublishOptions } from 'mqtt';
 
+
+@Injectable({ providedIn: 'root' })
 export class TokenRequestor {
 
-  private authorisedConnection: AuthorisedConnection
-  private replyTopic: string
-  private myuuid: string = uuidv4();
-  private subject = new Subject<string>();
-  private observable: Observable<string> = this.subject.asObservable();
+  refreshSub?: Subscription;
+  connectionPromise: Promise<void> | null = null;
+  refreshIntervalMs = 5 * 60 * 1000; // i.e.  5 minutes
 
-  constructor(authorisedConnection: AuthorisedConnection) {
-    this.authorisedConnection = authorisedConnection
-    this.replyTopic = `reply/${authorisedConnection.connection.clientId}/refreshToken`
+  constructor(
+    private configService: ConfigService,
+    private mqttService: MqttService,
+    private accessTokenService: TokenService,
+    private refreshTokenService: TokenService
+  ) { }
 
-    this.authorisedConnection.connection.client.on('message', (topic, payload, packet) => {
-      // console.log(`TokenRequestor.onMessage: ${payload.toString()}`);
+  async sendRefreshRequest(): Promise<string> {
 
-      if (topic !== this.replyTopic) {
-        return;
-      }
+    console.log('TokenRequestor.sendRefreshRequest');
+    return new Promise((resolve, reject) => {
 
-      var correlationString: string | null = null
+      // Get the configuration
+      this.configService.getConfig()
+        .then((config) => {
 
-      if (packet.properties != null) {
-        var correlationData = packet.properties.correlationData;
-        if (correlationData != undefined) {
-          correlationString = correlationData.toString();
-          // console.log(`TokenRequestor.onMessage: correlationString: ${correlationString}`);
-          // console.log(`TokenRequestor.onMessage: myuuid:            ${this.myuuid}`);
-        }
-      }
+          if (config.reconnectPeriod != undefined) {
+            this.refreshIntervalMs = config.reconnectPeriod;
+          }
 
-      if (correlationString == null) {
-        console.log(`TokenRequestor.onMessage: Missing 'correlationData'`)
-        return;
-      }
-
-      if (correlationString != this.myuuid) {
-        console.log(`TokenRequestor.onMessage: wrong 'correlationData': correlationString: ${correlationString}, this.myuuid: ${this.myuuid}`)
-        return
-      }
-
-      // console.log(`TokenRequestor.onMessage: recieved reply to our request' `);
-      this.processRefreshTokenReply(payload)
+          // Get the MQTT connection
+          this.mqttService.getConnection()
+            .then((client) => {
+              this.connected(client, config, resolve, reject);
+            })
+            .catch(err => {
+              reject(`Error getting the MQTT connection: ${err}`);
+            })
+        })
+        .catch(err => {
+          reject(`Error getting the configuration: ${err}`);
+        })
     })
-
-    // console.log(`TokenRequestor.constructor: myuuid:            ${this.myuuid}`);
   }
 
-  processRefreshTokenReply(payload: Buffer) {
-    // console.log(`TokenRequestor.processRefreshTokenReply: ${payload.toString()}`);
-    var message = JSON.parse(payload.toString())
+  connected(client: mqtt.MqttClient, config: Config, resolve: (value: string) => void, reject: (reason?: any) => void) {
+    console.log(`TokenRequestor.sendRefreshRequest.connected`);
 
-    if (message.hasOwnProperty('code')) {
-      let code = message['code']
-      if (typeof code !== "number") {
-        console.log(`TokenRequestor.processRefreshTokenReply: Unexpected typeof reply: ${typeof code}`)
-        this.subject.error(`TokenRequestor.processRefreshTokenReply: Unexpected typeof reply: ${typeof code}`)
+    const correlationId = uuidv4();
+    const replyTopic = `reply/${config.clientId}/refreshToken`;
+
+    const timeoutHandle = setTimeout(() => {
+      client.removeListener('message', messageHandler);
+      reject('Timeout waiting for response');
+    }, 5000);
+
+    const messageHandler = (topic: string, payload: Buffer, packet: any) => {
+      console.log(`received reply for client: ${config.clientId}, topic: ${topic}, correlationId: ${correlationId}`);
+
+      if (!(topic === replyTopic)) {
         return;
       }
 
-      if (code !== 200) {
-        if (message.hasOwnProperty('message')) {
-          let errorMessage = message['message']
-          console.log(`TokenRequestor.processRefreshTokenReply: Unexpected code: ${code}, message: ${errorMessage}`)
-          this.subject.error(`RefreshToken.processRefreshTokenReply: Unexpected code: ${code}, message: ${errorMessage}`)
-          return;
-        }
-
-        console.log(`TokenRequestor.processRefreshTokenReply: Unexpected code: ${code}`)
-        this.subject.error(`TokenRequestor.processRefreshTokenReply: Unexpected code: ${code}`)
+      const props = packet.properties;
+      const incomingCorrelation = props?.correlationData?.toString();
+      if (!(incomingCorrelation === correlationId)) {
         return;
       }
+
+      // We found our reply, so we can stop listening
+      client.removeListener('message', messageHandler);
+      clearTimeout(timeoutHandle);
+
+      let obj;
+      try {
+        obj = ReplyHandler.getBufferAsObject(payload)
+      } catch (err) {
+        reject(`Failed to parse message: ${err}`);
+        return;
+      }
+
+      if (!isRequestTokenReply(obj)) {
+        reject(getUnexpectedReplyMessage(obj));
+        return;
+      }
+
+      const reply = obj as RequestTokenReply;
+      console.log("Re-setting access token");
+      this.accessTokenService.setToken(reply.token);
+      resolve(reply.token);
     }
-    else {
-      console.log(`TokenRequestor.processRefreshTokenReply: Missing 'code'`)
-      this.subject.error(`RefreshToken.processRefreshTokenReply: Missing 'code'`)
-      return;
-    }
 
-    if (!message.hasOwnProperty('accessToken')) {
-      console.log(`TokenRequestor.processRefreshTokenReply: Missing 'accessToken'`)
-      this.subject.error(`TokenRequestor.processRefreshTokenReply: Missing 'accessToken'`)
-      return;
-    }
+    // The MQTT subscribe options
+    const subscribeOptions: any = {
+      qos: 1
+    };
 
-    
-    console.log(`TokenRequestor.processRefreshTokenReply: Updating accessToken`)
-    let accessToken = message['accessToken']
-    this.subject.next(accessToken)
-  }
+    // Step 1: Subscribe to reply topic
+    client.subscribe(replyTopic, subscribeOptions, (err) => {
+      if (err) {
+        reject(`Subscription failed: ${err.message}`);
+      } else {
+        console.log(`Client: ${config.clientId} waiting for reply with correlationId: ${correlationId}`);
+        client.on('message', messageHandler);
+      }
 
+      // Step 2: Publish refresh request
+      const refreshToken = this.refreshTokenService.getCurrentToken()!;
+      const accessToken = this.accessTokenService.getCurrentToken()!;
+      const refresh: Refresh = new Refresh(config.username, refreshToken);
+      const payload = { function: 'refreshToken', args: refresh };
 
-
-  requestNewToken(): Observable<void> {
-    return new Observable((observer) => {
-      let username: string = this.authorisedConnection.signin.username;
-      let refreshToken: string = this.authorisedConnection.refreshToken;
-      let refresh: Refresh = new Refresh(username, refreshToken);
-      let request = { function: 'refreshToken', args: refresh };
-
-      const publishOptions: IClientPublishOptions = {
-        qos: 0,
+      // The MQTT publish options
+      const publishOptions: any = {
+        qos: 1,
         retain: false,
         properties: {
-          responseTopic: this.replyTopic,
-          correlationData: Buffer.from(this.myuuid, 'utf-8'),
+          responseTopic: replyTopic,
+          correlationData: Buffer.from(correlationId, 'utf-8'),
           userProperties: {
-            accessToken: this.authorisedConnection.accessToken
+            accessToken: accessToken
           }
         }
       };
 
-      console.log(`TokenRequestor.requestNewToken: ${JSON.stringify(request)}`);
-      console.log(`TokenRequestor.requestNewToken: myuuid: ${this.myuuid}`);
-      console.log(`TokenRequestor.requestNewToken`);
-      this.authorisedConnection.connection.client.publishAsync('request', JSON.stringify(request), publishOptions)
-        .then(() => {
-          console.log('TokenRequestor.requestNewToken: publish succeeded');
-          observer.next();  // Complete the Observable
-          observer.complete();
+      client.publish('request', JSON.stringify(payload), publishOptions, (err) => {
+        if (err) {
+          client.removeListener('message', messageHandler);
+          reject(`Publish failed: ${err.message}`);
+        }
+      })
+    })
+  }
+
+
+  start(): void {
+    this.stop()  // Prevent other duplicate
+
+    this.refreshSub = interval(this.refreshIntervalMs)
+      .pipe(
+        switchMap(() => from(this.sendRefreshRequest())),
+        catchError(err => {
+          console.error('Token refresh failed:', err);
+          return EMPTY;
         })
-        .catch((error) => {
-          console.error('TokenRequestor.requestNewToken: error publishing: ' + error.message);
-          observer.error(error);  // Emit the error
-        });
-    });
+      )
+      .subscribe(newToken => { });
   }
 
-
-
-  getUpdates(): Observable<string> {
-    console.log(`TokenRequestor.requestNewToken: subscribing to topic: ${this.replyTopic}`);
-
-    this.authorisedConnection.connection.client.subscribeAsync(this.replyTopic)
-      .then(() => {
-        console.log(`TokenRequestor.subscribe: subscribed`)
-      })
-      .catch((error) => console.error(`TokenRequestor.subscribe: error: ${error}`));
-
-    return this.observable;
-  }
-
-
-
-
-  unsubscribe() {
-    console.log(`TokenRequestor.unsubscribe: topic: ${this.replyTopic}`);
-
-    this.authorisedConnection.connection.client.unsubscribeAsync(this.replyTopic)
-      .then(() => {
-        console.log(`TokenRequestor.unsubscribe: success`);
-      })
-      .catch((error) => {
-        console.error(`TokenRequestor.unsubscribe: error: ${error}`);
-      });
+  stop(): void {
+    this.refreshSub?.unsubscribe();
   }
 }
+

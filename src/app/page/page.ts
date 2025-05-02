@@ -1,3 +1,5 @@
+import { Fragment } from "../model/fragment/fragment";
+
 export class Page {
   id: number;
   name: string;
@@ -14,4 +16,21 @@ export class Page {
   }
 }
 
+export class PageResponse {
+  page: Page;
+  fragments: Fragment[];
 
+  constructor(page: Page, fragments: Fragment[]) {
+    this.page = page;
+    this.fragments = fragments;
+  }
+}
+
+
+export class PagesResponse {
+  pages: Page[];
+
+  constructor(pages: Page[]) {
+    this.pages = pages;
+  }
+}

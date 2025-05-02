@@ -11,44 +11,16 @@ export class ReplyHandler {
   constructor(public alertService: AlertService
   ) { }
 
-  static getBufferAsObject(buffer: Buffer): { object: any; reason: string } {
-
-    // Step 1: Ensure the payload is a Buffer
+  static getBufferAsObject(buffer: Buffer): object {
     if (!Buffer.isBuffer(buffer)) {
-      let reason = 'Payload is not a Buffer.'
-      console.error(`ReplyHandler.getReply: ${reason}`)
-      return {object: null, reason: reason};
+      throw new Error('Payload is not a Buffer.');
     }
-
-    let jsonString: string;
-    try {
-      // Step 2: Convert Buffer to String
-      jsonString = buffer.toString();
-    } catch (error) {
-      let reason = 'Error converting payload to string: ${error}'
-      console.error(`ReplyHandler.getReply: ${reason}`)
-      return {object: null, reason: reason};
-    }
-
-    let object: unknown;
-    try {
-      // Step 3: Parse JSON
-      object = JSON.parse(jsonString);
-    } catch (error) {
-      let reason = 'Error parsing JSON: ${error}'
-      console.error(`ReplyHandler.getReply: ${reason}`)
-      return {object: null, reason: reason};
-    }
-
-    return {object: object, reason: ""}
+  
+    const jsonString = buffer.toString();
+    return JSON.parse(jsonString);
   }
 
-  static getReply(buffer: Buffer): { reply: Reply | null; reason: string } {
-
-    let { object: object, reason } =  ReplyHandler.getBufferAsObject(buffer) 
-    if (object == null) {
-      return {reply: null, reason: reason};
-    }
+  static getErrorReply(object: object): { reply: Reply | null; reason: string } {
 
     // Step 4: Check the payload object is of type "Reply"
     if (!isReply(object)) {

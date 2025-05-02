@@ -8,6 +8,7 @@ export class AddModeHandler extends PageModeHandler {
 
     private start: Point | null = null;
 
+
     onMouseDown(event: MouseEvent) {
         this.start = this.getMousePosition(event);
     }
@@ -42,8 +43,8 @@ export class AddModeHandler extends PageModeHandler {
         }
     }
 
-    onClick(event: MouseEvent) {}
-    onWheel(event: WheelEvent) {}
-    onKeyDown(event: KeyboardEvent): void {}
-    onSelectFragment(fragment: Fragment): void {}
+    onClick(event: MouseEvent) { }
+    onWheel(event: WheelEvent) { }
+    onKeyDown(event: KeyboardEvent): void { }
+    onSelectFragment(fragment: Fragment): void { }
 }

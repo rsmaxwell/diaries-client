@@ -43,4 +43,9 @@ export class ConfigService {
     this.configCache = config;
     return config;
   }
+
+
+  getCurrentConfig(): Config | null {
+    return this.configCache;
+  }
 }

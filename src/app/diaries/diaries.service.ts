@@ -1,93 +1,84 @@
-import { Injectable } from '@angular/core';
-import { Diary } from '../diary/diary';
-import { Observable, of, Subject, Subscription } from 'rxjs';
+import { Injectable, OnDestroy } from '@angular/core';
+import { Observable } from 'rxjs';
 import { Buffer } from 'buffer';
-import { v4 as uuidv4 } from 'uuid';
-import { MqttSigninService } from '../user/mqtt.signin.service';
+import { MqttClient } from 'mqtt';
+import { MqttService } from '../mqtt/mqtt.service';
+import { GetDiariesReply, getUnexpectedReplyMessage, isGetDiariesReply } from '../utilities/reply';
 import { ReplyHandler } from '../utilities/replyHandler';
-import { GetDiariesReply } from '../utilities/reply';
 
+@Injectable({ providedIn: 'root' })
+export class DiariesService implements OnDestroy {
 
+  constructor(
+    private mqttService: MqttService
+  ) { }
 
+  getDiaries(): Observable<GetDiariesReply> {
+    return new Observable<GetDiariesReply>(observer => {
+      const topic = `diaries`;
+      let client: MqttClient;
+      let messageHandler: ((topicReceived: string, payload: Buffer) => void) | undefined;
 
-@Injectable({
-  providedIn: 'root'
-})
-export class DiariesService {
+      this.mqttService.getConnection()
+        .then((c: MqttClient) => {
+          client = c;
 
-  private diariesSubject = new Subject<Diary[]>();
-  private diariesObservable = this.diariesSubject.asObservable();
-  private topic = `diaries`;
-  private diariesSubscription: Subscription | null = null;
+          messageHandler = (messageTopic: string, payload: Buffer) => {
+            if (topic !== messageTopic) return;
 
-  constructor(private mqttSigninService: MqttSigninService) {}
+            const payloadStr = payload.toString();
+            console.log(`DiariesService.getDiaries: Received message on ${topic}:`, payloadStr.slice(0, 150));
 
-  getDiaries(): Observable<Diary[]> {
+            let obj;
+            try {
+              obj = ReplyHandler.getBufferAsObject(payload);
+            } catch (err) {
+              observer.error(`Failed to parse reply: ${err}`);
+              return;
+            }
 
-    let connection = this.mqttSigninService.authorisedConnection.connection
-    if (!connection || !connection.client) {
-      console.error("DiariesService.getDiaries: MQTT connection is unavailable.");
-      return this.diariesObservable;
-    }
+            if (!isGetDiariesReply(obj)) {
+              observer.error(getUnexpectedReplyMessage(obj));
+              return;
+            }
 
-    // Subscribe to the topic
-    connection.client.subscribe(this.topic, (err) => {
-      if (err) {
-        console.error(`DiariesService.getDiaries: Failed to subscribe to "${this.topic}"`, err);
-        return;
-      }
-      console.log(`DiariesService.getDiaries: Successfully subscribed to "${this.topic}"`);
-    });
+            observer.next(obj as GetDiariesReply);
+            observer.complete();
+          };
 
-    // Handle incoming messages
-    connection.client.on('message', (topic: string, payload: Buffer) => {
-      if (topic != this.topic) {
-        return
-      }
+          client.subscribe(topic, { qos: 1 }, (err) => {
+            if (err) {
+              observer.error(`Failed to subscribe to ${topic}: ${err.message}`);
+            } else {
+              console.log(`DiariesService.getDiaries: Subscribed to ${topic}`);
+              client.on('message', messageHandler!);
+            }
+          });
+        })
+        .catch(err => {
+          observer.error(`Failed to load diaries: ${err}`);
+        });
 
-      console.log(`DiariesService.getDiaries: Raw Payload:`, payload.toString());
+      // Teardown logic
+      return () => {
+        console.log("DiariesService.getDiaries: Unsubscribing and cleaning up");
 
-      let {object, reason} = ReplyHandler.getBufferAsObject(payload);
-      if (!object) {
-        this.diariesSubject.error(reason);
-        return;
-      }
-
-      let diaries = object as Diary[];
-      this.diariesSubject.next(diaries);
-    });
-
-    // Track the subscription
-    this.diariesSubscription = this.diariesObservable.subscribe({
-      next: (diaries) => console.log("Diaries received:", diaries),
-      error: (err) => console.error("DiariesService error:", err),
-    }); 
-
-    return this.diariesObservable;
-  }
-
-  unsubscribe() {
-    console.log("DiariesService.unsubscribe");
-
-    if (this.diariesSubscription) {
-      this.diariesSubscription.unsubscribe();
-      this.diariesSubscription = null;
-    }
-
-    const connection = this.mqttSigninService.authorisedConnection.connection;
-    if (connection && connection.client) {
-      connection.client.unsubscribe(this.topic, (err) => {
-        if (err) {
-          console.error(`DiariesService.unsubscribe: Error unsubscribing from ${this.topic}`, err);
-        } else {
-          console.log(`DiariesService.unsubscribe: Unsubscribed from ${this.topic}`);
+        if (client && messageHandler) {
+          client.removeListener('message', messageHandler);
+          client.unsubscribe(topic, (err) => {
+            if (err) {
+              console.error(`DiariesService.getDiaries: Error unsubscribing from ${topic}`, err);
+            } else {
+              console.log(`DiariesService.getDiaries: Unsubscribed from ${topic}`);
+            }
+          });
         }
-      });
-    }
+      };
+
+    });
   }
 
   ngOnDestroy(): void {
-    this.unsubscribe();
+    console.log("DiariesService.ngOnDestroy");
   }
 }
-

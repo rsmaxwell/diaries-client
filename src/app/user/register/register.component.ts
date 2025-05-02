@@ -27,11 +27,9 @@ import { MqttRegisterService } from '../mqtt.register.service';
     MatCardModule,
     MatIconModule,
     MatButtonModule,
-    AlertbuttonsComponent,
     PlainfooterComponent,
     PlainheaderComponent,
     AlertsComponent,
-    AlertbuttonsComponent,
     CommonModule
   ],
   templateUrl: './register.component.html',

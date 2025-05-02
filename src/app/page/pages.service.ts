@@ -4,20 +4,20 @@ import { Buffer } from 'buffer';
 import { MqttClient } from 'mqtt';
 
 import { MqttService } from '../mqtt/mqtt.service';
-import { GetPageReply, getUnexpectedReplyMessage, isGetPageReply } from '../utilities/reply';
+import { GetPagesReply, getUnexpectedReplyMessage, isGetPagesReply } from '../utilities/reply';
 import { ReplyHandler } from '../utilities/replyHandler';
-import { PageResponse } from './page';
+import { PagesResponse } from './page';
 
 @Injectable({ providedIn: 'root' })
-export class PageService implements OnDestroy {
+export class DiaryService implements OnDestroy {
 
   constructor(
     private mqttService: MqttService
   ) { }
 
-  getPage(diaryId: number, pageId: number): Observable<PageResponse> {
-    return new Observable<PageResponse>(observer => {
-      const replyTopic = `diary/${diaryId}/${pageId}`;
+  getPages(diaryId: number): Observable<PagesResponse> {
+    return new Observable<PagesResponse>(observer => {
+      const replyTopic = `diary/${diaryId}`;
 
       this.mqttService.getConnection()
         .then((client: MqttClient) => {
@@ -26,37 +26,35 @@ export class PageService implements OnDestroy {
             if (topic !== replyTopic) return;
 
             const payloadStr = payload.toString();
-            console.log(`PageService: Received message on ${replyTopic}:`, payloadStr.slice(0, 150));
+            console.log(`PagesService: Received message on ${replyTopic}:`, payloadStr.slice(0, 150));
 
-            let obj;
             try {
-              obj = ReplyHandler.getBufferAsObject(payload);
+              const { obj, reason } = ReplyHandler.getBufferAsObject(payload);
+              if (isGetPagesReply(obj)) {
+                observer.next(obj as GetPagesReply);
+                observer.complete();
+              } else if (reason) {
+                observer.error(reason);
+              } else {
+                observer.error(getUnexpectedReplyMessage(obj));
+              }
             } catch (err) {
               observer.error(`Failed to parse message: ${err}`);
-              return;
             }
-
-            if (!isGetPageReply(obj)) {
-              observer.error(getUnexpectedReplyMessage(obj));
-              return;
-            }
-
-            observer.next(obj as GetPageReply);
-            observer.complete();
           };
 
           client.subscribe(replyTopic, { qos: 1 }, (err) => {
             if (err) {
               observer.error(`Failed to subscribe to ${replyTopic}: ${err.message}`);
             } else {
-              console.log(`PageService: Subscribed to ${replyTopic}`);
+              console.log(`PagesService: Subscribed to ${replyTopic}`);
               client.on('message', messageHandler);
             }
           });
 
           // Teardown logic
           return () => {
-            console.log("PageService: Unsubscribing and cleaning up");
+            console.log("PagesService: Unsubscribing and cleaning up");
             client.removeListener('message', messageHandler);
             client.unsubscribe(replyTopic, (err) => {
               if (err) {
@@ -74,6 +72,6 @@ export class PageService implements OnDestroy {
   }
 
   ngOnDestroy(): void {
-    console.log("PageService destroyed");
+    console.log("PagesService destroyed");
   }
 }

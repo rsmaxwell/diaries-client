@@ -8,11 +8,12 @@ import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { PlainfooterComponent } from "../../headers/plainfooter/plainfooter.component";
 import { PlainheaderComponent } from "../../headers/plainheader/plainheader.component";
-import { AlertsComponent } from "../../alerts/alerts.component";
 import { ActivatedRoute, Router } from '@angular/router';
 import { AlertService } from '../../alerts/alert.service';
 import { Signin } from '../../model/signin';
 import { MqttSigninService } from '../mqtt.signin.service';
+import { TokenRequestor } from '../tokenRequestor';
+import { TokenService } from '../tokenService';
 
 @Component({
   selector: 'app-signin.page',
@@ -27,7 +28,6 @@ import { MqttSigninService } from '../mqtt.signin.service';
     MatButtonModule,
     PlainfooterComponent,
     PlainheaderComponent,
-    AlertsComponent,
     CommonModule
   ],
   templateUrl: './signin.component.html',
@@ -56,6 +56,9 @@ export class SigninComponent implements OnDestroy {
   });
 
   constructor(
+    private tokenRequestor: TokenRequestor,
+    private accessTokenService: TokenService,
+    private refreshTokenService: TokenService,
     private route: ActivatedRoute,
     private router: Router,
     private mqttSigninService: MqttSigninService,
@@ -76,14 +79,17 @@ export class SigninComponent implements OnDestroy {
 
     let value: Signin = Signin.fromFormGroup(this.form)
     this.mqttSigninService.signin(value)
-      .then((id) => {
-          console.log(`SigninComponent.onSubmit: next: id: ${id}`)
+      .then((token) => {
+          console.log(`SigninComponent.onSubmit: success: id: ${token}`)
+          this.accessTokenService.setToken(token);
+          this.tokenRequestor.start();
+
           this.alertService.info(`${value.username} signed in`);
           const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/';
           this.router.navigateByUrl(returnUrl)
         })
       .catch((err) => {
-          console.log(`SigninComponent.onSubmit: signin: error: ${err}`)
+          console.log(`SigninComponent.onSubmit: error: ${err}`)
           this.alertService.error(err);
       });
   }

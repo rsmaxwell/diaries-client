@@ -5,120 +5,133 @@ import { Buffer } from 'buffer';
 import { MqttService } from '../mqtt/mqtt.service';
 import { ReplyHandler } from '../utilities/replyHandler';
 import { Injectable } from '@angular/core';
-import { Connection } from '../model/connection';
-import { RegisterReply, Reply } from '../utilities/reply';
+import { getUnexpectedReplyMessage, isRegisterReply, RegisterReply, Reply } from '../utilities/reply';
+import { Config, ConfigService } from '../config/config.service';
+import mqtt from 'mqtt';
 
 
 @Injectable({ providedIn: 'root' })
 export class MqttRegisterService {
 
   constructor(
-    private mqttService: MqttService
+    private configService: ConfigService,
+    private mqttService: MqttService,
   ) { }
 
   register(register: Register): Promise<number> {
     console.log(`MqttRegisterService.register`);
+    return new Promise((resolve, reject) => {
 
-    let promise: Promise<number> = new Promise((resolve, reject) => {
+      // Get the configuration
+      this.configService.getConfig()
+        .then((config) => {
 
-      this.mqttService.getConnection()
-        .then((connection) => {
-          this.connected(connection, register, resolve, reject)
+          // Get the MQTT connection
+          this.mqttService.getConnection()
+            .then((client) => {
+              this.connected(client, config, register, resolve, reject)
+            })
+            .catch(err => {
+              reject(`Error getting the MQTT connection: ${err}`)
+            })
         })
-        .catch((err) => { `MqttRegisterService.register: ${err}` })
+        .catch(err => {
+          reject(`Error getting the configuration: ${err}`)
+        })
     })
-
-    return promise
   }
 
 
-  connected(connection: Connection, register: Register, resolve: (value: number) => void, reject: (reason?: any) => void) {
+  connected(client: mqtt.MqttClient, config: Config, register: Register, resolve: (value: number) => void, reject: (reason?: any) => void) {
     console.log(`MqttRegisterService.register.connected`);
 
-    const replyTopic = `reply/${connection.clientId}/register`;
-    let myuuid = uuidv4();
+    let correlationId = uuidv4();
+    const replyTopic = `reply/${config.clientId}/register`;
 
-    console.log(`MqttRegisterService.register.connected: subscribing to topic: ${replyTopic}`);
-    connection.client.subscribeAsync(replyTopic)
-      .then(() => {
-        console.log(`MqttRegisterService.register.connected: subscribed`);
+    const timeoutHandle = setTimeout(() => {
+      client.removeListener('message', messageHandler);
+      reject('Timeout waiting for response');
+    }, 5000);
 
-        let request = { function: 'register', args: register };
+    const messageHandler = (topic: string, payload: Buffer, packet: any) => {
+      console.log(`MqttRegisterService.messageHandler: received reply for client: ${config.clientId}, topic: ${topic}, correlationId: ${correlationId}`);
 
-        var publishOptions: any = {
-          qos: 0,
-          retain: false,
-          properties: {
-            responseTopic: replyTopic,
-            correlationData: Buffer.from(myuuid, 'utf-8'),
-          }
-        };
-
-        console.log(`MqttRegisterService.register.connected: subscribed: publishing request: ${JSON.stringify(request)}`);
-        connection.client.publishAsync('request', JSON.stringify(request), publishOptions)
-          .then(() => {
-            console.log('MqttRegisterService.register.connected: publish request succeeded');
-          })
-          .catch((error) => {
-            console.error('MqttRegisterService.register.connected: error publishing: ' + error.message);
-          });
-      })
-      .catch((error) => {
-        console.error('MqttRegisterService.register: error subscribing: ' + error.message);
-      });
-
-    connection.client.on('message', (topic, payload, packet) => {
-
-      if (topic != replyTopic) {
+      if (topic !== replyTopic) {
         return
       }
 
-      var correlationString: string | null = null
+      const props = packet.properties;
+      const incomingCorrelation = props?.correlationData?.toString();
+      if (incomingCorrelation !== correlationId) return;
 
-      if (packet.properties != null) {
-        var correlationData = packet.properties.correlationData;
-        if (correlationData != undefined) {
-          correlationString = correlationData.toString();
-          console.log(`MqttSigninService.register.connected: correlationString: ${correlationString}`);
-          console.log(`MqttSigninService.register.connected: myuuid:            ${myuuid}`);
-        }
-      }
+      // We found our reply, so we can stop listening
+      client.removeListener('message', messageHandler);
+      clearTimeout(timeoutHandle);
 
-      let {reply, reason} = ReplyHandler.getReply(payload)
-      if (reply == null) {
-        reject(reason);
-        return
-      }
-
-      console.log(`MqttSigninService.register.connected: result: ${JSON.stringify(reply)}`);
-
-      if (!isRegisterReply(reply)) {
-        console.log(`MqttRegisterService.processRegisterReply: Invalid RegisterReply structure`);
-        reject(`Unexpected reply`);
+      let obj;
+      try {
+        obj = ReplyHandler.getBufferAsObject(payload)
+      } catch (err) {
+        reject(`Failed to parse message: ${err}`);
         return;
       }
-      let registerReply: RegisterReply = reply;
 
-      processRegisterReply(connection, register, registerReply, resolve, reject);
+      if (!isRegisterReply(obj)) {
+        reject(getUnexpectedReplyMessage(obj));
+        return;
+      }
+
+      processRegisterReply(client, register, obj as RegisterReply, resolve, reject);
+    }
+
+    // The MQTT subscribe options
+    const subscribeOptions: any = {
+      qos: 1
+    };
+
+    // Step 1: Subscribe to reply topic
+    client.subscribe(replyTopic, subscribeOptions, (err) => {
+      if (err) {
+        reject(`Subscription failed: ${err.message}`);
+      } else {
+        console.log(`Client: ${config.clientId} waiting for reply with correlationId: ${correlationId}`);
+        client.on('message', messageHandler);
+      }
+
+      // Step 2: Publish refresh request
+      const payload = { function: 'register', args: register };
+
+      // The MQTT publish options
+      const publishOptions: any = {
+        qos: 1,
+        retain: false,
+        properties: {
+          responseTopic: replyTopic,
+          correlationData: Buffer.from(correlationId, 'utf-8'),
+        }
+      };
+
+      client.publish('request', JSON.stringify(payload), publishOptions, (err) => {
+        if (err) {
+          client.removeListener('message', messageHandler);
+          reject(`Publish failed: ${err.message}`);
+        }
+      })
     })
   }
 }
 
-function processRegisterReply(connection: Connection, register: Register, registerReply: RegisterReply, resolve: (value: number) => void, reject: (reason?: any) => void) {
-  console.log(`MqttSigninService.processSigninReply`);
+function processRegisterReply(client: mqtt.MqttClient, register: Register, reply: RegisterReply, resolve: (value: number) => void, reject: (reason?: any) => void) {
+  console.log(`MqttRegisterService.processRegisterReply`);
 
-  if (isNaN(registerReply.id)) {
-    let reason = `MqttSigninService.register.connected: reply is NaN: ${registerReply.id}`
+  if (isNaN(reply.id)) {
+    let reason = `reply is NaN: ${reply.id}`
     console.log(reason);
     reject(reason)
   } else {
-    resolve(registerReply.id)
+    resolve(reply.id)
   }
   return
 }
 
-function isRegisterReply(obj: any): obj is RegisterReply {
-  return obj !== null &&
-         typeof obj === 'object' &&
-         'id' in obj && typeof obj.id === 'string';
-}
+

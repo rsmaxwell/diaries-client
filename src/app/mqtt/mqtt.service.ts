@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { ConfigService } from '../config/config.service';
-import { Connection } from '../model/connection';
 import mqtt from 'mqtt';
+import { delay, Subject } from 'rxjs';
 
 
 @Injectable({
@@ -9,31 +9,30 @@ import mqtt from 'mqtt';
 })
 export class MqttService {
 
-  connection!: Connection;
-  cachedPromise: Promise<Connection> | null = null;
+  connectionPromise: Promise<mqtt.MqttClient> | null = null;
 
   constructor(
     private configService: ConfigService
-  ) {
-    console.log('MqttService.constructor');
-  }
+  ) { }
 
-  
   initialise() {
     console.log(`MqttService.initialise`);
   }
 
-  getConnection(): Promise<Connection> {
+  async getConnection(): Promise<mqtt.MqttClient> {
     console.log(`MqttService.getConnection`);
 
-    if (!this.cachedPromise) {
-      this.cachedPromise = new Promise((resolve, reject) => {
-        console.log("MqttService.getConnection: getting configuration");
+    if (this.connectionPromise) {
+      return this.connectionPromise
+    }
 
-        this.configService.getConfig()
+    this.connectionPromise = new Promise((resolve, reject) => {
+      console.log("MqttService.getConnection: getting configuration");
+
+      this.configService.getConfig()
         .then((config) => {
           console.log(`MqttService.getConnection: connecting`);
-  
+
           let client: mqtt.MqttClient = mqtt.connect(config.brokerUrl, {
             clientId: config.clientId,
             username: config.username,
@@ -44,18 +43,17 @@ export class MqttService {
             protocolVersion: config.protocolVersion,
             clean: config.clean, // ✅ Retain session between reconnects
           });
-  
+
           client.on('connect', () => {
             console.log(`MqttService.getConnection: connected to broker`);
-            this.connection = new Connection(client, config.clientId)
-            resolve(this.connection);
+            resolve(client);
           });
-  
+
           client.on('error', (error: any) => {
             console.error(`MqttService.getConnection: connection error: ${error}`);
             reject("Failed to connect to the server.");
           });
-  
+
           client.on('close', () => {
             console.log(`MqttService.getConnection: connection closed`);
           });
@@ -63,10 +61,21 @@ export class MqttService {
         .catch((error) => {
           console.error(`MqttService.getConnection: configuration error: ${error}`);
         });
+    })
 
-      })
+    return this.connectionPromise
+  }
+
+  async safeConnectWithRetry(retries = 3): Promise<mqtt.MqttClient> {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        return await this.getConnection();
+      } catch (err) {
+        console.warn(`MQTT connect attempt ${attempt} failed:`, err);
+        if (attempt === retries) throw err;
+        await delay(1000); // delay before retry
+      }
     }
-
-    return this.cachedPromise
+    throw new Error('Unreachable'); // just in case
   }
 }
