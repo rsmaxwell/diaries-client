@@ -32,7 +32,7 @@ export interface GetPagesReply extends Reply {
     pages: Page[]
 };
 export interface RequestTokenReply extends Reply {
-    token: string
+    accessToken: string
 };
 export interface AddFragmentReply extends Reply {
     id: number
@@ -94,7 +94,7 @@ export function isRequestTokenReply(obj: any): obj is RequestTokenReply {
     return obj !== null &&
         typeof obj === 'object' &&
         'code' in obj && typeof obj.code === 'number' &&
-        'token' in obj && typeof obj.token === 'string';
+        'accessToken' in obj && typeof obj.accessToken === 'string';
 }
 export function isAddFragmentReply(obj: any): obj is AddFragmentReply {
     return obj !== null &&

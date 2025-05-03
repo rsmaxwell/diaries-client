@@ -5,9 +5,10 @@ import { Signin } from '../model/signin';
 import { MqttService } from '../mqtt/mqtt.service';
 import { ReplyHandler } from '../utilities/replyHandler';
 import { getUnexpectedReplyMessage, isSigninReply, SigninReply } from '../utilities/reply';
-import { TokenService } from './tokenService';
 import { Config, ConfigService } from '../config/config.service';
 import mqtt from 'mqtt';
+import { AccessTokenService } from './token/AccessTokenService';
+import { RefreshTokenService } from './token/RefreshTokenService';
 
 
 @Injectable({ providedIn: 'root' })
@@ -16,7 +17,8 @@ export class MqttSigninService {
   constructor(
     private configService: ConfigService,
     private mqttService: MqttService,
-    private accessTokenService: TokenService
+    private accessTokenService: AccessTokenService,
+    private refreshTokenService: RefreshTokenService
   ) { }
 
 
@@ -84,8 +86,18 @@ export class MqttSigninService {
 
       const reply = obj as SigninReply;
       console.log(`MqttSigninService.signin.connected: username: userId: ${reply.id}, username: ${signin.username}, accessToken: ${reply.accessToken}`)
+
+      console.log(`reply: ${JSON.stringify(reply)}`);
+      console.log(`reply.accessToken: ${reply.accessToken}`);
+      console.log(`reply.refreshToken: ${reply.refreshToken}`);
+
       this.accessTokenService.setToken(reply.accessToken);
-      resolve("ok");
+      this.refreshTokenService.setToken(reply.refreshToken);
+
+      console.log(`accessToken: ${this.accessTokenService.getCurrentToken()}`);
+      console.log(`refreshToken: ${this.refreshTokenService.getCurrentToken()}`);
+
+      resolve('ok');
     }
 
     // The MQTT subscribe options

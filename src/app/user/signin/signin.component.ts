@@ -13,7 +13,7 @@ import { AlertService } from '../../alerts/alert.service';
 import { Signin } from '../../model/signin';
 import { MqttSigninService } from '../mqtt.signin.service';
 import { TokenRequestor } from '../tokenRequestor';
-import { TokenService } from '../tokenService';
+import { TokenService } from '../token/tokenService';
 
 @Component({
   selector: 'app-signin.page',
@@ -57,8 +57,6 @@ export class SigninComponent implements OnDestroy {
 
   constructor(
     private tokenRequestor: TokenRequestor,
-    private accessTokenService: TokenService,
-    private refreshTokenService: TokenService,
     private route: ActivatedRoute,
     private router: Router,
     private mqttSigninService: MqttSigninService,
@@ -79,9 +77,8 @@ export class SigninComponent implements OnDestroy {
 
     let value: Signin = Signin.fromFormGroup(this.form)
     this.mqttSigninService.signin(value)
-      .then((token) => {
-          console.log(`SigninComponent.onSubmit: success: id: ${token}`)
-          this.accessTokenService.setToken(token);
+      .then(() => {
+          console.log(`SigninComponent.onSubmit: success`)
           this.tokenRequestor.start();
 
           this.alertService.info(`${value.username} signed in`);

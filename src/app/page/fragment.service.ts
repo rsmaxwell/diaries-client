@@ -1,18 +1,16 @@
 import { Injectable } from '@angular/core';
 import { Page } from './page';
-import { Subject } from 'rxjs';
 import { Buffer } from 'buffer';
 import { v4 as uuidv4 } from 'uuid';
 import { Fragment, AddFragmentRequest } from '../model/fragment/fragment';
 import { MqttService } from '../mqtt/mqtt.service';
-import { Router } from '@angular/router';
-import { AlertService } from '../alerts/alert.service';
 import { Diary } from '../diary/diary';
 import { AddFragmentReply, getUnexpectedReplyMessage, isAddFragmentReply } from '../utilities/reply';
 import { ReplyHandler } from '../utilities/replyHandler';
 import mqtt from 'mqtt';
 import { Config, ConfigService } from '../config/config.service';
-import { TokenService } from '../user/tokenService';
+import { AccessTokenService } from '../user/token/AccessTokenService';
+import { RefreshTokenService } from '../user/token/RefreshTokenService';
 
 
 
@@ -22,18 +20,11 @@ import { TokenService } from '../user/tokenService';
 })
 export class FragmentService {
 
-  private fragments: Fragment[] = [];
-  private fragmentsSubject = new Subject<Fragment[]>();
-  private fragmentsObservable = this.fragmentsSubject.asObservable();
-
-
-
   constructor(
     private configService: ConfigService,
     private mqttService: MqttService,
-    private accessTokenService: TokenService,
-    private router: Router,
-    private alertService: AlertService
+    private accessTokenService: AccessTokenService,
+    private refreshTokenService: RefreshTokenService
   ) { }
 
   addFragment(diary: Diary, page: Page, fragment: Fragment): Promise<number> {
@@ -99,7 +90,7 @@ export class FragmentService {
       }
 
       if (!isAddFragmentReply(obj)) {
-        reject(getUnexpectedReplyMessage(obj));
+        reject(`fragment not saved: (${getUnexpectedReplyMessage(obj)})`);
         return;
       }
 
@@ -107,13 +98,8 @@ export class FragmentService {
       resolve(reply.id)
     }
 
-    // The MQTT subscribe options
-    const subscribeOptions: any = {
-      qos: 1
-    };
-
     // Step 1: Subscribe to reply topic
-    client.subscribe(replyTopic, subscribeOptions, (err) => {
+    client.subscribe(replyTopic, { qos: 1 }, (err) => {
       if (err) {
         reject(`Subscription failed: ${err.message}`);
       } else {
@@ -145,6 +131,9 @@ export class FragmentService {
           }
         }
       };
+
+      console.log(`accessToken: ${this.accessTokenService.getCurrentToken()}`);
+      console.log(`refreshToken: ${this.refreshTokenService.getCurrentToken()}`);
 
       client.publish('request', JSON.stringify(payload), publishOptions, (err) => {
         if (err) {

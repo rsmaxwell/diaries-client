@@ -74,7 +74,6 @@ export class DiariesService implements OnDestroy {
           });
         }
       };
-
     });
   }
 

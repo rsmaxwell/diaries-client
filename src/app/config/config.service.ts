@@ -30,7 +30,7 @@ export class ConfigService {
     console.log(`ConfigService.getConfig`);
 
     if (this.configCache) {
-      console.log(`ConfigService.getConfig: returning cached value. config: ${JSON.stringify(this.configCache)}`);      
+      console.log(`ConfigService.getConfig: returning cached value`);      
       return this.configCache;
     }
 

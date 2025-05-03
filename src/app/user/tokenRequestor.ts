@@ -1,7 +1,6 @@
 import { Injectable } from "@angular/core";
 import { catchError, EMPTY, from, interval, Observable, of, Subscription, switchMap, take, throwError, timeout } from "rxjs";
 import { MqttService } from "../mqtt/mqtt.service";
-import { TokenService } from "./tokenService";
 import { Refresh } from "../model/refresh";
 import { Config, ConfigService } from "../config/config.service";
 import { v4 as uuidv4 } from 'uuid';
@@ -9,6 +8,8 @@ import { getUnexpectedReplyMessage, isRequestTokenReply, RequestTokenReply } fro
 import { ReplyHandler } from "../utilities/replyHandler";
 import mqtt from "mqtt";
 import { Buffer } from 'buffer';
+import { AccessTokenService } from "./token/AccessTokenService";
+import { RefreshTokenService } from "./token/RefreshTokenService";
 
 
 @Injectable({ providedIn: 'root' })
@@ -21,8 +22,8 @@ export class TokenRequestor {
   constructor(
     private configService: ConfigService,
     private mqttService: MqttService,
-    private accessTokenService: TokenService,
-    private refreshTokenService: TokenService
+    private accessTokenService: AccessTokenService,
+    private refreshTokenService: RefreshTokenService
   ) { }
 
   async sendRefreshRequest(): Promise<string> {
@@ -66,6 +67,7 @@ export class TokenRequestor {
 
     const messageHandler = (topic: string, payload: Buffer, packet: any) => {
       console.log(`received reply for client: ${config.clientId}, topic: ${topic}, correlationId: ${correlationId}`);
+      console.log(`payload: ${payload.toString()}`);
 
       if (!(topic === replyTopic)) {
         return;
@@ -96,8 +98,8 @@ export class TokenRequestor {
 
       const reply = obj as RequestTokenReply;
       console.log("Re-setting access token");
-      this.accessTokenService.setToken(reply.token);
-      resolve(reply.token);
+      this.accessTokenService.setToken(reply.accessToken);
+      resolve(reply.accessToken);
     }
 
     // The MQTT subscribe options
@@ -133,6 +135,7 @@ export class TokenRequestor {
         }
       };
 
+      console.log(`${JSON.stringify(payload)}`);
       client.publish('request', JSON.stringify(payload), publishOptions, (err) => {
         if (err) {
           client.removeListener('message', messageHandler);
