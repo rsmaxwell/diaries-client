@@ -71,18 +71,29 @@ export class MqttSigninService {
       client.removeListener('message', messageHandler);
       clearTimeout(timeoutHandle);
 
+      const userProperties = props.userProperties;
+      const status = userProperties.status;
+
+      console.log(`status: ${status}`);
+      console.log(`payload: ${payload.toString()}`);
+
       let obj;
       try {
-        obj = ReplyHandler.getBufferAsObject(payload)
+        const jsonString = payload.toString('utf-8');
+        obj = JSON.parse(jsonString);
       } catch (err) {
-        reject(`Failed to parse reply: ${err}`);
+        reject(`Failed to parse JSON payload: ${err}`);
         return;
       }
+
+      console.log(`Checking type of object(1): ${obj}`);
 
       if (!isSigninReply(obj)) {
         reject(getUnexpectedReplyMessage(obj));
         return;
       }
+
+      console.log(`Checking type of object(2): ${obj}`);
 
       const reply = obj as SigninReply;
       console.log(`MqttSigninService.signin.connected: username: userId: ${reply.id}, username: ${signin.username}, accessToken: ${reply.accessToken}`)
