@@ -12,8 +12,6 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { AlertService } from '../../alerts/alert.service';
 import { Signin } from '../../model/signin';
 import { MqttSigninService } from '../mqtt.signin.service';
-import { TokenRequestor } from '../tokenRequestor';
-import { TokenService } from '../token/tokenService';
 
 @Component({
   selector: 'app-signin.page',
@@ -37,8 +35,6 @@ export class SigninComponent implements OnDestroy {
 
   @Input() title?: string;
 
-  private submitted = false;
-
   hide = true;
 
   username = new FormControl('', [
@@ -56,7 +52,6 @@ export class SigninComponent implements OnDestroy {
   });
 
   constructor(
-    private tokenRequestor: TokenRequestor,
     private route: ActivatedRoute,
     private router: Router,
     private mqttSigninService: MqttSigninService,
@@ -79,7 +74,6 @@ export class SigninComponent implements OnDestroy {
     this.mqttSigninService.signin(value)
       .then(() => {
           console.log(`SigninComponent.onSubmit: success`)
-          this.tokenRequestor.start();
 
           this.alertService.info(`${value.username} signed in`);
           const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/';

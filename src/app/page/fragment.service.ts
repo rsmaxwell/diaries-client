@@ -96,7 +96,7 @@ export class FragmentService {
       }
 
       if (!(obj !== null && typeof obj === 'number')) {
-        reject(`Unexpected repy`);
+        reject(`Unexpected reply`);
         return;
       }
 

@@ -3,12 +3,12 @@ import { v4 as uuidv4 } from 'uuid';
 import { Buffer } from 'buffer';
 import { Signin } from '../model/signin';
 import { MqttService } from '../mqtt/mqtt.service';
-import { ReplyHandler } from '../utilities/replyHandler';
 import { getUnexpectedReplyMessage, isSigninReply, SigninReply } from '../utilities/reply';
 import { Config, ConfigService } from '../config/config.service';
 import mqtt from 'mqtt';
 import { AccessTokenService } from './token/AccessTokenService';
 import { RefreshTokenService } from './token/RefreshTokenService';
+import { TokenRequestor } from './tokenRequestor';
 
 
 @Injectable({ providedIn: 'root' })
@@ -18,7 +18,8 @@ export class MqttSigninService {
     private configService: ConfigService,
     private mqttService: MqttService,
     private accessTokenService: AccessTokenService,
-    private refreshTokenService: RefreshTokenService
+    private refreshTokenService: RefreshTokenService,
+    private tokenRequestor: TokenRequestor,
   ) { }
 
 
@@ -86,14 +87,10 @@ export class MqttSigninService {
         return;
       }
 
-      console.log(`Checking type of object(1): ${obj}`);
-
       if (!isSigninReply(obj)) {
         reject(getUnexpectedReplyMessage(obj));
         return;
       }
-
-      console.log(`Checking type of object(2): ${obj}`);
 
       const reply = obj as SigninReply;
       console.log(`MqttSigninService.signin.connected: username: userId: ${reply.id}, username: ${signin.username}, accessToken: ${reply.accessToken}`)
@@ -107,6 +104,10 @@ export class MqttSigninService {
 
       console.log(`accessToken: ${this.accessTokenService.getCurrentToken()}`);
       console.log(`refreshToken: ${this.refreshTokenService.getCurrentToken()}`);
+
+      console.log(`refreshIntervalMs: ${reply.refreshPeriod}`);
+
+      this.tokenRequestor.start(reply.refreshPeriod);
 
       resolve('ok');
     }

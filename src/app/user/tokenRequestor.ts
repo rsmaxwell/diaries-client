@@ -4,12 +4,14 @@ import { MqttService } from "../mqtt/mqtt.service";
 import { Refresh } from "../model/refresh";
 import { Config, ConfigService } from "../config/config.service";
 import { v4 as uuidv4 } from 'uuid';
-import { getUnexpectedReplyMessage, isRequestTokenReply, RequestTokenReply } from "../utilities/reply";
+import { isStatus, Status } from "../utilities/reply";
 import { ReplyHandler } from "../utilities/replyHandler";
 import mqtt from "mqtt";
 import { Buffer } from 'buffer';
 import { AccessTokenService } from "./token/AccessTokenService";
 import { RefreshTokenService } from "./token/RefreshTokenService";
+import { HttpStatusCode } from "@angular/common/http";
+import { ActivatedRoute, Router } from "@angular/router";
 
 
 @Injectable({ providedIn: 'root' })
@@ -20,6 +22,8 @@ export class TokenRequestor {
   refreshIntervalMs = 5 * 60 * 1000; // i.e.  5 minutes
 
   constructor(
+    private route: ActivatedRoute,
+    private router: Router,
     private configService: ConfigService,
     private mqttService: MqttService,
     private accessTokenService: AccessTokenService,
@@ -83,6 +87,20 @@ export class TokenRequestor {
       client.removeListener('message', messageHandler);
       clearTimeout(timeoutHandle);
 
+      const userProperties = props.userProperties;
+      const status = userProperties.status;
+
+      console.log(`status: ${status}`);
+      console.log(`payload: ${payload.toString()}`);
+
+      if (isStatus(userProperties.status)) {
+        let status = userProperties.status as Status;
+        if (status.code != HttpStatusCode.Ok) {
+          reject(`Failed to refresh the accessToken: ${status.code}: ${status.message}`);
+          return;
+        }
+      }
+
       let obj;
       try {
         obj = ReplyHandler.getBufferAsObject(payload)
@@ -91,24 +109,17 @@ export class TokenRequestor {
         return;
       }
 
-      if (!isRequestTokenReply(obj)) {
-        reject(getUnexpectedReplyMessage(obj));
+      if (!(obj !== null && typeof obj === 'string')) {
+        reject(`Unexpected reply`);
         return;
       }
 
-      const reply = obj as RequestTokenReply;
-      console.log("Re-setting access token");
-      this.accessTokenService.setToken(reply.accessToken);
-      resolve(reply.accessToken);
+      const reply = obj as string;
+      resolve(reply)
     }
 
-    // The MQTT subscribe options
-    const subscribeOptions: any = {
-      qos: 1
-    };
-
     // Step 1: Subscribe to reply topic
-    client.subscribe(replyTopic, subscribeOptions, (err) => {
+    client.subscribe(replyTopic, { qos: 1 }, (err) => {
       if (err) {
         reject(`Subscription failed: ${err.message}`);
       } else {
@@ -146,14 +157,20 @@ export class TokenRequestor {
   }
 
 
-  start(): void {
+  start(refreshInterval: number): void {
+
+    console.log(`TokenRequestor.start: this.refreshIntervalMs: ${this.refreshIntervalMs} --> ${refreshInterval * 1000}`);
+
+    this.refreshIntervalMs = refreshInterval * 1000;
+
     this.stop()  // Prevent other duplicate
 
     this.refreshSub = interval(this.refreshIntervalMs)
       .pipe(
         switchMap(() => from(this.sendRefreshRequest())),
         catchError(err => {
-          console.error('Token refresh failed:', err);
+          console.log('Token refresh failed:', err);
+          this.router.navigate(['/signin']);
           return EMPTY;
         })
       )
