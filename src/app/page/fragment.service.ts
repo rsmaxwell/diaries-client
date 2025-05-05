@@ -5,7 +5,6 @@ import { v4 as uuidv4 } from 'uuid';
 import { Fragment, AddFragmentRequest } from '../model/fragment/fragment';
 import { MqttService } from '../mqtt/mqtt.service';
 import { Diary } from '../diary/diary';
-import { AddFragmentReply, getUnexpectedReplyMessage, isAddFragmentReply } from '../utilities/reply';
 import { ReplyHandler } from '../utilities/replyHandler';
 import mqtt from 'mqtt';
 import { Config, ConfigService } from '../config/config.service';
@@ -81,6 +80,13 @@ export class FragmentService {
       client.removeListener('message', messageHandler);
       clearTimeout(timeoutHandle);
 
+      const userProperties = props.userProperties;
+      const status = userProperties.status;
+
+      console.log(`status: ${status}`);
+      console.log(`payload: ${payload.toString()}`);
+
+
       let obj;
       try {
         obj = ReplyHandler.getBufferAsObject(payload)
@@ -89,13 +95,13 @@ export class FragmentService {
         return;
       }
 
-      if (!isAddFragmentReply(obj)) {
-        reject(`fragment not saved: (${getUnexpectedReplyMessage(obj)})`);
+      if (!(obj !== null && typeof obj === 'number')) {
+        reject(`Unexpected repy`);
         return;
       }
 
-      const reply = obj as AddFragmentReply;
-      resolve(reply.id)
+      const reply = obj as number;
+      resolve(reply)
     }
 
     // Step 1: Subscribe to reply topic
@@ -131,9 +137,6 @@ export class FragmentService {
           }
         }
       };
-
-      console.log(`accessToken: ${this.accessTokenService.getCurrentToken()}`);
-      console.log(`refreshToken: ${this.refreshTokenService.getCurrentToken()}`);
 
       client.publish('request', JSON.stringify(payload), publishOptions, (err) => {
         if (err) {

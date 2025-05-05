@@ -43,6 +43,9 @@ export interface AddFragmentReply extends Reply {
 
 
 export function getUnexpectedReplyMessage(obj: any): string {
+
+    console.log(`typeof obj: ${typeof obj}`);
+
     if (!(typeof obj === 'object')) {
         return(`Reply is not an object!`);
     } else if (!('code' in obj && typeof obj.code === 'number')) {
@@ -96,9 +99,14 @@ export function isRequestTokenReply(obj: any): obj is RequestTokenReply {
         'code' in obj && typeof obj.code === 'number' &&
         'accessToken' in obj && typeof obj.accessToken === 'string';
 }
-export function isAddFragmentReply(obj: any): obj is AddFragmentReply {
+
+export interface Status {
+    code: number
+    message: string
+};
+export function isStatus(obj: any): obj is Status {
     return obj !== null &&
         typeof obj === 'object' &&
         'code' in obj && typeof obj.code === 'number' &&
-        'id' in obj && typeof obj.id === 'number';
+        'message' in obj && typeof obj.code === 'string';
 }
