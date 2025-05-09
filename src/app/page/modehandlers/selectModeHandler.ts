@@ -53,6 +53,7 @@ export class SelectModeHandler extends PageModeHandler {
         }
     }
     onSelectFragment(fragment: Fragment): void {
+        console.log(`SelectModeHandler.onSelectFragment: fragment: id: ${fragment.id}, pageId: ${fragment.pageId}, x: ${fragment.x} y: ${fragment.y} width: ${fragment.width} height: ${fragment.height}`);
         this.isDraggingLeft = false;
         this.isDraggingRight = false;
         this.isDraggingTop = false;
@@ -61,6 +62,19 @@ export class SelectModeHandler extends PageModeHandler {
         this.pageComponent.setSelection(fragment);
     }
     onMouseUp(event: MouseEvent) {
+        console.log(`SelectModeHandler.onMouseUp`);
+
+        if (this.isDraggingLeft || this.isDraggingTop || this.isDraggingRight || this.isDraggingBottom) {
+            console.log(`SelectModeHandler.onMouseUp: is Dragging: true`);
+            const f = this.pageComponent.selectedFragment;
+            if (f) {
+               console.log(`fragment: id: ${f.id}, pageId: ${f.pageId}, x: ${f.x} y: ${f.y} width: ${f.width} height: ${f.height}`);
+            }
+        }
+        else {
+            console.log(`SelectModeHandler.onMouseUp: is Dragging: false`);
+        }
+
         this.isDraggingLeft = false;
         this.isDraggingRight = false;
         this.isDraggingTop = false;
@@ -70,7 +84,7 @@ export class SelectModeHandler extends PageModeHandler {
         if (this.pendingCancel) {
             this.pendingCancel = false;
             this.pageComponent.cancelSelection();
-    }
+        }
     }
     onKeyDown(event: KeyboardEvent): void {
         if (event.key === 'Escape') {

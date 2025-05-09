@@ -95,17 +95,12 @@ export class MqttSigninService {
       const reply = obj as SigninReply;
       console.log(`MqttSigninService.signin.connected: username: userId: ${reply.id}, username: ${signin.username}, accessToken: ${reply.accessToken}`)
 
-      console.log(`reply: ${JSON.stringify(reply)}`);
       console.log(`reply.accessToken: ${reply.accessToken}`);
       console.log(`reply.refreshToken: ${reply.refreshToken}`);
+      console.log(`reply.refreshInterval: ${reply.refreshPeriod} seconds`);
 
       this.accessTokenService.setToken(reply.accessToken);
       this.refreshTokenService.setToken(reply.refreshToken);
-
-      console.log(`accessToken: ${this.accessTokenService.getCurrentToken()}`);
-      console.log(`refreshToken: ${this.refreshTokenService.getCurrentToken()}`);
-
-      console.log(`refreshIntervalMs: ${reply.refreshPeriod}`);
 
       this.tokenRequestor.start(reply.refreshPeriod);
 

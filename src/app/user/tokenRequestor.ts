@@ -19,7 +19,6 @@ export class TokenRequestor {
 
   refreshSub?: Subscription;
   connectionPromise: Promise<void> | null = null;
-  refreshIntervalMs = 5 * 60 * 1000; // i.e.  5 minutes
 
   constructor(
     private route: ActivatedRoute,
@@ -38,10 +37,6 @@ export class TokenRequestor {
       // Get the configuration
       this.configService.getConfig()
         .then((config) => {
-
-          if (config.reconnectPeriod != undefined) {
-            this.refreshIntervalMs = config.reconnectPeriod;
-          }
 
           // Get the MQTT connection
           this.mqttService.getConnection()
@@ -159,13 +154,11 @@ export class TokenRequestor {
 
   start(refreshInterval: number): void {
 
-    console.log(`TokenRequestor.start: this.refreshIntervalMs: ${this.refreshIntervalMs} --> ${refreshInterval * 1000}`);
+    console.log(`TokenRequestor.start: refreshInterval: ${refreshInterval} seconds`);
 
-    this.refreshIntervalMs = refreshInterval * 1000;
+    this.stop()  // Prevent duplicates
 
-    this.stop()  // Prevent other duplicate
-
-    this.refreshSub = interval(this.refreshIntervalMs)
+    this.refreshSub = interval(refreshInterval * 1000)
       .pipe(
         switchMap(() => from(this.sendRefreshRequest())),
         catchError(err => {

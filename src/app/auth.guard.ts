@@ -17,9 +17,6 @@ export class AuthGuard implements CanActivate {
         if (token) {
             return true;
         }
-        else {
-            console.log(`AuthGuard.canActivate(): missing 'accessToken'`)
-        }
 
         console.log(`AuthGuard.canActivate(): accessToken NOT found`)
 

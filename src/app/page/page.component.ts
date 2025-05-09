@@ -15,7 +15,8 @@ import { BehaviorSubject } from 'rxjs';
 import { PagefooterComponent } from '../headers/pagefooter/pagefooter.component';
 import { Fragment } from '../model/fragment/fragment';
 import { Rectangle } from '../utilities/rectangle';
-import { FragmentService } from './fragment.service';
+import { AddFragmentService } from './addFragment.service';
+import { UpdateFragmentService } from './updateFragment.service';
 
 
 type Mode = 'view' | 'select' | 'add';
@@ -62,7 +63,8 @@ export class PageComponent implements OnInit {
     private alertService: AlertService,
     private cdr: ChangeDetectorRef,
     private configService: ConfigService,
-    public fragmentService: FragmentService
+    public addFragmentService: AddFragmentService,
+    public updateFragmentService: UpdateFragmentService
   ) { }
 
 
@@ -87,39 +89,7 @@ export class PageComponent implements OnInit {
 
         this.diaryService.getDiary(diaryId).subscribe({
           next: (value: unknown) => {
-            // console.log(`pageComponent.ngOnInit: JSON.stringify(value): ${JSON.stringify(value)}`);
-            console.log(`pageComponent.ngOnInit: got diary and its pages`);
-
-            if (
-              typeof value === 'object' &&
-              value !== null &&
-              'diary' in value &&
-              'pages' in value &&
-              Array.isArray((value as any).pages)
-            ) {
-              const response = value as {
-                diary: { id: number; name: string };
-                pages: Page[];
-              };
-
-              this.diary = response.diary;
-
-              const found = response.pages.find(p => p.id === pageId);
-              if (found) {
-                this.page = found;
-              } else {
-                console.error('Page not found in diary.pages');
-              }
-
-              console.log(`pageComponent.ngOnInit: updating the title`);
-              this.title$.next(`${this.diary.name} - ${this.page.name}`);
-            }
-
-            console.log(`pageComponent.ngOnInit: diary: ${this.diary.name}: page: ${this.page.name}`);
-            const rect = new Rectangle(0, 0, this.page.width, this.page.height);
-            this.viewModeHandler.setViewBox(rect);
-            this.updateViewBox(rect);
-            this.cdr.detectChanges();
+            this.connected(diaryId, pageId, value); 
           },
           error: (err: string) => {
             console.error(`PageComponent.ngOnInit: error: ${err}`);
@@ -131,6 +101,43 @@ export class PageComponent implements OnInit {
       .catch((error) => {
         console.error(`MqttService.getConnection: configuration error: ${error}`);
       });
+  }
+
+  connected(diaryId: number, pageId: number, value: unknown) {
+    {
+      console.log(`pageComponent.ngOnInit.connected: got diary and its pages`);
+
+      if (
+        typeof value === 'object' &&
+        value !== null &&
+        'diary' in value &&
+        'pages' in value &&
+        Array.isArray((value as any).pages)
+      ) {
+        const response = value as {
+          diary: { id: number; name: string };
+          pages: Page[];
+        };
+
+        this.diary = response.diary;
+
+        const found = response.pages.find(p => p.id === pageId);
+        if (found) {
+          this.page = found;
+        } else {
+          console.error('Page not found in diary.pages');
+        }
+
+        console.log(`pageComponent.ngOnInit: updating the title`);
+        this.title$.next(`${this.diary.name} - ${this.page.name}`);
+      }
+
+      console.log(`pageComponent.ngOnInit.connected: diary: ${this.diary.name}: page: ${this.page.name}`);
+      const rect = new Rectangle(0, 0, this.page.width, this.page.height);
+      this.viewModeHandler.setViewBox(rect);
+      this.updateViewBox(rect);
+      this.cdr.detectChanges();
+    }
   }
 
   onClick(event: MouseEvent) {
@@ -184,28 +191,41 @@ export class PageComponent implements OnInit {
     this.selectedFragment = fragment;
   }
   updateCurrentFragment(rectangle: Rectangle) {
-    this.currentFragment = new Fragment("currentFragment", rectangle);
+    this.currentFragment = new Fragment(0, 0, rectangle, "");
   }
   clearCurrentFragment() {
     this.currentFragment = null;
   }
   addNewFragment(rectangle: Rectangle) {
     this.fragmentCounter++; // always increment
-    const clientId = `fragment-${this.fragmentCounter}`;
-    const fragment = new Fragment(clientId, rectangle);
+    const svgElementId = `fragment-${this.fragmentCounter}`;
+    const fragment = new Fragment(0, 0, rectangle, "");
 
     this.fragments.push(fragment);
     this.selectedFragment = fragment;
 
-    console.log(`PageComponent.addFragment: sending addFragment clientid: ${fragment.clientId} request to responder`)
-    this.fragmentService.addFragment(this.diary, this.page, fragment)
+    console.log(`PageComponent.addFragment: sending addFragment id: ${fragment.id} request to responder`)
+    this.addFragmentService.addFragment(this.diary, this.page, fragment)
       .then((id) => {
-        console.log(`PageComponent.addFragment: response: id: ${id}`)
         fragment.id = id;
-        this.alertService.info(`fragment: clientid: ${fragment.clientId}, id: ${id} added`);
+        console.log(`PageComponent.addFragment: fragment: id: ${fragment.id} added`);
+        this.alertService.info(`fragment: id: ${fragment.id} added`);
       })
       .catch((err) => {
         console.log(`PageComponent.addFragment: error: ${err}`)
+        this.alertService.error(err);
+      });
+  }
+  updateFragment(fragment: Fragment, rectangle: Rectangle) {
+
+    console.log(`PageComponent.updateFragment: sending updateFragment id: ${fragment.id} request to responder`)
+    this.updateFragmentService.updateFragment(this.diary, this.page, fragment)
+      .then((id) => {
+        console.log(`PageComponent.updateFragment: response: id: ${id}`)
+        this.alertService.info(`fragment: id: ${id}: fragment: {id: ${fragment.id}, pageid: ${fragment.pageId}} updated`);
+      })
+      .catch((err) => {
+        console.log(`PageComponent.updateFragment: error: ${err}`)
         this.alertService.error(err);
       });
   }

@@ -17,7 +17,7 @@ import { RefreshTokenService } from '../user/token/RefreshTokenService';
 @Injectable({
   providedIn: 'root'
 })
-export class FragmentService {
+export class AddFragmentService {
 
   constructor(
     private configService: ConfigService,
@@ -86,7 +86,6 @@ export class FragmentService {
       console.log(`status: ${status}`);
       console.log(`payload: ${payload.toString()}`);
 
-
       let obj;
       try {
         obj = ReplyHandler.getBufferAsObject(payload)
@@ -113,7 +112,7 @@ export class FragmentService {
         client.on('message', messageHandler);
       }
 
-      // Step 2: Publish refresh request
+      // Step 2: Publish request
       const payload = {
         function: 'addfragment',
         args: new AddFragmentRequest(
@@ -121,7 +120,8 @@ export class FragmentService {
           fragment.x,
           fragment.y,
           fragment.width,
-          fragment.height
+          fragment.height,
+          fragment.text
         )
       };
 
@@ -137,6 +137,10 @@ export class FragmentService {
           }
         }
       };
+
+      console.log(`FragmentService.addFragment.connected: diary: ${JSON.stringify(diary)}`);
+      console.log(`FragmentService.addFragment.connected: page: ${JSON.stringify(page)}`);
+      console.log(`FragmentService.addFragment.connected: payload: ${JSON.stringify(payload)}`);
 
       client.publish('request', JSON.stringify(payload), publishOptions, (err) => {
         if (err) {
