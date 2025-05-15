@@ -1,10 +1,7 @@
 
-import { Fragment } from "../../model/fragment/fragment";
+import { Marquee } from "../../model/fragment/fragment";
 import { Point } from "../../utilities/point";
 import { PageComponent } from "../page.component";
-
-
-
 
 // interface for handler
 export abstract class PageModeHandler {
@@ -19,7 +16,7 @@ export abstract class PageModeHandler {
     abstract onMouseDown(event: MouseEvent): void;
     abstract onWheel(event: WheelEvent): void;
     abstract onKeyDown(event: KeyboardEvent): void;
-    abstract onSelectFragment(fragment: Fragment): void;
+    abstract onSelectMarquee(marquee: Marquee): void;
 
     getMousePosition(event: MouseEvent): Point | null {
         const svg = this.pageComponent.svg as SVGSVGElement; 

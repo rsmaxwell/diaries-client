@@ -6,6 +6,7 @@ export class Page {
   extension: string;
   width: number;
   height: number;
+  sequence: number;
 
   constructor() {
     this.id = 0;
@@ -13,6 +14,7 @@ export class Page {
     this.extension = ``;
     this.width = 0;
     this.height = 0;
+    this.sequence = 0;
   }
 }
 

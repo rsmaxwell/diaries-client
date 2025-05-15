@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageheaderComponent } from "../headers/pageheader/pageheader.component";
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
@@ -8,15 +8,18 @@ import { ViewModeHandler } from './modehandlers/viewModeHandler';
 import { SelectModeHandler } from './modehandlers/selectModeHandler';
 import { AddModeHandler } from './modehandlers/addModeHandler';
 import { ActivatedRoute } from '@angular/router';
-import { DiaryService } from '../diary/diary.service';
+import { DiariesService } from '../diaries/diaries.service';
 import { AlertService } from '../alerts/alert.service';
 import { ConfigService } from '../config/config.service';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, combineLatest, filter } from 'rxjs';
 import { PagefooterComponent } from '../headers/pagefooter/pagefooter.component';
-import { Fragment } from '../model/fragment/fragment';
+import { Fragment, Marquee } from '../model/fragment/fragment';
 import { Rectangle } from '../utilities/rectangle';
-import { AddFragmentService } from './addFragment.service';
-import { UpdateFragmentService } from './updateFragment.service';
+import { FragmentServiceGet } from '../fragments/fragment.service.get';
+import { FragmentServiceAdd } from '../fragments/fragment.service.add';
+import { FragmentServiceUpdate } from '../fragments/fragment.service.update';
+import { FragmentServiceDelete } from '../fragments/fragment.service.delete';
+import { PagesService } from '../diary/pages.service';
 
 
 type Mode = 'view' | 'select' | 'add';
@@ -33,7 +36,7 @@ type Mode = 'view' | 'select' | 'add';
   templateUrl: './page.component.html',
   styleUrl: './page.component.scss'
 })
-export class PageComponent implements OnInit {
+export class PageComponent implements OnInit, OnDestroy {
 
   title$ = new BehaviorSubject<string>('Loading...');
 
@@ -43,13 +46,12 @@ export class PageComponent implements OnInit {
   viewBoxAsString = '0 0 0 0';
   fileServerUrl: string = "";
   mode: 'select' | 'add' | 'view' = 'view';
-  selectedFragment: Fragment | null = null;
-  currentFragment: Fragment | null = null;
-  fragments: Fragment[] = [];
+  selectedMarquee: Marquee | null = null;
+  currentMarquee: Marquee | null = null;
+  marquees: Marquee[] = [];
   svg: HTMLElement | SVGSVGElement = {} as HTMLElement;
   viewModeHandler = new ViewModeHandler(this);
-  fragmentCounter = 0;
-  style: string = '';  
+  style: string = '';
   handlers = {
     view: this.viewModeHandler,
     select: new SelectModeHandler(this),
@@ -59,85 +61,90 @@ export class PageComponent implements OnInit {
 
   constructor(
     private route: ActivatedRoute,
-    private diaryService: DiaryService,
+    private diariesService: DiariesService,
+    private pagesService: PagesService,
+    private fragmentServiceGet: FragmentServiceGet,
+    private fragmentServiceAdd: FragmentServiceAdd,
+    private fragmentServiceUpdate: FragmentServiceUpdate,
+    private fragmentServiceDelete: FragmentServiceDelete,
     private alertService: AlertService,
     private cdr: ChangeDetectorRef,
-    private configService: ConfigService,
-    public addFragmentService: AddFragmentService,
-    public updateFragmentService: UpdateFragmentService
+    private configService: ConfigService
   ) { }
 
 
   ngOnInit(): void {
-    console.log(`pageComponent.ngOnInit`);
+    console.log(`PageComponent.ngOnInit`);
 
     const svgEl = document.getElementById('zoomable-svg');
     if (!(svgEl instanceof SVGSVGElement)) {
       console.error('zoomable-svg is not an SVG element');
       return;
     }
-    this.svg = svgEl; // svg is now safely typed as SVGSVGElement
-
-
+    this.svg = svgEl;
 
     this.configService.getConfig()
       .then((config) => {
         this.fileServerUrl = config.fileServerUrl;
 
-        const diaryId = Number(this.route.snapshot.paramMap.get('diaryId'));
-        const pageId = Number(this.route.snapshot.paramMap.get('pageId'));
+        const diaryIdParam = this.route.snapshot.paramMap.get('diaryId');
+        const pageIdParam = this.route.snapshot.paramMap.get('pageId');
 
-        this.diaryService.getDiary(diaryId).subscribe({
-          next: (value: unknown) => {
-            this.connected(diaryId, pageId, value); 
-          },
-          error: (err: string) => {
-            console.error(`PageComponent.ngOnInit: error: ${err}`);
-            this.alertService.error(err);
-          },
-          complete: () => console.log('PageComponent.ngOnInit: complete')
-        });
+        if (!diaryIdParam || !pageIdParam) {
+          this.alertService.error('Invalid route: missing diaryId or pageId');
+          return;
+        }
+
+        const diaryId = Number(diaryIdParam);
+        const pageId = Number(pageIdParam);
+
+        if (isNaN(diaryId) || isNaN(pageId)) {
+          this.alertService.error('Invalid route: diaryId or pageId is not a number');
+          return;
+        }
+
+        // Combine Diary and Page fetches
+        combineLatest([
+          this.diariesService.getDiaryById(diaryId),
+          this.pagesService.getPageForDiaryById(diaryId, pageId)
+        ])
+          .pipe(
+            filter(([d, p]) => d !== undefined && p !== undefined)
+          )
+          .subscribe(([diary, page]) => {
+            this.handlePageReply(diary as Diary, page as Page);
+          });
+
+        // Fetch fragments separately (and convert to Marquee)
+        this.fragmentServiceGet.getFragmentsForPage(diaryId, pageId)
+          .pipe(filter((fragments): fragments is Fragment[] => Array.isArray(fragments)))
+          .subscribe(fragments => {
+            this.marquees = fragments.map(fragment => Marquee.fromFragment(fragment));
+          });
       })
       .catch((error) => {
         console.error(`MqttService.getConnection: configuration error: ${error}`);
       });
   }
 
-  connected(diaryId: number, pageId: number, value: unknown) {
-    {
-      console.log(`pageComponent.ngOnInit.connected: got diary and its pages`);
+  ngOnDestroy(): void {
+    this.fragmentServiceGet.unsubscribe(this.diary.id, this.page.id);
+  }
 
-      if (
-        typeof value === 'object' &&
-        value !== null &&
-        'diary' in value &&
-        'pages' in value &&
-        Array.isArray((value as any).pages)
-      ) {
-        const response = value as {
-          diary: { id: number; name: string };
-          pages: Page[];
-        };
 
-        this.diary = response.diary;
+  handlePageReply(diary: Diary, page: Page) {
+    console.log(`pageComponent.handlePageReply: diary: ${JSON.stringify(diary)}, page: ${JSON.stringify(page)}`);
 
-        const found = response.pages.find(p => p.id === pageId);
-        if (found) {
-          this.page = found;
-        } else {
-          console.error('Page not found in diary.pages');
-        }
+    this.diary = diary;
+    this.page = page;
 
-        console.log(`pageComponent.ngOnInit: updating the title`);
-        this.title$.next(`${this.diary.name} - ${this.page.name}`);
-      }
+    console.log(`pageComponent.handlePageReply: updating the title`);
+    this.title$.next(`${diary.name} - ${page.name}`);
 
-      console.log(`pageComponent.ngOnInit.connected: diary: ${this.diary.name}: page: ${this.page.name}`);
-      const rect = new Rectangle(0, 0, this.page.width, this.page.height);
-      this.viewModeHandler.setViewBox(rect);
-      this.updateViewBox(rect);
-      this.cdr.detectChanges();
-    }
+    const rect = new Rectangle(0, 0, page.width, page.height);
+    this.viewModeHandler.setViewBox(rect);
+    this.updateViewBox(rect);
+    this.cdr.detectChanges();
   }
 
   onClick(event: MouseEvent) {
@@ -170,9 +177,9 @@ export class PageComponent implements OnInit {
   onSelectButtonClick(): void {
     this.mode = "select";
   }
-  onSelectFragment(fragment: Fragment) {
+  onSelectMarquee(marquee: Marquee) {
     let handler = this.handlers[this.mode];
-    handler.onSelectFragment(fragment);
+    handler.onSelectMarquee(marquee);
   }
   onKeyDown(e: KeyboardEvent) {
     let handler = this.handlers[this.mode];
@@ -181,52 +188,55 @@ export class PageComponent implements OnInit {
 
 
   cancelSelection() {
-    this.selectedFragment = null;
+    this.selectedMarquee = null;
+  }
+  deleteSelection() {
+    if (this.selectedMarquee) {
+      console.log(`PageComponent.deleteSelection: marquee: ${JSON.stringify(this.selectedMarquee)}`)
+      this.fragmentServiceDelete.deleteFragment(this.selectedMarquee)
+        .then((x) => {
+          console.log(`PageComponent.deleteSelection: delete succeeded`)
+        })
+      this.selectedMarquee = null;
+    }
   }
   updateViewBox(viewBox: Rectangle) {
     this.viewBox = viewBox
     this.viewBoxAsString = `${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`;
   }
-  setSelection(fragment: Fragment) {
-    this.selectedFragment = fragment;
+  setSelection(marquee: Marquee) {
+    this.selectedMarquee = marquee;
   }
-  updateCurrentFragment(rectangle: Rectangle) {
-    this.currentFragment = new Fragment(0, 0, rectangle, "");
+  updateCurrentMarquee(rectangle: Rectangle) {
+    this.currentMarquee = new Marquee(0, rectangle);
   }
-  clearCurrentFragment() {
-    this.currentFragment = null;
+  clearCurrentMarquee() {
+    this.currentMarquee = null;
   }
   addNewFragment(rectangle: Rectangle) {
-    this.fragmentCounter++; // always increment
-    const svgElementId = `fragment-${this.fragmentCounter}`;
-    const fragment = new Fragment(0, 0, rectangle, "");
 
-    this.fragments.push(fragment);
-    this.selectedFragment = fragment;
-
-    console.log(`PageComponent.addFragment: sending addFragment id: ${fragment.id} request to responder`)
-    this.addFragmentService.addFragment(this.diary, this.page, fragment)
+    console.log(`PageComponent.addFragment: sending addFragment request: id: ${JSON.stringify(rectangle)}`)
+    this.fragmentServiceAdd.addFragment(this.page, rectangle)
       .then((id) => {
-        fragment.id = id;
-        console.log(`PageComponent.addFragment: fragment: id: ${fragment.id} added`);
-        this.alertService.info(`fragment: id: ${fragment.id} added`);
+        // Wait for MQTT to deliver the new fragment, which will be handled by the existing subscription
+        const marquee = new Marquee(id, rectangle);
+        this.selectedMarquee = marquee;
+        this.currentMarquee = null;
+
+        console.log(`PageComponent.addFragment: fragment: id: ${marquee.id} added`);
+        this.alertService.info(`fragment: id: ${marquee.id} added`);
       })
       .catch((err) => {
         console.log(`PageComponent.addFragment: error: ${err}`)
         this.alertService.error(err);
       });
   }
-  updateFragment(fragment: Fragment, rectangle: Rectangle) {
 
-    console.log(`PageComponent.updateFragment: sending updateFragment id: ${fragment.id} request to responder`)
-    this.updateFragmentService.updateFragment(this.diary, this.page, fragment)
-      .then((id) => {
-        console.log(`PageComponent.updateFragment: response: id: ${id}`)
-        this.alertService.info(`fragment: id: ${id}: fragment: {id: ${fragment.id}, pageid: ${fragment.pageId}} updated`);
+  updateFragment(marquee: Marquee) {
+    console.log(`PageComponent.updateFragment: marquee: ${JSON.stringify(marquee)}`)
+    this.fragmentServiceUpdate.updateFragment(marquee)
+      .then((x) => {
+        console.log(`PageComponent.updateFragment: update succeeded`)
       })
-      .catch((err) => {
-        console.log(`PageComponent.updateFragment: error: ${err}`)
-        this.alertService.error(err);
-      });
   }
 }

@@ -3,25 +3,26 @@ import { Diary } from './diary';
 import { CommonModule, NgIf } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { DiaryService } from './diary.service';
 import { FullheaderComponent } from "../headers/fullheader/fullheader.component";
-import { MatTableModule } from '@angular/material/table';
+import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { ScrollingModule } from '@angular/cdk/scrolling';
 import { FullfooterComponent } from "../headers/fullfooter/fullfooter.component";
 import { MatCardModule } from '@angular/material/card';
 import { MatSelectModule } from '@angular/material/select';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
-import { BehaviorSubject, Subscription } from 'rxjs';
+import { BehaviorSubject, Subscription, switchMap } from 'rxjs';
 import { AlertService } from '../alerts/alert.service';
 import { Page } from '../page/page';
+import { DiariesService } from '../diaries/diaries.service';
+import { PagesService } from './pages.service';
 
 
 @Component({
   selector: 'app-diary',
   standalone: true,
   imports: [
-    CommonModule, 
+    CommonModule,
     FormsModule,
     FullheaderComponent,
     FullfooterComponent,
@@ -37,84 +38,63 @@ import { Page } from '../page/page';
 })
 export class DiaryComponent implements OnInit, OnDestroy {
 
-  title$ = new BehaviorSubject<string>('Loading...');
+  title = "Diaries";
 
-  displayedColumns: string[] = ['id', 'name'];
-  diary: Diary = new Diary();
   pages: Page[] = [];
-  private subscription?: Subscription;
+  pageDataSource = new MatTableDataSource<Page>();
+  displayedColumns: string[] = ['id', 'name'];
+  pageSubscription: Subscription = new Subscription();
+
+  diary: Diary | undefined;
+
 
   constructor(
-    private route: ActivatedRoute,
+    private diariesService: DiariesService,
     private router: Router,
-    private diaryService: DiaryService,
+    private route: ActivatedRoute,
+    private pagesService: PagesService,
     private alertService: AlertService
-  ) { }
+  ) {
+    console.log(`DiaryComponent.constructor`)
+  }
 
   ngOnInit(): void {
     console.log(`DiaryComponent.ngOnInit`)
-    this.getDiary()
-  }
+    const sub = this.route.params
+      .pipe(
+        switchMap(params => {
+          const id = +params['diaryId'];
+          return this.diariesService.getDiaryById(id);
+        })
+      )
+      .subscribe(diary => {
+        if (!diary) return;
+        this.diary = diary;
 
+        console.log(`PageComponent.ngOnInit: diary.id: ${diary.id}`)
 
-  getDiary(): void {
-    const idstring = this.route.snapshot.paramMap.get('diaryId');
-    console.log(`DiaryComponent.getDiary: id: ${idstring}`);
-    const id = Number(idstring);
-  
-    this.subscription = this.diaryService.getDiary(id).subscribe({
-      next: (value: unknown) => {
-        // console.log(`DiaryComponent.getDiary: JSON.stringify(value): ${JSON.stringify(value)}`);
-  
-        if (
-          typeof value === 'object' &&
-          value !== null &&
-          'diary' in value &&
-          'pages' in value &&
-          Array.isArray((value as any).pages)
-        ) {
-          const response = value as {
-            diary: { id: number; name: string };
-            pages: Page[];
-          };
+        // Only now get the pages
+        this.pagesService.getPagesForDiary(diary.id).subscribe(pages => {
+          this.pages = pages;
+        });
+      });
 
-          this.diary = response.diary;
-          this.pages = response.pages;
-          this.title$.next(`${this.diary.name}`);
-
-          // console.log(`DiaryComponent.getDiary: response: ${JSON.stringify(response)}`);
-
-        } else {
-          console.error('DiaryComponent.getDiary: Invalid response structure', value);
-          this.alertService.error('Unexpected response from server');
-        }
-      },
-      error: err => {
-        console.error(`DiaryComponent.getDiary: error: ${err}`);
-        this.alertService.error(err);
-      },
-      complete: () => console.log('DiaryComponent.getDiary: complete')
-    });
-  }
-  
-
-  ngOnDestroy(): void {
-    console.log('DiaryComponent.ngOnDestroy')
-
-    if (this.subscription) {
-      this.subscription.unsubscribe();
-      console.log('DiaryComponent.ngOnDestroy: Unsubscribed from diaryService');
-    }
+    this.pageSubscription.add(sub);
   }
 
   selectItem(id: number) {
-    console.log(`DiaryComponent.selectItem: id: ${id}`)
+    console.log(`PageComponent.selectItem: id: ${id}`)
 
     if (typeof id !== 'number') {
       console.error('Expected numeric page ID, got:', id);
       return;
     }
-    
-    this.router.navigate([`/diary/${this.diary.id}/${id}`]);
+
+    this.router.navigate([`/diary/${this.diary?.id}/${id}`]);
+  }
+
+  ngOnDestroy(): void {
+    console.log('PagesComponent.ngOnDestroy: unsubscribing');
+    this.pageSubscription?.unsubscribe();
   }
 }

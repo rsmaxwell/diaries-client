@@ -1,4 +1,4 @@
-import { Fragment } from "../../model/fragment/fragment";
+import { Fragment, Marquee } from "../../model/fragment/fragment";
 import { Point } from "../../utilities/point";
 import { Rectangle } from "../../utilities/rectangle";
 import { PageComponent } from "../page.component";
@@ -78,7 +78,7 @@ export class ViewModeHandler extends PageModeHandler {
 
     onClick(event: MouseEvent) { }
     onKeyDown(event: KeyboardEvent): void { }
-    onSelectFragment(fragment: Fragment): void { }
+    onSelectMarquee(marquee: Marquee): void { }
 
     
     setViewBox(viewBox: Rectangle) {

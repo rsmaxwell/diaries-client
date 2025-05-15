@@ -30,127 +30,131 @@ export class TokenRequestor {
   ) { }
 
   async sendRefreshRequest(): Promise<string> {
+    console.log('TokenRequestor: sendRefreshRequest() called');
 
-    console.log('TokenRequestor.sendRefreshRequest');
-    return new Promise((resolve, reject) => {
-
-      // Get the configuration
-      this.configService.getConfig()
-        .then((config) => {
-
-          // Get the MQTT connection
-          this.mqttService.getConnection()
-            .then((client) => {
-              this.connected(client, config, resolve, reject);
-            })
-            .catch(err => {
-              reject(`Error getting the MQTT connection: ${err}`);
-            })
-        })
-        .catch(err => {
-          reject(`Error getting the configuration: ${err}`);
-        })
-    })
-  }
-
-  connected(client: mqtt.MqttClient, config: Config, resolve: (value: string) => void, reject: (reason?: any) => void) {
-    console.log(`TokenRequestor.sendRefreshRequest.connected`);
-
-    const correlationId = uuidv4();
-    const replyTopic = `reply/${config.clientId}/refreshToken`;
-
-    const timeoutHandle = setTimeout(() => {
-      client.removeListener('message', messageHandler);
-      reject('Timeout waiting for response');
-    }, 5000);
-
-    const messageHandler = (topic: string, payload: Buffer, packet: any) => {
-      console.log(`received reply for client: ${config.clientId}, topic: ${topic}, correlationId: ${correlationId}`);
-      console.log(`payload: ${payload.toString()}`);
-
-      if (!(topic === replyTopic)) {
-        return;
-      }
-
-      const props = packet.properties;
-      const incomingCorrelation = props?.correlationData?.toString();
-      if (!(incomingCorrelation === correlationId)) {
-        return;
-      }
-
-      // We found our reply, so we can stop listening
-      client.removeListener('message', messageHandler);
-      clearTimeout(timeoutHandle);
-
-      const userProperties = props.userProperties;
-      const status = userProperties.status;
-
-      console.log(`status: ${status}`);
-      console.log(`payload: ${payload.toString()}`);
-
-      if (isStatus(userProperties.status)) {
-        let status = userProperties.status as Status;
-        if (status.code != HttpStatusCode.Ok) {
-          reject(`Failed to refresh the accessToken: ${status.code}: ${status.message}`);
-          return;
-        }
-      }
-
-      let obj;
+    return new Promise(async (resolve, reject) => {
       try {
-        obj = ReplyHandler.getBufferAsObject(payload)
-      } catch (err) {
-        reject(`Failed to parse message: ${err}`);
-        return;
-      }
+        const [config, client, accessToken, refreshToken] = await Promise.all([
+          this.configService.getConfig(),
+          this.mqttService.getConnection(),
+          this.refreshTokenService.getToken(),
+          this.accessTokenService.getToken()
+        ]);
 
-      if (!(obj !== null && typeof obj === 'string')) {
-        reject(`Unexpected reply`);
-        return;
-      }
+        const correlationId = uuidv4();
+        const replyTopic = `reply/${config.clientId}/refreshToken`;
 
-      const reply = obj as string;
-      resolve(reply)
-    }
-
-    // Step 1: Subscribe to reply topic
-    client.subscribe(replyTopic, { qos: 1 }, (err) => {
-      if (err) {
-        reject(`Subscription failed: ${err.message}`);
-      } else {
-        console.log(`Client: ${config.clientId} waiting for reply with correlationId: ${correlationId}`);
-        client.on('message', messageHandler);
-      }
-
-      // Step 2: Publish refresh request
-      const refreshToken = this.refreshTokenService.getCurrentToken()!;
-      const accessToken = this.accessTokenService.getCurrentToken()!;
-      const refresh: Refresh = new Refresh(config.username, refreshToken);
-      const payload = { function: 'refreshToken', args: refresh };
-
-      // The MQTT publish options
-      const publishOptions: any = {
-        qos: 1,
-        retain: false,
-        properties: {
-          responseTopic: replyTopic,
-          correlationData: Buffer.from(correlationId, 'utf-8'),
-          userProperties: {
-            accessToken: accessToken
-          }
-        }
-      };
-
-      console.log(`${JSON.stringify(payload)}`);
-      client.publish('request', JSON.stringify(payload), publishOptions, (err) => {
-        if (err) {
+        const cleanup = () => {
           client.removeListener('message', messageHandler);
-          reject(`Publish failed: ${err.message}`);
-        }
-      })
-    })
-  }
+          clearTimeout(timeoutHandle);
+        };
 
+        const timeoutHandle = setTimeout(() => {
+          cleanup();
+          reject('TokenRequestor: Timeout waiting for response');
+        }, 5000);
+
+        const messageHandler = (topic: string, payload: Buffer, packet: any) => {
+          console.log(`TokenRequestor: received reply for client: ${config.clientId}, topic: ${topic}, correlationId: ${correlationId}`);
+          console.log(`TokenRequestor: payload: ${payload.toString()}`);
+          if (topic !== replyTopic) return;
+
+          const props = packet.properties;
+          const incomingCorrelation = props?.correlationData?.toString();
+          if (!(incomingCorrelation === correlationId)) {
+            return;
+          }
+
+          // We found our reply, so we can stop listening
+          console.log(`FragmentServiceAdd: received our reply, so we can stop listening`);
+          cleanup();
+
+          const userProperties = props.userProperties;
+          console.log(`TokenRequestor: Reply payload: ${payload.toString()}`);
+
+          if (isStatus(userProperties.status)) {
+            const status = userProperties.status as Status;
+            console.log(`TokenRequestor: Reply status: ${status.code}: ${status.message}`);
+            if (status.code != HttpStatusCode.Ok) {
+              reject(`TokenRequestor: Bad reply status code: ${status.code}: ${status.message}`);
+              return;
+            }
+          } else {
+            reject(`TokenRequestor: Bad or missing reply status: ${userProperties.status}`);
+            return;
+          }
+
+          try {
+            const reply = payload.toString();
+            resolve(reply)
+          } catch (err) {
+            console.error(`TokenRequestor: failed to parse reply: ${err}`);
+            console.log(`TokenRequestor: reply: ${payload.toString()}`);
+            reject(`TokenRequestor: Failed to parse reply: ${err}`);
+          }
+        };
+
+        // Subscribe to reply topic
+        try {
+          client.subscribe(replyTopic, { qos: 1 }, (err) => {
+            if (err) {
+              cleanup();
+              console.log(`TokenRequestor: Subscription failed: ${err.message}`);
+              reject(`TokenRequestor: Subscription failed: ${err.message}`);
+              return;
+            }
+
+            console.log(`TokenRequestor: Client: Subscribed to ${replyTopic}, awaiting reply with correlationId: ${correlationId}`);
+            client.on('message', messageHandler);
+
+            // Publish request
+            const payload = {
+              function: 'refreshToken',
+              args: new Refresh(config.username, refreshToken)
+            };
+
+            let payloadJson: string;
+            try {
+              payloadJson = JSON.stringify(payload);
+            } catch (err) {
+              cleanup();
+              console.error('TokenRequestor: Failed to serialize payload:', err);
+              reject(`TokenRequestor: Payload serialization failed: ${err}`);
+              return;
+            }
+
+            const publishOptions: mqtt.IClientPublishOptions = {
+              qos: 1,
+              retain: false,
+              properties: {
+                responseTopic: replyTopic,
+                correlationData: Buffer.from(correlationId, 'utf-8'),
+                userProperties: {
+                  accessToken: accessToken
+                }
+              }
+            };
+
+            console.log(`TokenRequestor: Publishing to request: ${payloadJson}`);
+            client.publish('request', payloadJson, publishOptions, (err) => {
+              if (err) {
+                cleanup();
+                console.error('TokenRequestor: Publish failed:', err);
+                reject(`TokenRequestor: Publish failed: ${err.message}`);
+              }
+            });
+          });
+        } catch (err) {
+          cleanup();
+          console.error('TokenRequestor: Subscription threw an error:', err);
+          reject(`TokenRequestor: Subscription error: ${err}`);
+        }
+      } catch (err) {
+        console.error('TokenRequestor: Unexpected error:', err);
+        reject(`TokenRequestor: Internal error: ${err}`);
+      }
+    });
+  }
 
   start(refreshInterval: number): void {
 

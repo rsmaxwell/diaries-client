@@ -1,4 +1,4 @@
-import { Fragment } from '../../model/fragment/fragment';
+import { Fragment, Marquee } from '../../model/fragment/fragment';
 import { Point } from '../../utilities/point';
 import { Rectangle } from '../../utilities/rectangle';
 import { PageModeHandler } from './pageModeHandler';
@@ -22,7 +22,7 @@ export class AddModeHandler extends PageModeHandler {
                 const width = Math.abs(finish.x - this.start.x);
                 const height = Math.abs(finish.y - this.start.y);
 
-                this.pageComponent.updateCurrentFragment(new Rectangle(x, y, width, height));
+                this.pageComponent.updateCurrentMarquee(new Rectangle(x, y, width, height));
             }
         }
     }
@@ -37,7 +37,6 @@ export class AddModeHandler extends PageModeHandler {
                 const height = Math.abs(finish.y - this.start.y);
 
                 this.pageComponent.addNewFragment(new Rectangle(x, y, width, height));
-                this.pageComponent.clearCurrentFragment();
                 this.start = null;
             }
         }
@@ -46,5 +45,5 @@ export class AddModeHandler extends PageModeHandler {
     onClick(event: MouseEvent) { }
     onWheel(event: WheelEvent) { }
     onKeyDown(event: KeyboardEvent): void { }
-    onSelectFragment(fragment: Fragment): void { }
+    onSelectMarquee(marquee: Marquee): void { }
 }

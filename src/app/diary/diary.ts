@@ -5,10 +5,12 @@ import { Page } from '../page/page';
 export class Diary {
   id: number;
   name: string;
+  sequence: number;
 
   constructor() {
     this.id = 0;
     this.name = ``;
+    this.sequence = 0;
   }
 }
 

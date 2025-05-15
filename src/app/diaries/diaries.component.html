@@ -6,17 +6,19 @@
     <mat-card-content class="content">
 
 
-      <table mat-table [dataSource]="diaries" class="mat-elevation-z8 diaries-table">
+      <table mat-table [dataSource]="dataSource" class="mat-elevation-z8 diaries-table">
 
         <ng-container matColumnDef="id">
           <th mat-header-cell *matHeaderCellDef class="column-id"> id </th>
           <td mat-cell *matCellDef="let diary" class="column-id"> {{diary.id}} </td>
-        </ng-container>e
+        </ng-container>
 
         <ng-container matColumnDef="name">
           <th mat-header-cell *matHeaderCellDef class="column-name"> name </th>
           <td mat-cell *matCellDef="let diary" class="column-name"> {{diary.name}} </td>
         </ng-container>
+        
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
 
         <tr mat-row *matRowDef="let diary; columns: displayedColumns;" (click)="selectItem(diary.id)"></tr>
       </table>

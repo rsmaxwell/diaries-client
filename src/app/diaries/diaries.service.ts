@@ -1,83 +1,103 @@
 import { Injectable, OnDestroy } from '@angular/core';
-import { Observable } from 'rxjs';
+import { BehaviorSubject, distinctUntilChanged, map, Observable } from 'rxjs';
 import { Buffer } from 'buffer';
 import { MqttClient } from 'mqtt';
 import { MqttService } from '../mqtt/mqtt.service';
-import { GetDiariesReply, getUnexpectedReplyMessage, isGetDiariesReply } from '../utilities/reply';
-import { ReplyHandler } from '../utilities/replyHandler';
+import { Diary } from '../diary/diary';
 
 @Injectable({ providedIn: 'root' })
 export class DiariesService implements OnDestroy {
 
+  private diariesSubject = new BehaviorSubject<Diary[]>([]);
+  public diaries$ = this.diariesSubject.asObservable();
+
+  private mqttClient?: MqttClient;
+  private hasSubscribed = false;
+  private topic = "diary/+";
+
   constructor(
     private mqttService: MqttService
-  ) { }
+  ) {
+    console.log(`DiariesService.constructor`);
+    this.connectAndSubscribe();
+  }
 
-  getDiaries(): Observable<GetDiariesReply> {
-    return new Observable<GetDiariesReply>(observer => {
-      const topic = `diaries`;
-      let client: MqttClient;
-      let messageHandler: ((topicReceived: string, payload: Buffer) => void) | undefined;
+  private async connectAndSubscribe() {
+    try {
+      this.mqttClient = await this.mqttService.getConnection();
+      this.setupMqttListener(this.mqttClient);
+    } catch (err) {
+      console.error('DiariesService: MQTT connection failed', err);
+    }
+  }
 
-      this.mqttService.getConnection()
-        .then((c: MqttClient) => {
-          client = c;
+  private setupMqttListener(client: MqttClient) {
+    if (this.hasSubscribed) return;
 
-          messageHandler = (messageTopic: string, payload: Buffer) => {
-            if (topic !== messageTopic) return;
+    client.subscribe(this.topic, { qos: 1 }, (err) => {
+      if (err) {
+        console.error(`DiariesService: Failed to subscribe to ${this.topic}`, err);
+        return;
+      }
 
-            const payloadStr = payload.toString();
-            console.log(`DiariesService.getDiaries: Received message on ${topic}:`, payloadStr.slice(0, 150));
+      console.log(`DiariesService: Subscribed to ${this.topic}`);
+      this.hasSubscribed = true;
 
-            let obj;
-            try {
-              obj = ReplyHandler.getBufferAsObject(payload);
-            } catch (err) {
-              observer.error(`Failed to parse reply: ${err}`);
-              return;
-            }
-
-            if (!isGetDiariesReply(obj)) {
-              observer.error(getUnexpectedReplyMessage(obj));
-              return;
-            }
-
-            observer.next(obj as GetDiariesReply);
-            observer.complete();
-          };
-
-          client.subscribe(topic, { qos: 1 }, (err) => {
-            if (err) {
-              observer.error(`Failed to subscribe to ${topic}: ${err.message}`);
-            } else {
-              console.log(`DiariesService.getDiaries: Subscribed to ${topic}`);
-              client.on('message', messageHandler!);
-            }
-          });
-        })
-        .catch(err => {
-          observer.error(`Failed to load diaries: ${err}`);
-        });
-
-      // Teardown logic
-      return () => {
-        console.log("DiariesService.getDiaries: Unsubscribing and cleaning up");
-
-        if (client && messageHandler) {
-          client.removeListener('message', messageHandler);
-          client.unsubscribe(topic, (err) => {
-            if (err) {
-              console.error(`DiariesService.getDiaries: Error unsubscribing from ${topic}`, err);
-            } else {
-              console.log(`DiariesService.getDiaries: Unsubscribed from ${topic}`);
-            }
-          });
-        }
-      };
+      client.on('message', (topic, payload) => this.handleMessage(topic, payload));
     });
   }
 
+  private handleMessage(messageTopic: string, payload: Buffer) {
+    const diaryTopicPattern = /^diary\/\d+$/;
+    if (!diaryTopicPattern.test(messageTopic)) {
+      return;
+    }
+
+    console.log(`DiariesService.handleMessage: topic: ${messageTopic}, this.topic: ${this.topic}`);
+
+    if (payload == null) {
+      console.log(`DiariesService.handleMessage: topic: ${messageTopic}, payload: null`);      
+      return;
+    }
+
+    console.log(`DiariesService.handleMessage: topic: ${messageTopic}, payload: ${payload.toString()}`);
+
+    try {
+      const diary: Diary = JSON.parse(payload.toString());
+
+      const current = this.diariesSubject.getValue();
+      const index = current.findIndex(d => d.id === diary.id);
+      if (index !== -1) {
+        current[index] = diary;
+      } else {
+        current.push(diary);
+      }
+
+      current.sort((a, b) => a.sequence - b.sequence);
+      this.diariesSubject.next([...current]);
+
+    } catch (e) {
+      console.warn(`DiariesService: Failed to parse diary for topic ${messageTopic}`, e);
+    }
+  }
+
+  getDiaryById(id: number): Observable<Diary | undefined> {
+    console.log(`DiariesService.getDiaryById: id: ${id}`);
+    return this.diaries$.pipe(
+      map(diaries => diaries.find(d => d.id === id)),
+      distinctUntilChanged((a, b) => JSON.stringify(a) === JSON.stringify(b))
+    );
+  }
+
   ngOnDestroy(): void {
-    console.log("DiariesService.ngOnDestroy");
+    if (this.mqttClient && this.hasSubscribed) {
+      this.mqttClient.unsubscribe(this.topic, (err) => {
+        if (err) {
+          console.error(`DiariesService: Unsubscribe error from ${this.topic}`, err);
+        } else {
+          console.log(`DiariesService: Unsubscribed from ${this.topic}`);
+        }
+      });
+    }
   }
 }

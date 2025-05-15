@@ -1,41 +1,39 @@
 import { Injectable } from '@angular/core';
-import { v4 as uuidv4 } from 'uuid';
 import { Buffer } from 'buffer';
-import { Signin } from '../model/signin';
+import { v4 as uuidv4 } from 'uuid';
+import { Marquee, UpdateFragmentRequest } from '../model/fragment/fragment';
 import { MqttService } from '../mqtt/mqtt.service';
-import { checkReplyStatus, getUnexpectedReplyMessage, isSigninReply, SigninReply, Status } from '../utilities/reply';
-import { Config, ConfigService } from '../config/config.service';
+import { ReplyHandler } from '../utilities/replyHandler';
 import mqtt from 'mqtt';
-import { AccessTokenService } from './token/AccessTokenService';
-import { RefreshTokenService } from './token/RefreshTokenService';
-import { TokenRequestor } from './tokenRequestor';
+import { ConfigService } from '../config/config.service';
+import { AccessTokenService } from '../user/token/AccessTokenService';
+import { isStatus, Status } from '../utilities/reply';
 import { HttpStatusCode } from '@angular/common/http';
 
-
-@Injectable({ providedIn: 'root' })
-export class MqttSigninService {
+@Injectable({
+  providedIn: 'root'
+})
+export class FragmentServiceUpdate {
 
   constructor(
-    private configService: ConfigService,
     private mqttService: MqttService,
-    private accessTokenService: AccessTokenService,
-    private refreshTokenService: RefreshTokenService,
-    private tokenRequestor: TokenRequestor,
+    private configService: ConfigService,
+    private accessTokenService: AccessTokenService
   ) { }
 
-
-  async signin(signin: Signin): Promise<string> {
-    console.log('MqttSigninService: signin called');
+  updateFragment(marquee: Marquee): Promise<string> {
+    console.log('FragmentServiceUpdate: updateFragment() called');
 
     return new Promise(async (resolve, reject) => {
       try {
-        const [config, client] = await Promise.all([
+        const [config, client, accessToken] = await Promise.all([
           this.configService.getConfig(),
-          this.mqttService.getConnection()
+          this.mqttService.getConnection(),
+          this.accessTokenService.getToken()
         ]);
 
         const correlationId = uuidv4();
-        const replyTopic = `reply/${config.clientId}/addFragment`;
+        const replyTopic = `reply/${config.clientId}/updateFragment`;
 
         const timeoutHandle = setTimeout(() => {
           reject('Timeout waiting for response');
@@ -43,14 +41,13 @@ export class MqttSigninService {
         }, 5000);
 
         const cleanup = () => {
-          console.log(`MqttSigninService: cleanup() called`);
+          console.log(`FragmentServiceDelete: cleanup() called`);
           client.removeListener('message', messageHandler);
           clearTimeout(timeoutHandle);
         };
 
         const messageHandler = (topic: string, payload: Buffer, packet: any): void => {
-          console.log(`MqttSigninService: received reply topic: ${topic}`);
-
+          console.log(`FragmentServiceUpdate: received reply for client: ${config.clientId}, topic: ${topic}, correlationId: ${correlationId}`);
           if (topic !== replyTopic) return;
 
           const props = packet.properties;
@@ -60,6 +57,10 @@ export class MqttSigninService {
           // We found our reply, so we can stop listening
           console.log(`FragmentServiceAdd: received our reply, so we can stop listening`);
           cleanup();
+
+          const userProperties = props.userProperties;
+          console.log(`FragmentServiceUpdate: Reply status: ${status}`);
+          console.log(`FragmentServiceUpdate: Reply payload: ${payload.toString()}`);
 
           try {
             const status = JSON.parse(props.userProperties.status) as Status;
@@ -73,41 +74,33 @@ export class MqttSigninService {
             return;
           }
 
-          console.log(`MqttSigninService: Reply payload: ${payload.toString()}`);
-
-          let reply;
           try {
-            reply = JSON.parse(payload.toString()) as SigninReply;
+            const reply = payload.toString();
+            resolve(reply);
           } catch (err) {
-            reject(`Failed to parse payload: ${err}`);
-            console.log(`MqttSigninService: Failed to parse payload: ${err}`);            
-            return;
+            console.error(`FragmentServiceUpdate: failed to parse reply: ${err}`);
+            console.log(`FragmentServiceUpdate: reply: ${payload.toString()}`);
+            reject(`Failed to parse reply: ${err}`);
           }
-
-          console.log(`MqttSigninService: username: userId: ${reply.id}, username: ${signin.username}, accessToken: ${reply.accessToken}`)
-          this.accessTokenService.setToken(reply.accessToken);
-          this.refreshTokenService.setToken(reply.refreshToken);
-          this.tokenRequestor.start(reply.refreshPeriod);
-          resolve('ok');
-        }
+        };
 
         // Subscribe to reply topic
         try {
           client.subscribe(replyTopic, { qos: 1 }, (err) => {
             if (err) {
               cleanup();
-              console.error(`MqttSigninService: Subscription failed: ${err}`);
+              console.error(`FragmentServiceUpdate: Subscription failed: ${err}`);
               reject(`Subscription failed: ${err}`);
               return;
             }
 
-            console.log(`MqttSigninService: Subscribed to ${replyTopic}, awaiting reply with correlationId: ${correlationId}`);
+            console.log(`FragmentServiceUpdate: Subscribed to ${replyTopic}, awaiting reply with correlationId: ${correlationId}`);
             client.on('message', messageHandler);
 
-            // Publish refresh request
+            // Publish request
             const payload = {
-              function: 'signin',
-              args: signin
+              function: 'updatefragment',
+              args: new UpdateFragmentRequest(marquee)
             };
 
             let payloadJson: string;
@@ -115,7 +108,7 @@ export class MqttSigninService {
               payloadJson = JSON.stringify(payload);
             } catch (err) {
               cleanup();
-              console.error('MqttSigninService: Failed to serialize payload:', err);
+              console.error('FragmentServiceUpdate: Failed to serialize payload:', err);
               reject(`Payload serialization failed: ${err}`);
               return;
             }
@@ -126,25 +119,28 @@ export class MqttSigninService {
               properties: {
                 responseTopic: replyTopic,
                 correlationData: Buffer.from(correlationId, 'utf-8'),
+                userProperties: {
+                  accessToken: accessToken
+                }
               }
             };
 
-            console.log(`MqttSigninService: Publishing to request: ${payloadJson}`);
+            console.log(`FragmentServiceUpdate: Publishing to request: ${payloadJson}`);
             client.publish('request', payloadJson, publishOptions, (err) => {
               if (err) {
                 cleanup();
-                console.error('MqttSigninService: Publish failed:', err);
+                console.error('FragmentServiceUpdate: Publish failed:', err);
                 reject(`Publish failed: ${err.message}`);
               }
             });
           });
         } catch (err) {
           cleanup();
-          console.error('MqttSigninService: Subscription threw an error:', err);
+          console.error('FragmentServiceUpdate: Subscription threw an error:', err);
           reject(`Subscription error: ${err}`);
         }
       } catch (err) {
-        console.error('MqttSigninService: Unexpected error:', err);
+        console.error('FragmentServiceUpdate: Unexpected error:', err);
         reject(`Internal error: ${err}`);
       }
     });

@@ -18,6 +18,10 @@ export class Fragment {
         this.height = rectangle.height;
         this.text = text;
     }
+    
+    updateId(id: number) {
+        this.id = id;
+    }
 }
 
 export class AddFragmentRequest {
@@ -26,35 +30,50 @@ export class AddFragmentRequest {
     y: number;
     width: number;
     height: number;
-    text: string;
 
-    constructor(pageId: number, x: number, y: number, width: number, height:number, text: string) {
+    constructor(pageId: number, rectangle: Rectangle) {
         this.pageId = pageId;
-        this.x = x;
-        this.y = y;
-        this.width = width;
-        this.height = height;
-        this.text = text;
+        this.x = rectangle.x;
+        this.y = rectangle.y;
+        this.width = rectangle.width;
+        this.height = rectangle.height;
     }
 }
 
 export class UpdateFragmentRequest {
     id: number;
-    pageId: number;
     x: number;
     y: number;
     width: number;
     height: number;
-    text: string;
 
-    constructor(id: number, pageId: number, x: number, y: number, width: number, height:number, text: string) {
-        this.id = id;
-        this.pageId = pageId;
-        this.x = x;
-        this.y = y;
-        this.width = width;
-        this.height = height;
-        this.text = text;
+    constructor(marquee: Marquee) {
+        this.id = marquee.id;
+        this.x = marquee.rectangle.x;
+        this.y = marquee.rectangle.y;
+        this.width = marquee.rectangle.width;
+        this.height = marquee.rectangle.height;
     }
 }
 
+export class DeleteFragmentRequest {
+    id: number;
+
+    constructor(marquee: Marquee) {
+        this.id = marquee.id;
+    }
+}
+
+export class Marquee {
+    id: number;
+    rectangle: Rectangle;
+
+    constructor(id: number, rectangle: Rectangle) {
+        this.id = id;
+        this.rectangle = rectangle;
+    }
+    
+    static fromFragment(fragment: Fragment) {
+        return new Marquee(fragment.id, new Rectangle(fragment.x, fragment.y, fragment.width, fragment.height));
+      }
+}

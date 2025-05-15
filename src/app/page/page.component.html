@@ -13,23 +13,23 @@
         [attr.href]="fileServerUrl + '/' + diary.name + '/' + page.name + (page.extension || '.jpg')" x="0" y="0"
         [attr.width]="page.width" [attr.height]="page.height" />
 
-        <rect *ngIf="currentFragment"
-        [attr.id]="currentFragment.id"
-        [attr.x]="currentFragment.x"
-        [attr.y]="currentFragment.y"
-        [attr.width]="currentFragment.width"
-        [attr.height]="currentFragment.height"
+        <rect *ngIf="currentMarquee"
+        [attr.id]="currentMarquee.id"
+        [attr.x]="currentMarquee.rectangle.x"
+        [attr.y]="currentMarquee.rectangle.y"
+        [attr.width]="currentMarquee.rectangle.width"
+        [attr.height]="currentMarquee.rectangle.height"
         class='inprogress'
         />
 
-        <rect *ngFor="let fragment of fragments"
-        [attr.id]="fragment.id"
-        [attr.x]="fragment.x"
-        [attr.y]="fragment.y"
-        [attr.width]="fragment.width"
-        [attr.height]="fragment.height"
-        [attr.class]="fragment === selectedFragment ? 'selected' : 'selectable'"
-        (click)="onSelectFragment(fragment)"
+        <rect *ngFor="let marquee of marquees"
+        [attr.id]="marquee.id"
+        [attr.x]="marquee.rectangle.x"
+        [attr.y]="marquee.rectangle.y"
+        [attr.width]="marquee.rectangle.width"
+        [attr.height]="marquee.rectangle.height"
+        [attr.class]="marquee === selectedMarquee ? 'selected' : 'selectable'"
+        (click)="onSelectMarquee(marquee)"
          />
 
     </svg>

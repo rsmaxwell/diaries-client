@@ -16,6 +16,8 @@ export class PageService implements OnDestroy {
   ) { }
 
   getPage(diaryId: number, pageId: number): Observable<PageResponse> {
+    console.log(`PageService.getPage: diaryId: ${diaryId}, diaryId: ${diaryId}`);
+    
     return new Observable<PageResponse>(observer => {
       const replyTopic = `diary/${diaryId}/${pageId}`;
 

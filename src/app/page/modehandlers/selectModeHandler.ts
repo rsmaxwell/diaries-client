@@ -1,5 +1,4 @@
-import { Fragment } from "../../model/fragment/fragment";
-import { Point } from "../../utilities/point";
+import { Marquee } from "../../model/fragment/fragment";
 import { PageModeHandler } from "./pageModeHandler";
 
 const margin = 30;
@@ -15,7 +14,6 @@ export class SelectModeHandler extends PageModeHandler {
     lastMouseY = 0;
     pendingCancel = false;
 
-
     onMouseDown(event: MouseEvent) {
         console.log(`SelectModeHandler: onMouseDown`);
 
@@ -27,21 +25,21 @@ export class SelectModeHandler extends PageModeHandler {
 
         this.calculateCursorStyle(event);
 
-        if (!this.pageComponent.selectedFragment) return
-        const fragment = this.pageComponent.selectedFragment;
+        if (!this.pageComponent.selectedMarquee) return
+        const m = this.pageComponent.selectedMarquee;
 
-        const bodyHorizontal = (fragment.x < this.lastMouseX + margin) && (this.lastMouseX < fragment.x + fragment.width + margin);
-        const bodyVertical = (fragment.y < this.lastMouseY + margin) && (this.lastMouseY < fragment.y + fragment.height + margin);
+        const bodyHorizontal = (m.rectangle.x < this.lastMouseX + margin) && (this.lastMouseX < m.rectangle.x + m.rectangle.width + margin);
+        const bodyVertical = (m.rectangle.y < this.lastMouseY + margin) && (this.lastMouseY < m.rectangle.y + m.rectangle.height + margin);
 
         this.pendingCancel = true;
         if (!bodyHorizontal) return;
         if (!bodyVertical) return;
         this.pendingCancel = false;
 
-        const left = Math.abs(fragment.x - this.lastMouseX) < margin;
-        const top = Math.abs(fragment.y - this.lastMouseY) < margin;
-        const right = Math.abs(fragment.x + fragment.width - this.lastMouseX) < margin;
-        const bottom = Math.abs(fragment.y + fragment.height - this.lastMouseY) < margin;
+        const left = Math.abs(m.rectangle.x - this.lastMouseX) < margin;
+        const top = Math.abs(m.rectangle.y - this.lastMouseY) < margin;
+        const right = Math.abs(m.rectangle.x + m.rectangle.width - this.lastMouseX) < margin;
+        const bottom = Math.abs(m.rectangle.y + m.rectangle.height - this.lastMouseY) < margin;
 
         this.isDraggingLeft = left && bodyHorizontal;
         this.isDraggingTop = top && bodyVertical;
@@ -52,23 +50,24 @@ export class SelectModeHandler extends PageModeHandler {
             this.isDraggingAll = true
         }
     }
-    onSelectFragment(fragment: Fragment): void {
-        console.log(`SelectModeHandler.onSelectFragment: fragment: id: ${fragment.id}, pageId: ${fragment.pageId}, x: ${fragment.x} y: ${fragment.y} width: ${fragment.width} height: ${fragment.height}`);
+    onSelectMarquee(marquee: Marquee): void {
+        console.log(`SelectModeHandler.onSelectMarquee: fragment: ${JSON.stringify(marquee)}`);
         this.isDraggingLeft = false;
         this.isDraggingRight = false;
         this.isDraggingTop = false;
         this.isDraggingBottom = false;
         this.isDraggingAll = false
-        this.pageComponent.setSelection(fragment);
+        this.pageComponent.setSelection(marquee);
     }
     onMouseUp(event: MouseEvent) {
         console.log(`SelectModeHandler.onMouseUp`);
 
         if (this.isDraggingLeft || this.isDraggingTop || this.isDraggingRight || this.isDraggingBottom) {
             console.log(`SelectModeHandler.onMouseUp: is Dragging: true`);
-            const f = this.pageComponent.selectedFragment;
-            if (f) {
-               console.log(`fragment: id: ${f.id}, pageId: ${f.pageId}, x: ${f.x} y: ${f.y} width: ${f.width} height: ${f.height}`);
+            const marquee = this.pageComponent.selectedMarquee;
+            if (marquee) {
+               console.log(`SelectModeHandler.onMouseUp: marquee: ${JSON.stringify(marquee)}`);
+               this.pageComponent.updateFragment(marquee);
             }
         }
         else {
@@ -90,6 +89,9 @@ export class SelectModeHandler extends PageModeHandler {
         if (event.key === 'Escape') {
             this.pageComponent.cancelSelection();
         }
+        else if (event.key === 'Delete') {
+            this.pageComponent.deleteSelection();
+        }
     }
     onMouseMove(event: MouseEvent) {
         this.calculateCursorStyle(event);
@@ -99,21 +101,21 @@ export class SelectModeHandler extends PageModeHandler {
     calculateCursorStyle(event: MouseEvent) {
         let cursor = 'default';
 
-        if (this.pageComponent.selectedFragment != null) {
-            const fragment = this.pageComponent.selectedFragment;
+        if (this.pageComponent.selectedMarquee != null) {
+            const m = this.pageComponent.selectedMarquee;
 
             let point = this.getMousePosition(event);
             if (point != null) {
 
-                const bodyHorizontal = (fragment.x < point.x + margin) && (point.x < fragment.x + fragment.width + margin);
-                const bodyVertical = (fragment.y < point.y + margin) && (point.y < fragment.y + fragment.height + margin);
+                const bodyHorizontal = (m.rectangle.x < point.x + margin) && (point.x < m.rectangle.x + m.rectangle.width + margin);
+                const bodyVertical = (m.rectangle.y < point.y + margin) && (point.y < m.rectangle.y + m.rectangle.height + margin);
 
                 if (bodyHorizontal && bodyVertical) {
 
-                    const left = Math.abs(fragment.x - point.x) < margin;
-                    const top = Math.abs(fragment.y - point.y) < margin;
-                    const right = Math.abs(fragment.x + fragment.width - point.x) < margin;
-                    const bottom = Math.abs(fragment.y + fragment.height - point.y) < margin;
+                    const left = Math.abs(m.rectangle.x - point.x) < margin;
+                    const top = Math.abs(m.rectangle.y - point.y) < margin;
+                    const right = Math.abs(m.rectangle.x + m.rectangle.width - point.x) < margin;
+                    const bottom = Math.abs(m.rectangle.y + m.rectangle.height - point.y) < margin;
 
 
                     if ((left && top) || (right && bottom)) {
@@ -135,7 +137,7 @@ export class SelectModeHandler extends PageModeHandler {
     }
 
     dragSelectedFragment(event: MouseEvent) {
-        if (!this.pageComponent.selectedFragment) return;
+        if (!this.pageComponent.selectedMarquee) return;
         if (!(this.isDraggingLeft || this.isDraggingRight || this.isDraggingTop || this.isDraggingBottom || this.isDraggingAll)) return;
 
         let newMouse = this.getMousePosition(event);
@@ -144,28 +146,28 @@ export class SelectModeHandler extends PageModeHandler {
         const dx = newMouse.x - this.lastMouseX;
         const dy = newMouse.y - this.lastMouseY;
 
-        const fragment = this.pageComponent.selectedFragment;
+        const m = this.pageComponent.selectedMarquee;
         if (this.isDraggingLeft) {
-            fragment.x += dx;
-            fragment.width -= dx;
+            m.rectangle.x += dx;
+            m.rectangle.width -= dx;
         }
         if (this.isDraggingRight) {
-            fragment.width += dx;
+            m.rectangle.width += dx;
         }
         if (this.isDraggingTop) {
-            fragment.y += dy;
-            fragment.height -= dy;
+            m.rectangle.y += dy;
+            m.rectangle.height -= dy;
         }
         if (this.isDraggingBottom) {
-            fragment.height += dy;
+            m.rectangle.height += dy;
         }
         if (this.isDraggingAll) {
-            fragment.x += dx;
-            fragment.y += dy;
+            m.rectangle.x += dx;
+            m.rectangle.y += dy;
         }
 
         // Flipping logic to handle negative width
-        if (this.pageComponent.selectedFragment.width < 0) {
+        if (m.rectangle.width < 0) {
             // If we were dragging the left, now we should drag the right
             if (this.isDraggingLeft) {
                 this.isDraggingLeft = false;
@@ -175,14 +177,14 @@ export class SelectModeHandler extends PageModeHandler {
                 this.isDraggingLeft = true;
             }
 
-            fragment.x += fragment.width;
-            fragment.width = Math.abs(fragment.width);
+            m.rectangle.x += m.rectangle.width;
+            m.rectangle.width = Math.abs(m.rectangle.width);
             this.lastMouseX = newMouse.x;
             return;
         }
 
         // Flipping logic to handle negative height
-        if (this.pageComponent.selectedFragment.height < 0) {
+        if (m.rectangle.height < 0) {
 
             // If we were dragging the top, now we should drag the bottom
             if (this.isDraggingTop) {
@@ -193,8 +195,8 @@ export class SelectModeHandler extends PageModeHandler {
                 this.isDraggingTop = true;
             }
 
-            fragment.y += fragment.height;
-            fragment.height = Math.abs(fragment.height);
+            m.rectangle.y += m.rectangle.height;
+            m.rectangle.height = Math.abs(m.rectangle.height);
             this.lastMouseY = newMouse.y;
             return;
         }
