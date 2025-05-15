@@ -1,7 +1,5 @@
-import { Fragment, Marquee } from "../../model/fragment/fragment";
-import { Point } from "../../utilities/point";
+import { Marquee } from "../../model/marquee/marquee";
 import { Rectangle } from "../../utilities/rectangle";
-import { PageComponent } from "../page.component";
 import { PageModeHandler } from "./pageModeHandler";
 
 export class ViewModeHandler extends PageModeHandler {

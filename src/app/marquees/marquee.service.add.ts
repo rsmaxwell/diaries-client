@@ -1,19 +1,21 @@
 import { Injectable } from '@angular/core';
+import { Page } from '../page/page';
 import { Buffer } from 'buffer';
 import { v4 as uuidv4 } from 'uuid';
-import { Marquee, DeleteFragmentRequest } from '../model/fragment/fragment';
+import { AddMarqueeRequest } from '../model/marquee/marquee';
 import { MqttService } from '../mqtt/mqtt.service';
 import { ReplyHandler } from '../utilities/replyHandler';
-import mqtt from 'mqtt';
 import { ConfigService } from '../config/config.service';
 import { AccessTokenService } from '../user/token/AccessTokenService';
-import { isStatus, Status } from '../utilities/reply';
+import { Rectangle } from '../utilities/rectangle';
+import mqtt from 'mqtt';
+import { Status } from '../utilities/reply';
 import { HttpStatusCode } from '@angular/common/http';
 
 @Injectable({
   providedIn: 'root'
 })
-export class FragmentServiceDelete {
+export class MarqueeServiceAdd {
 
   constructor(
     private mqttService: MqttService,
@@ -21,10 +23,8 @@ export class FragmentServiceDelete {
     private accessTokenService: AccessTokenService
   ) { }
 
-
-  deleteFragment(marquee: Marquee): Promise<string> {
-
-    console.log('FragmentServiceDelete: deleteFragment() called');
+  addMarquee(page: Page, rectangle: Rectangle): Promise<number> {
+    console.log('MarqueeServiceAdd: addMarquee() called');
 
     return new Promise(async (resolve, reject) => {
       try {
@@ -35,22 +35,20 @@ export class FragmentServiceDelete {
         ]);
 
         const correlationId = uuidv4();
-
-        const replyTopic = `reply/${config.clientId}/deleteFragment`;
+        const replyTopic = `reply/${config.clientId}/addMarquee`;
 
         const timeoutHandle = setTimeout(() => {
-          reject('Timeout waiting for response');
+          reject('MarqueeServiceAdd: Timeout waiting for response');
           cleanup();
         }, 5000);
 
         const cleanup = () => {
-          console.log(`FragmentServiceDelete: cleanup() called`);
+          console.log(`MarqueeServiceAdd: cleanup() called`);
           client.removeListener('message', messageHandler);
           clearTimeout(timeoutHandle);
         };
 
         const messageHandler = (topic: string, payload: Buffer, packet: any): void => {
-          console.log(`FragmentServiceDelete: received reply for client: ${config.clientId}, topic: ${topic}, correlationId: ${correlationId}`);
           if (topic !== replyTopic) return;
 
           const props = packet.properties;
@@ -58,11 +56,8 @@ export class FragmentServiceDelete {
           if (incomingCorrelation !== correlationId) return;
 
           // We found our reply, so we can stop listening
-          console.log(`FragmentServiceAdd: received our reply, so we can stop listening`);
+          console.log(`MarqueeServiceAdd: received our reply, so we can stop listening`);
           cleanup();
-
-          const userProperties = props.userProperties;
-          console.log(`FragmentServiceDelete: Reply payload: ${payload.toString()}`);
 
           try {
             const status = JSON.parse(props.userProperties.status) as Status;
@@ -72,18 +67,23 @@ export class FragmentServiceDelete {
             }
           } catch (err) {
             reject(`Failed to parse status: ${err}`);
-            console.log(`FragmentServiceDelete: Failed to parse status: ${props.userProperties.status}`);
+            console.log(`MarqueeServiceAdd: Failed to parse status: ${props.userProperties.status}`);
             return;
           }
 
+          console.log(`MarqueeServiceAdd: Reply payload: ${payload.toString()}`);
+
+          let reply;
           try {
-            const reply = payload.toString();
-            resolve(reply);
+            reply = ReplyHandler.getBufferAsNumber(payload);
           } catch (err) {
-            console.error(`FragmentServiceDelete: failed to parse reply: ${err}`);
-            console.log(`FragmentServiceDelete: reply: ${payload.toString()}`);
-            reject(`Failed to parse reply: ${err}`);
+            console.error(`MarqueeServiceAdd: failed to parse payload: ${err}`);
+            console.log(`MarqueeServiceAdd: reply: ${payload.toString()}`);
+            reject(`MarqueeServiceAdd: Failed to parse reply: ${err}`);
+            return;
           }
+
+          resolve(reply);
         };
 
         // Subscribe to reply topic
@@ -91,18 +91,18 @@ export class FragmentServiceDelete {
           client.subscribe(replyTopic, { qos: 1 }, (err) => {
             if (err) {
               cleanup();
-              console.error(`FragmentServiceDelete: Subscription failed: ${err}`);
-              reject(`Subscription failed: ${err}`);
+              console.error(`MarqueeServiceAdd: Subscription failed: ${err}`);
+              reject(`MarqueeServiceAdd: Subscription failed: ${err}`);
               return;
             }
 
-            console.log(`FragmentServiceDelete: Subscribed to ${replyTopic}, awaiting reply with correlationId: ${correlationId}`);
+            console.log(`MarqueeServiceAdd: Subscribed to ${replyTopic}, awaiting reply with correlationId: ${correlationId}`);
             client.on('message', messageHandler);
 
             // Publish request
             const payload = {
-              function: 'deletefragment',
-              args: new DeleteFragmentRequest(marquee)
+              function: 'addMarquee',
+              args: new AddMarqueeRequest(page.id, rectangle)
             };
 
             let payloadJson: string;
@@ -110,8 +110,8 @@ export class FragmentServiceDelete {
               payloadJson = JSON.stringify(payload);
             } catch (err) {
               cleanup();
-              console.error('FragmentServiceDelete: Failed to serialize payload:', err);
-              reject(`Payload serialization failed: ${err}`);
+              console.error('MarqueeServiceAdd: Failed to serialize payload:', err);
+              reject(`MarqueeServiceAdd: Payload serialization failed: ${err}`);
               return;
             }
 
@@ -127,23 +127,23 @@ export class FragmentServiceDelete {
               }
             };
 
-            console.log(`FragmentServiceDelete: Publishing to request: ${payloadJson}`);
+            console.log(`MarqueeServiceAdd: Publishing to request: ${payloadJson}`);
             client.publish('request', payloadJson, publishOptions, (err) => {
               if (err) {
                 cleanup();
-                console.error('FragmentServiceDelete: Publish failed:', err);
-                reject(`Publish failed: ${err.message}`);
+                console.error('MarqueeServiceAdd: Publish failed:', err);
+                reject(`MarqueeServiceAdd: Publish failed: ${err.message}`);
               }
             });
           });
         } catch (err) {
           cleanup();
-          console.error('FragmentServiceDelete: Subscription threw an error:', err);
-          reject(`Subscription error: ${err}`);
+          console.error('MarqueeServiceAdd: Subscription threw an error:', err);
+          reject(`MarqueeServiceAdd: Subscription error: ${err}`);
         }
       } catch (err) {
-        console.error('FragmentServiceDelete: Unexpected error:', err);
-        reject(`Internal error: ${err}`);
+        console.error('MarqueeServiceAdd: Unexpected error:', err);
+        reject(`MarqueeServiceAdd: Internal error: ${err}`);
       }
     });
   }

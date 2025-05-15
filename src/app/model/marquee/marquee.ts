@@ -1,30 +1,6 @@
 import { Rectangle } from "../../utilities/rectangle";
 
-export class Fragment {
-    id: number;
-    pageId: number;
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    text: string;
-
-    constructor(id: number, pageId: number, rectangle: Rectangle, text: string) {
-        this.id = id;
-        this.pageId = pageId;
-        this.x = rectangle.x;
-        this.y = rectangle.y;
-        this.width = rectangle.width;
-        this.height = rectangle.height;
-        this.text = text;
-    }
-    
-    updateId(id: number) {
-        this.id = id;
-    }
-}
-
-export class AddFragmentRequest {
+export class AddMarqueeRequest {
     pageId: number;
     x: number;
     y: number;
@@ -40,7 +16,7 @@ export class AddFragmentRequest {
     }
 }
 
-export class UpdateFragmentRequest {
+export class UpdateMarqueeRequest {
     id: number;
     x: number;
     y: number;
@@ -56,7 +32,7 @@ export class UpdateFragmentRequest {
     }
 }
 
-export class DeleteFragmentRequest {
+export class DeleteMarqueeRequest {
     id: number;
 
     constructor(marquee: Marquee) {
@@ -72,8 +48,21 @@ export class Marquee {
         this.id = id;
         this.rectangle = rectangle;
     }
-    
-    static fromFragment(fragment: Fragment) {
-        return new Marquee(fragment.id, new Rectangle(fragment.x, fragment.y, fragment.width, fragment.height));
-      }
 }
+
+export class MarqueeReply {
+    id: number;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+
+    constructor(id: number, rectangle: Rectangle) {
+        this.id = id;
+        this.x = rectangle.x;
+        this.y = rectangle.y;
+        this.width = rectangle.width;
+        this.height = rectangle.height;
+    }
+}
+

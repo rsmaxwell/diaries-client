@@ -1,21 +1,19 @@
 import { Injectable } from '@angular/core';
-import { Page } from '../page/page';
 import { Buffer } from 'buffer';
 import { v4 as uuidv4 } from 'uuid';
-import { AddFragmentRequest } from '../model/fragment/fragment';
+import { Marquee, UpdateMarqueeRequest } from '../model/marquee/marquee';
 import { MqttService } from '../mqtt/mqtt.service';
 import { ReplyHandler } from '../utilities/replyHandler';
+import mqtt from 'mqtt';
 import { ConfigService } from '../config/config.service';
 import { AccessTokenService } from '../user/token/AccessTokenService';
-import { Rectangle } from '../utilities/rectangle';
-import mqtt from 'mqtt';
-import { checkReplyStatus, isStatus, Status } from '../utilities/reply';
+import { isStatus, Status } from '../utilities/reply';
 import { HttpStatusCode } from '@angular/common/http';
 
 @Injectable({
   providedIn: 'root'
 })
-export class FragmentServiceAdd {
+export class MarqueeServiceUpdate {
 
   constructor(
     private mqttService: MqttService,
@@ -23,8 +21,8 @@ export class FragmentServiceAdd {
     private accessTokenService: AccessTokenService
   ) { }
 
-  addFragment(page: Page, rectangle: Rectangle): Promise<number> {
-    console.log('FragmentServiceAdd: addFragment() called');
+  updateMarquee(marquee: Marquee): Promise<string> {
+    console.log('MarqueeServiceUpdate: updateMarquee() called');
 
     return new Promise(async (resolve, reject) => {
       try {
@@ -35,20 +33,21 @@ export class FragmentServiceAdd {
         ]);
 
         const correlationId = uuidv4();
-        const replyTopic = `reply/${config.clientId}/addFragment`;
+        const replyTopic = `reply/${config.clientId}/updateMarquee`;
 
         const timeoutHandle = setTimeout(() => {
-          reject('FragmentServiceAdd: Timeout waiting for response');
+          reject('Timeout waiting for response');
           cleanup();
         }, 5000);
 
         const cleanup = () => {
-          console.log(`FragmentServiceAdd: cleanup() called`);
+          console.log(`MarqueeServiceUpdate: cleanup() called`);
           client.removeListener('message', messageHandler);
           clearTimeout(timeoutHandle);
         };
 
         const messageHandler = (topic: string, payload: Buffer, packet: any): void => {
+          console.log(`MarqueeServiceUpdate: received reply for client: ${config.clientId}, topic: ${topic}, correlationId: ${correlationId}`);
           if (topic !== replyTopic) return;
 
           const props = packet.properties;
@@ -56,8 +55,12 @@ export class FragmentServiceAdd {
           if (incomingCorrelation !== correlationId) return;
 
           // We found our reply, so we can stop listening
-          console.log(`FragmentServiceAdd: received our reply, so we can stop listening`);
+          console.log(`MarqueeServiceUpdate: received our reply, so we can stop listening`);
           cleanup();
+
+          const userProperties = props.userProperties;
+          console.log(`MarqueeServiceUpdate: Reply status: ${status}`);
+          console.log(`MarqueeServiceUpdate: Reply payload: ${payload.toString()}`);
 
           try {
             const status = JSON.parse(props.userProperties.status) as Status;
@@ -67,23 +70,18 @@ export class FragmentServiceAdd {
             }
           } catch (err) {
             reject(`Failed to parse status: ${err}`);
-            console.log(`FragmentServiceAdd: Failed to parse status: ${props.userProperties.status}`);
+            console.log(`MqttSigninService: Failed to parse status: ${props.userProperties.status}`);
             return;
           }
 
-          console.log(`FragmentServiceAdd: Reply payload: ${payload.toString()}`);
-
-          let reply;
           try {
-            reply = ReplyHandler.getBufferAsNumber(payload);
+            const reply = payload.toString();
+            resolve(reply);
           } catch (err) {
-            console.error(`FragmentServiceAdd: failed to parse payload: ${err}`);
-            console.log(`FragmentServiceAdd: reply: ${payload.toString()}`);
-            reject(`FragmentServiceAdd: Failed to parse reply: ${err}`);
-            return;
+            console.error(`MarqueeServiceUpdate: failed to parse reply: ${err}`);
+            console.log(`MarqueeServiceUpdate: reply: ${payload.toString()}`);
+            reject(`Failed to parse reply: ${err}`);
           }
-
-          resolve(reply);
         };
 
         // Subscribe to reply topic
@@ -91,18 +89,18 @@ export class FragmentServiceAdd {
           client.subscribe(replyTopic, { qos: 1 }, (err) => {
             if (err) {
               cleanup();
-              console.error(`FragmentServiceAdd: Subscription failed: ${err}`);
-              reject(`FragmentServiceAdd: Subscription failed: ${err}`);
+              console.error(`MarqueeServiceUpdate: Subscription failed: ${err}`);
+              reject(`Subscription failed: ${err}`);
               return;
             }
 
-            console.log(`FragmentServiceAdd: Subscribed to ${replyTopic}, awaiting reply with correlationId: ${correlationId}`);
+            console.log(`MarqueeServiceUpdate: Subscribed to ${replyTopic}, awaiting reply with correlationId: ${correlationId}`);
             client.on('message', messageHandler);
 
             // Publish request
             const payload = {
-              function: 'addfragment',
-              args: new AddFragmentRequest(page.id, rectangle)
+              function: 'updateMarquee',
+              args: new UpdateMarqueeRequest(marquee)
             };
 
             let payloadJson: string;
@@ -110,8 +108,8 @@ export class FragmentServiceAdd {
               payloadJson = JSON.stringify(payload);
             } catch (err) {
               cleanup();
-              console.error('FragmentServiceAdd: Failed to serialize payload:', err);
-              reject(`FragmentServiceAdd: Payload serialization failed: ${err}`);
+              console.error('MarqueeServiceUpdate: Failed to serialize payload:', err);
+              reject(`Payload serialization failed: ${err}`);
               return;
             }
 
@@ -127,23 +125,23 @@ export class FragmentServiceAdd {
               }
             };
 
-            console.log(`FragmentServiceAdd: Publishing to request: ${payloadJson}`);
+            console.log(`MarqueeServiceUpdate: Publishing to request: ${payloadJson}`);
             client.publish('request', payloadJson, publishOptions, (err) => {
               if (err) {
                 cleanup();
-                console.error('FragmentServiceAdd: Publish failed:', err);
-                reject(`FragmentServiceAdd: Publish failed: ${err.message}`);
+                console.error('MarqueeServiceUpdate: Publish failed:', err);
+                reject(`Publish failed: ${err.message}`);
               }
             });
           });
         } catch (err) {
           cleanup();
-          console.error('FragmentServiceAdd: Subscription threw an error:', err);
-          reject(`FragmentServiceAdd: Subscription error: ${err}`);
+          console.error('MarqueeServiceUpdate: Subscription threw an error:', err);
+          reject(`Subscription error: ${err}`);
         }
       } catch (err) {
-        console.error('FragmentServiceAdd: Unexpected error:', err);
-        reject(`FragmentServiceAdd: Internal error: ${err}`);
+        console.error('MarqueeServiceUpdate: Unexpected error:', err);
+        reject(`Internal error: ${err}`);
       }
     });
   }

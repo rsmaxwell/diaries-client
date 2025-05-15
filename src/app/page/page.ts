@@ -1,4 +1,4 @@
-import { Fragment } from "../model/fragment/fragment";
+import { Marquee } from "../model/marquee/marquee";
 
 export class Page {
   id: number;
@@ -20,14 +20,13 @@ export class Page {
 
 export class PageResponse {
   page: Page;
-  fragments: Fragment[];
+  marquees: Marquee[];
 
-  constructor(page: Page, fragments: Fragment[]) {
+  constructor(page: Page, marquees: Marquee[]) {
     this.page = page;
-    this.fragments = fragments;
+    this.marquees = marquees;
   }
 }
-
 
 export class PagesResponse {
   pages: Page[];

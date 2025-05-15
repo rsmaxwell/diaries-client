@@ -1,6 +1,6 @@
 import { HttpStatusCode } from "@angular/common/http"
 import { Diary } from "../diary/diary"
-import { Fragment } from "../model/fragment/fragment"
+import { Marquee } from "../model/marquee/marquee"
 import { Page } from "../page/page"
 
 
@@ -26,7 +26,7 @@ export interface GetDiaryReply extends Reply {
 
 export interface GetPageReply extends Reply {
     page: Page
-    fragments: Fragment[];
+    marquees: Marquee[];
 };
 export interface GetPagesReply extends Reply {
     pages: Page[]

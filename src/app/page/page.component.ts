@@ -13,12 +13,12 @@ import { AlertService } from '../alerts/alert.service';
 import { ConfigService } from '../config/config.service';
 import { BehaviorSubject, combineLatest, filter } from 'rxjs';
 import { PagefooterComponent } from '../headers/pagefooter/pagefooter.component';
-import { Fragment, Marquee } from '../model/fragment/fragment';
+import { Marquee } from '../model/marquee/marquee';
 import { Rectangle } from '../utilities/rectangle';
-import { FragmentServiceGet } from '../fragments/fragment.service.get';
-import { FragmentServiceAdd } from '../fragments/fragment.service.add';
-import { FragmentServiceUpdate } from '../fragments/fragment.service.update';
-import { FragmentServiceDelete } from '../fragments/fragment.service.delete';
+import { MarqueeServiceGet } from '../marquees/marquee.service.get';
+import { MarqueeServiceAdd } from '../marquees/marquee.service.add';
+import { MarqueeServiceUpdate } from '../marquees/marquee.service.update';
+import { MarqueeServiceDelete } from '../marquees/marquee.service.delete';
 import { PagesService } from '../diary/pages.service';
 
 
@@ -63,10 +63,10 @@ export class PageComponent implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private diariesService: DiariesService,
     private pagesService: PagesService,
-    private fragmentServiceGet: FragmentServiceGet,
-    private fragmentServiceAdd: FragmentServiceAdd,
-    private fragmentServiceUpdate: FragmentServiceUpdate,
-    private fragmentServiceDelete: FragmentServiceDelete,
+    private marqueeServiceGet: MarqueeServiceGet,
+    private marqueeServiceAdd: MarqueeServiceAdd,
+    private marqueeServiceUpdate: MarqueeServiceUpdate,
+    private marqueeServiceDelete: MarqueeServiceDelete,
     private alertService: AlertService,
     private cdr: ChangeDetectorRef,
     private configService: ConfigService
@@ -115,11 +115,11 @@ export class PageComponent implements OnInit, OnDestroy {
             this.handlePageReply(diary as Diary, page as Page);
           });
 
-        // Fetch fragments separately (and convert to Marquee)
-        this.fragmentServiceGet.getFragmentsForPage(diaryId, pageId)
-          .pipe(filter((fragments): fragments is Fragment[] => Array.isArray(fragments)))
-          .subscribe(fragments => {
-            this.marquees = fragments.map(fragment => Marquee.fromFragment(fragment));
+        // Fetch the list of marquees
+        this.marqueeServiceGet.getMarqueesForPage(diaryId, pageId)
+          .subscribe(marquees => {
+            this.marquees = marquees;
+            console.log(`pageComponent.ngOnInit: marquees: ${JSON.stringify(marquees)}`);
           });
       })
       .catch((error) => {
@@ -128,7 +128,7 @@ export class PageComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.fragmentServiceGet.unsubscribe(this.diary.id, this.page.id);
+    this.marqueeServiceGet.unsubscribe(this.diary.id, this.page.id);
   }
 
 
@@ -193,8 +193,8 @@ export class PageComponent implements OnInit, OnDestroy {
   deleteSelection() {
     if (this.selectedMarquee) {
       console.log(`PageComponent.deleteSelection: marquee: ${JSON.stringify(this.selectedMarquee)}`)
-      this.fragmentServiceDelete.deleteFragment(this.selectedMarquee)
-        .then((x) => {
+      this.marqueeServiceDelete.deleteMarquee(this.selectedMarquee)
+        .then(() => {
           console.log(`PageComponent.deleteSelection: delete succeeded`)
         })
       this.selectedMarquee = null;
@@ -213,29 +213,29 @@ export class PageComponent implements OnInit, OnDestroy {
   clearCurrentMarquee() {
     this.currentMarquee = null;
   }
-  addNewFragment(rectangle: Rectangle) {
+  addNewMarquee(rectangle: Rectangle) {
 
-    console.log(`PageComponent.addFragment: sending addFragment request: id: ${JSON.stringify(rectangle)}`)
-    this.fragmentServiceAdd.addFragment(this.page, rectangle)
+    console.log(`PageComponent.addMarquee: sending addMarquee request: id: ${JSON.stringify(rectangle)}`)
+    this.marqueeServiceAdd.addMarquee(this.page, rectangle)
       .then((id) => {
-        // Wait for MQTT to deliver the new fragment, which will be handled by the existing subscription
+        // Wait for MQTT to deliver the new marquee, which will be handled by the existing subscription
         const marquee = new Marquee(id, rectangle);
         this.selectedMarquee = marquee;
         this.currentMarquee = null;
 
-        console.log(`PageComponent.addFragment: fragment: id: ${marquee.id} added`);
+        console.log(`PageComponent.addMarquee: fragment: id: ${marquee.id} added`);
         this.alertService.info(`fragment: id: ${marquee.id} added`);
       })
       .catch((err) => {
-        console.log(`PageComponent.addFragment: error: ${err}`)
+        console.log(`PageComponent.addNewMarquee: error: ${err}`)
         this.alertService.error(err);
       });
   }
 
   updateFragment(marquee: Marquee) {
     console.log(`PageComponent.updateFragment: marquee: ${JSON.stringify(marquee)}`)
-    this.fragmentServiceUpdate.updateFragment(marquee)
-      .then((x) => {
+    this.marqueeServiceUpdate.updateMarquee(marquee)
+      .then(() => {
         console.log(`PageComponent.updateFragment: update succeeded`)
       })
   }

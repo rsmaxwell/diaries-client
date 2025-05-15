@@ -1,4 +1,4 @@
-import { Fragment, Marquee } from '../../model/fragment/fragment';
+import { Marquee } from '../../model/marquee/marquee';
 import { Point } from '../../utilities/point';
 import { Rectangle } from '../../utilities/rectangle';
 import { PageModeHandler } from './pageModeHandler';
@@ -36,7 +36,7 @@ export class AddModeHandler extends PageModeHandler {
                 const width = Math.abs(finish.x - this.start.x);
                 const height = Math.abs(finish.y - this.start.y);
 
-                this.pageComponent.addNewFragment(new Rectangle(x, y, width, height));
+                this.pageComponent.addNewMarquee(new Rectangle(x, y, width, height));
                 this.start = null;
             }
         }
