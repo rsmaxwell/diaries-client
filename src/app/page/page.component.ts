@@ -15,11 +15,9 @@ import { BehaviorSubject, combineLatest, filter } from 'rxjs';
 import { PagefooterComponent } from '../headers/pagefooter/pagefooter.component';
 import { Marquee } from '../model/marquee/marquee';
 import { Rectangle } from '../utilities/rectangle';
-import { MarqueeServiceGet } from '../marquees/marquee.service.get';
-import { MarqueeServiceAdd } from '../marquees/marquee.service.add';
-import { MarqueeServiceUpdate } from '../marquees/marquee.service.update';
-import { MarqueeServiceDelete } from '../marquees/marquee.service.delete';
 import { PagesService } from '../diary/pages.service';
+import { RpcService } from '../mqtt/rpc.service';
+import { SubscriptionService } from '../mqtt/subscription.service';
 
 
 type Mode = 'view' | 'select' | 'add';
@@ -63,10 +61,8 @@ export class PageComponent implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private diariesService: DiariesService,
     private pagesService: PagesService,
-    private marqueeServiceGet: MarqueeServiceGet,
-    private marqueeServiceAdd: MarqueeServiceAdd,
-    private marqueeServiceUpdate: MarqueeServiceUpdate,
-    private marqueeServiceDelete: MarqueeServiceDelete,
+    private subscriptionService: SubscriptionService,
+    private rpcService: RpcService,
     private alertService: AlertService,
     private cdr: ChangeDetectorRef,
     private configService: ConfigService
@@ -116,19 +112,18 @@ export class PageComponent implements OnInit, OnDestroy {
           });
 
         // Fetch the list of marquees
-        this.marqueeServiceGet.getMarqueesForPage(diaryId, pageId)
-          .subscribe(marquees => {
+        this.subscriptionService.getMarqueesForPage$(diaryId, pageId).subscribe(marquees => {
             this.marquees = marquees;
             console.log(`pageComponent.ngOnInit: marquees: ${JSON.stringify(marquees)}`);
           });
       })
       .catch((error) => {
-        console.error(`MqttService.getConnection: configuration error: ${error}`);
+        console.error(`PageComponent.ngOnInit: configuration error: ${error}`);
       });
   }
 
   ngOnDestroy(): void {
-    this.marqueeServiceGet.unsubscribe(this.diary.id, this.page.id);
+    this.subscriptionService.unsubscribeFromMarqueesForPage$(this.diary.id, this.page.id);
   }
 
 
@@ -193,10 +188,15 @@ export class PageComponent implements OnInit, OnDestroy {
   deleteSelection() {
     if (this.selectedMarquee) {
       console.log(`PageComponent.deleteSelection: marquee: ${JSON.stringify(this.selectedMarquee)}`)
-      this.marqueeServiceDelete.deleteMarquee(this.selectedMarquee)
-        .then(() => {
+      this.rpcService.deleteMarquee$(this.selectedMarquee).subscribe({
+        next: () => {
           console.log(`PageComponent.deleteSelection: delete succeeded`)
-        })
+        },
+        error: (err) => {
+          console.log(`PageComponent.deleteSelection: error: ${err}`);
+          this.alertService.error(err);
+        }
+      });
       this.selectedMarquee = null;
     }
   }
@@ -214,29 +214,32 @@ export class PageComponent implements OnInit, OnDestroy {
     this.currentMarquee = null;
   }
   addNewMarquee(rectangle: Rectangle) {
-
-    console.log(`PageComponent.addMarquee: sending addMarquee request: id: ${JSON.stringify(rectangle)}`)
-    this.marqueeServiceAdd.addMarquee(this.page, rectangle)
-      .then((id) => {
-        // Wait for MQTT to deliver the new marquee, which will be handled by the existing subscription
+    console.log(`PageComponent.addMarquee: id: ${JSON.stringify(rectangle)}`)
+    this.rpcService.addMarquee$(this.page, rectangle).subscribe({
+      next: (id) => {
         const marquee = new Marquee(id, rectangle);
         this.selectedMarquee = marquee;
         this.currentMarquee = null;
 
         console.log(`PageComponent.addMarquee: fragment: id: ${marquee.id} added`);
         this.alertService.info(`fragment: id: ${marquee.id} added`);
-      })
-      .catch((err) => {
+      },
+      error: (err) => {
         console.log(`PageComponent.addNewMarquee: error: ${err}`)
         this.alertService.error(err);
-      });
+      }
+    });
   }
 
-  updateFragment(marquee: Marquee) {
-    console.log(`PageComponent.updateFragment: marquee: ${JSON.stringify(marquee)}`)
-    this.marqueeServiceUpdate.updateMarquee(marquee)
-      .then(() => {
-        console.log(`PageComponent.updateFragment: update succeeded`)
-      })
+  updateMarquee(marquee: Marquee) {
+    this.rpcService.updateMarquee$(marquee).subscribe({
+      next: () => {
+        console.log(`PageComponent.updateMarquee: update succeeded`);
+      },
+      error: (err) => {
+        console.log(`PageComponent.updateMarquee: error: ${err}`);
+        this.alertService.error(err);
+      }
+    });
   }
 }

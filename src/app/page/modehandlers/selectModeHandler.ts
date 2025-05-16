@@ -67,7 +67,7 @@ export class SelectModeHandler extends PageModeHandler {
             const marquee = this.pageComponent.selectedMarquee;
             if (marquee) {
                console.log(`SelectModeHandler.onMouseUp: marquee: ${JSON.stringify(marquee)}`);
-               this.pageComponent.updateFragment(marquee);
+               this.pageComponent.updateMarquee(marquee);
             }
         }
         else {
