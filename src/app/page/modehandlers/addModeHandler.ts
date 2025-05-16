@@ -36,7 +36,7 @@ export class AddModeHandler extends PageModeHandler {
                 const width = Math.abs(finish.x - this.start.x);
                 const height = Math.abs(finish.y - this.start.y);
 
-                this.pageComponent.addNewMarquee(new Rectangle(x, y, width, height));
+                this.pageComponent.addNewMarquee(new Rectangle(x, y, width, height), 1);
                 this.start = null;
             }
         }

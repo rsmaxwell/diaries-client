@@ -10,7 +10,7 @@ import { PageResponse } from './page';
 
 
 @Injectable({ providedIn: 'root' })
-export class PageService implements OnDestroy {
+export class XPageService implements OnDestroy {
 
   constructor(
     private mqttService: MqttService

@@ -8,17 +8,16 @@ import { ViewModeHandler } from './modehandlers/viewModeHandler';
 import { SelectModeHandler } from './modehandlers/selectModeHandler';
 import { AddModeHandler } from './modehandlers/addModeHandler';
 import { ActivatedRoute } from '@angular/router';
-import { DiariesService } from '../diaries/diaries.service';
 import { AlertService } from '../alerts/alert.service';
 import { ConfigService } from '../config/config.service';
-import { BehaviorSubject, combineLatest, filter } from 'rxjs';
+import { BehaviorSubject, combineLatest, filter, Observable } from 'rxjs';
 import { PagefooterComponent } from '../headers/pagefooter/pagefooter.component';
 import { Marquee } from '../model/marquee/marquee';
 import { Rectangle } from '../utilities/rectangle';
-import { PagesService } from '../diary/pages.service';
 import { RpcService } from '../mqtt/rpc.service';
-import { SubscriptionService } from '../mqtt/subscription.service';
-
+import { LiveObjectService } from '../mqtt/live.object.service';
+import { LiveObjectListService } from '../mqtt/live.object.list.service';
+import { PagesService } from '../diary/pages.service';
 
 type Mode = 'view' | 'select' | 'add';
 
@@ -56,12 +55,14 @@ export class PageComponent implements OnInit, OnDestroy {
     add: new AddModeHandler(this)
   };
 
+  diary$: Observable<Diary> | null = null;
+  page$: Observable<Page> | null = null;
+
 
   constructor(
     private route: ActivatedRoute,
-    private diariesService: DiariesService,
-    private pagesService: PagesService,
-    private subscriptionService: SubscriptionService,
+    private liveObjectService: LiveObjectService,
+    private liveObjectListService: LiveObjectListService,
     private rpcService: RpcService,
     private alertService: AlertService,
     private cdr: ChangeDetectorRef,
@@ -99,10 +100,9 @@ export class PageComponent implements OnInit, OnDestroy {
           return;
         }
 
-        // Combine Diary and Page fetches
         combineLatest([
-          this.diariesService.getDiaryById(diaryId),
-          this.pagesService.getPageForDiaryById(diaryId, pageId)
+          this.diary$ = this.liveObjectService.getDiaryById$(diaryId),
+          this.page$ = this.liveObjectService.getPageById$(diaryId, pageId)
         ])
           .pipe(
             filter(([d, p]) => d !== undefined && p !== undefined)
@@ -112,10 +112,10 @@ export class PageComponent implements OnInit, OnDestroy {
           });
 
         // Fetch the list of marquees
-        this.subscriptionService.getMarqueesForPage$(diaryId, pageId).subscribe(marquees => {
-            this.marquees = marquees;
-            console.log(`pageComponent.ngOnInit: marquees: ${JSON.stringify(marquees)}`);
-          });
+        this.liveObjectListService.getMarqueesForPage$(diaryId, pageId).subscribe(marquees => {
+          this.marquees = marquees;
+          console.log(`pageComponent.ngOnInit: marquees: ${JSON.stringify(marquees)}`);
+        });
       })
       .catch((error) => {
         console.error(`PageComponent.ngOnInit: configuration error: ${error}`);
@@ -123,9 +123,8 @@ export class PageComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.subscriptionService.unsubscribeFromMarqueesForPage$(this.diary.id, this.page.id);
+    this.liveObjectListService.unsubscribeFromMarqueesForPage$(this.diary.id, this.page.id);
   }
-
 
   handlePageReply(diary: Diary, page: Page) {
     console.log(`pageComponent.handlePageReply: diary: ${JSON.stringify(diary)}, page: ${JSON.stringify(page)}`);
@@ -213,9 +212,9 @@ export class PageComponent implements OnInit, OnDestroy {
   clearCurrentMarquee() {
     this.currentMarquee = null;
   }
-  addNewMarquee(rectangle: Rectangle) {
+  addNewMarquee(rectangle: Rectangle, sequence: number) {
     console.log(`PageComponent.addMarquee: id: ${JSON.stringify(rectangle)}`)
-    this.rpcService.addMarquee$(this.page, rectangle).subscribe({
+    this.rpcService.addMarquee$(this.page, rectangle, sequence).subscribe({
       next: (id) => {
         const marquee = new Marquee(id, rectangle);
         this.selectedMarquee = marquee;

@@ -9,7 +9,7 @@ import { FullfooterComponent } from '../headers/fullfooter/fullfooter.component'
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { Subscription } from 'rxjs';
-import { DiariesService } from './diaries.service';
+import { LiveObjectListService } from '../mqtt/live.object.list.service';
 
 @Component({
   selector: 'app-diaries',
@@ -34,15 +34,15 @@ export class DiariesComponent implements OnInit, OnDestroy {
   subscription: Subscription | null = null;
 
   constructor(
-    private diariesService: DiariesService,
+    private subscriptionService: LiveObjectListService,
     private router: Router
   ) {
     console.log(`DiariesComponent.constructor`);
    }
 
-  ngOnInit(): void {
+   ngOnInit(): void {
     console.log(`DiariesComponent.ngOnInit`);
-    this.subscription = this.diariesService.diaries$.subscribe(diaries => {
+    this.subscription = this.subscriptionService.getDiaries$().subscribe(diaries => {
       this.dataSource.data = diaries;
     });
   }
@@ -53,10 +53,11 @@ export class DiariesComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    console.log('DiariesComponent.ngOnDestroy')
+    console.log('DiariesComponent.ngOnDestroy');
     if (this.subscription) {
-      console.log('DiariesComponent.ngOnDestroy: Unsubscribed from diariesService');
+      console.log('DiariesComponent.ngOnDestroy: Unsubscribed from SubscriptionService');
       this.subscription.unsubscribe();
     }
+    this.subscriptionService.unsubscribeFromDiaries$();
   }
 }

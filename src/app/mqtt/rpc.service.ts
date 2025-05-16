@@ -24,7 +24,7 @@ export class RpcService {
         private token: AccessTokenService
     ) { }
 
-    addMarquee$(page: Page, rect: Rectangle): Observable<number> {
+    addMarquee$(page: Page, rect: Rectangle, sequence: number): Observable<number> {
         return forkJoin({
             cfg: this.config.getConfig(),
             client: this.mqtt.getConnection(),
@@ -32,7 +32,7 @@ export class RpcService {
         }).pipe(
             switchMap(({ cfg, client, token }) => {
                 const replyTopic = this.baseReply(cfg.clientId);
-                const payload = { function: 'addMarquee', args: new AddMarqueeRequest(page.id, rect) };
+                const payload = { function: 'addMarquee', args: new AddMarqueeRequest(page.id, rect, sequence) };
                 const deserialize = ReplyHandler.getBufferAsNumber
                 return this.rpcRequest<number>(client, this.reqTopic, replyTopic, payload, token, deserialize);
             })

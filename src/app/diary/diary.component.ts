@@ -11,11 +11,11 @@ import { MatCardModule } from '@angular/material/card';
 import { MatSelectModule } from '@angular/material/select';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
-import { BehaviorSubject, Subscription, switchMap } from 'rxjs';
+import { Subscription, switchMap } from 'rxjs';
 import { AlertService } from '../alerts/alert.service';
 import { Page } from '../page/page';
-import { DiariesService } from '../diaries/diaries.service';
-import { PagesService } from './pages.service';
+import { LiveObjectListService } from '../mqtt/live.object.list.service';
+import { LiveObjectService } from '../mqtt/live.object.service';
 
 
 @Component({
@@ -49,10 +49,10 @@ export class DiaryComponent implements OnInit, OnDestroy {
 
 
   constructor(
-    private diariesService: DiariesService,
+    private liveObjectListService: LiveObjectListService,
+    private liveObjectService: LiveObjectService,
     private router: Router,
     private route: ActivatedRoute,
-    private pagesService: PagesService,
     private alertService: AlertService
   ) {
     console.log(`DiaryComponent.constructor`)
@@ -64,7 +64,7 @@ export class DiaryComponent implements OnInit, OnDestroy {
       .pipe(
         switchMap(params => {
           const id = +params['diaryId'];
-          return this.diariesService.getDiaryById(id);
+          return this.liveObjectService.getDiaryById$(id);
         })
       )
       .subscribe(diary => {
@@ -74,9 +74,10 @@ export class DiaryComponent implements OnInit, OnDestroy {
         console.log(`PageComponent.ngOnInit: diary.id: ${diary.id}`)
 
         // Only now get the pages
-        this.pagesService.getPagesForDiary(diary.id).subscribe(pages => {
-          this.pages = pages;
-        });
+        this.liveObjectListService.getPagesForDiary$(diary.id)
+          .subscribe(pages => {
+            this.pages = pages;
+          });
       });
 
     this.pageSubscription.add(sub);

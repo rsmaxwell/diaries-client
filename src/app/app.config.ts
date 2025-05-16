@@ -5,8 +5,6 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { ConfigService } from './config/config.service';
 import { MqttService } from './mqtt/mqtt.service';
-import { DiariesService } from './diaries/diaries.service';
-import { PageService } from './page/page.service';
 import { MqttRegisterService } from './user/mqtt.register.service';
 import { MqttSigninService } from './user/mqtt.signin.service';
 import { AuthGuard } from './auth.guard';
@@ -32,8 +30,6 @@ export const appConfig: ApplicationConfig = {
     }, provideAnimationsAsync(),
     MqttRegisterService,
     MqttSigninService,
-    DiariesService,
-    PageService,
     AuthGuard
   ]
 };
