@@ -11,7 +11,10 @@ import { PlainheaderComponent } from "../../headers/plainheader/plainheader.comp
 import { ActivatedRoute, Router } from '@angular/router';
 import { AlertService } from '../../alerts/alert.service';
 import { Signin } from '../../model/signin';
-import { MqttSigninService } from '../mqtt.signin.service';
+import { RpcService } from '../../mqtt/rpc.service';
+import { AccessTokenService } from '../token/AccessTokenService';
+import { TokenRequestor } from '../tokenRequestor';
+import { RefreshTokenService } from '../token/RefreshTokenService';
 
 @Component({
   selector: 'app-signin.page',
@@ -54,7 +57,10 @@ export class SigninComponent implements OnDestroy {
   constructor(
     private route: ActivatedRoute,
     private router: Router,
-    private mqttSigninService: MqttSigninService,
+    private rpcService: RpcService,
+    private accessTokenService: AccessTokenService,
+    private refreshTokenService: RefreshTokenService,
+    private tokenRequestor: TokenRequestor,
     private alertService: AlertService
   ) { }
 
@@ -71,18 +77,23 @@ export class SigninComponent implements OnDestroy {
     }
 
     let value: Signin = Signin.fromFormGroup(this.form)
-    this.mqttSigninService.signin(value)
-      .then(() => {
-          console.log(`SigninComponent.onSubmit: success`)
 
-          this.alertService.info(`${value.username} signed in`);
-          const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/';
-          this.router.navigateByUrl(returnUrl)
-        })
-      .catch((err) => {
-          console.log(`SigninComponent.onSubmit: error: ${err}`)
-          this.alertService.error(err);
-      });
+    console.log(`SigninComponent - using RpcService`)
+    this.rpcService.signin$(value).subscribe({
+      next: (reply) => {
+        console.log(`SigninComponent.onSubmit: success`)
+        this.accessTokenService.setToken(reply.accessToken);
+        this.refreshTokenService.setToken(reply.refreshToken);
+        this.tokenRequestor.start(reply.refreshPeriod);
+        this.alertService.info(`${value.username} signed in`);
+        const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/';
+        this.router.navigateByUrl(returnUrl)
+      },
+      error: (err) => {
+        console.log(`SigninComponent.onSubmit: error: ${err}`)
+        this.alertService.error(err);
+      }
+    });
   }
 
   ngOnDestroy(): void {

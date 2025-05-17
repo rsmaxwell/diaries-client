@@ -13,3 +13,23 @@ export class Signin {
         return new Signin(form.value.username, form.value.password)
     }
 }
+
+export class SigninRequest {
+    username: string;
+    password: string;
+
+    constructor(signin: Signin) {
+        this.username = signin.username;
+        this.password = signin.password;
+    }
+}
+
+export class SigninReply {
+    username: string;
+    password: string;
+
+    constructor(signin: Signin) {
+        this.username = signin.username;
+        this.password = signin.password;
+    }
+}

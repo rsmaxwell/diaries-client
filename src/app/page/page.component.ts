@@ -114,7 +114,6 @@ export class PageComponent implements OnInit, OnDestroy {
         // Fetch the list of marquees
         this.liveObjectListService.getMarqueesForPage$(diaryId, pageId).subscribe(marquees => {
           this.marquees = marquees;
-          console.log(`pageComponent.ngOnInit: marquees: ${JSON.stringify(marquees)}`);
         });
       })
       .catch((error) => {

@@ -46,4 +46,24 @@ export class Register {
     }
 }
 
+export class RegisterRequest extends Register {
+    
+    constructor(register: Register) {
+        super();
+        this.firstname = register.firstname
+        this.lastname = register.lastname
+        this.username = register.username
+        this.password = register.password
+        this.knownas = register.knownas
+        this.email = register.email
+        this.phone = register.phone
+    }
+}
 
+export class RegisterReply {
+    id: number;
+
+    constructor(id: number) {
+        this.id = id
+    }
+}

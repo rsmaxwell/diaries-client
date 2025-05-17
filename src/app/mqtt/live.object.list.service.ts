@@ -80,6 +80,7 @@ export class LiveObjectListService {
         this.topicSubscriptionMap.set(topicPrefix, subject);
 
         const handler = (messageTopic: string, payload: Buffer) => {
+            console.log(`LiveObjectListService$: received message on '${messageTopic}' (expecting '${topic}')`);
             if (!messageTopic.startsWith(topicPrefix)) return;
 
             const current = subject.getValue();

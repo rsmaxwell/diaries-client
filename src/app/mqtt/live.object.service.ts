@@ -36,11 +36,11 @@ export class LiveObjectService {
             switchMap(client =>
                 new Observable<T>(observer => {
                     const handler = (messageTopic: string, payload: Buffer) => {
-                        console.log(`getObjectById$: received message on '${messageTopic}' (expecting '${topic}')`);
+                        console.log(`LiveObjectService: received message on '${messageTopic}' (expecting '${topic}')`);
                         if (messageTopic !== topic) return;
                         try {
                             const obj = deserialize(payload);
-                            console.log(`getObjectById$: deserialized:`, obj);
+                            console.log(`LiveObjectService: deserialized:`, obj);
                             observer.next(obj);
                         } catch (err) {
                             observer.error(err);
