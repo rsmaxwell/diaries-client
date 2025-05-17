@@ -43,7 +43,7 @@ export class PageComponent implements OnInit, OnDestroy {
   viewBoxAsString = '0 0 0 0';
   fileServerUrl: string = "";
   mode: 'select' | 'add' | 'view' = 'view';
-  selectedMarquee: Marquee | null = null;
+  selectedMarqueeId: number | null = null;
   currentMarquee: Marquee | null = null;
   marquees: Marquee[] = [];
   svg: HTMLElement | SVGSVGElement = {} as HTMLElement;
@@ -182,12 +182,12 @@ export class PageComponent implements OnInit, OnDestroy {
 
 
   cancelSelection() {
-    this.selectedMarquee = null;
+    this.selectedMarqueeId = null;
   }
   deleteSelection() {
-    if (this.selectedMarquee) {
-      console.log(`PageComponent.deleteSelection: marquee: ${JSON.stringify(this.selectedMarquee)}`)
-      this.rpcService.deleteMarquee$(this.selectedMarquee).subscribe({
+    if (this.selectedMarqueeId) {
+      console.log(`PageComponent.deleteSelection: marquee: ${this.selectedMarqueeId}`)
+      this.rpcService.deleteMarquee$(this.selectedMarqueeId).subscribe({
         next: () => {
           console.log(`PageComponent.deleteSelection: delete succeeded`)
         },
@@ -196,7 +196,7 @@ export class PageComponent implements OnInit, OnDestroy {
           this.alertService.error(err);
         }
       });
-      this.selectedMarquee = null;
+      this.selectedMarqueeId = null;
     }
   }
   updateViewBox(viewBox: Rectangle) {
@@ -204,7 +204,7 @@ export class PageComponent implements OnInit, OnDestroy {
     this.viewBoxAsString = `${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`;
   }
   setSelection(marquee: Marquee) {
-    this.selectedMarquee = marquee;
+    this.selectedMarqueeId = marquee.id;
   }
   updateCurrentMarquee(rectangle: Rectangle) {
     this.currentMarquee = new Marquee(0, rectangle);
@@ -217,7 +217,7 @@ export class PageComponent implements OnInit, OnDestroy {
     this.rpcService.addMarquee$(this.page, rectangle, sequence).subscribe({
       next: (id) => {
         const marquee = new Marquee(id, rectangle);
-        this.selectedMarquee = marquee;
+        this.selectedMarqueeId = marquee.id;
         this.currentMarquee = null;
 
         console.log(`PageComponent.addMarquee: fragment: id: ${marquee.id} added`);

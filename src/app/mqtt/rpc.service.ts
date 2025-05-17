@@ -54,7 +54,7 @@ export class RpcService {
         );
     }
 
-    deleteMarquee$(marquee: Marquee): Observable<number> {
+    deleteMarquee$(id: number): Observable<number> {
         return forkJoin({
             cfg: this.config.getConfig(),
             client: this.mqtt.getConnection(),
@@ -62,7 +62,7 @@ export class RpcService {
         }).pipe(
             switchMap(({ cfg, client, token }) => {
                 const replyTopic = this.baseReply(cfg.clientId);
-                const payload = { function: 'deleteMarquee', args: new DeleteMarqueeRequest(marquee) };
+                const payload = { function: 'deleteMarquee', args: new DeleteMarqueeRequest(id) };
                 const deserialize = ReplyHandler.getBufferAsNumber
                 return this.rpcRequest<number>(client, this.reqTopic, replyTopic, payload, token, deserialize);
             })

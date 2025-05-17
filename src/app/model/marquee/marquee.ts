@@ -39,8 +39,8 @@ export class UpdateMarqueeRequest {
 export class DeleteMarqueeRequest {
     id: number;
 
-    constructor(marquee: Marquee) {
-        this.id = marquee.id;
+    constructor(id: number) {
+        this.id = id;
     }
 }
 

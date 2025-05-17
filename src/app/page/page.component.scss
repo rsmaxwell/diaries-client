@@ -27,27 +27,28 @@
   }
 
   &.select {
-    cursor: default
-  }
 
-  &.select.corner-1-resize {
-    cursor: url('/assets/cursors/corner-1-resize.svg') 16 16, default;
-  }
+    cursor: default;
 
-  &.select.corner-2-resize {
-    cursor: url('/assets/cursors/corner-2-resize.svg') 16 16, default;
-  }
+    &.corner-1-resize {
+      cursor: url('/assets/cursors/corner-1-resize.svg') 16 16, default;
+    }
 
-  &.select.horizontal-resize {
-    cursor: url('/assets/cursors/horizontal-resize.svg') 16 16, default;
-  }
+    &.corner-2-resize {
+      cursor: url('/assets/cursors/corner-2-resize.svg') 16 16, default;
+    }
 
-  &.select.vertical-resize {
-    cursor: url('/assets/cursors/vertical-resize.svg') 16 16, default;
-  }
+    &.horizontal-resize {
+      cursor: url('/assets/cursors/horizontal-resize.svg') 16 16, default;
+    }
 
-  &.select.move {
-    cursor: url('/assets/cursors/move.svg') 16 16, default;
+    &.vertical-resize {
+      cursor: url('/assets/cursors/vertical-resize.svg') 16 16, default;
+    }
+
+    &.move {
+      cursor: url('/assets/cursors/move.svg') 16 16, default;
+    }
   }
 }
 
@@ -75,6 +76,7 @@
   stroke-dasharray: 10
 }
 
-rect, path {
+rect,
+path {
   pointer-events: all;
 }

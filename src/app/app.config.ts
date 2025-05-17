@@ -3,11 +3,7 @@ import { provideRouter } from '@angular/router';
 import { routes } from './app.routes';
 import { provideHttpClient } from '@angular/common/http';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
-import { ConfigService } from './config/config.service';
 import { MqttService } from './mqtt/mqtt.service';
-import { MqttRegisterService } from './user/mqtt.register.service';
-import { MqttSigninService } from './user/mqtt.signin.service';
-import { AuthGuard } from './auth.guard';
 
 
 function initializeMqttService(mqttService: MqttService) {
@@ -19,7 +15,6 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideHttpClient(),
     provideRouter(routes),
-    ConfigService,
     MqttService,
     {
       provide: APP_INITIALIZER,
@@ -27,10 +22,7 @@ export const appConfig: ApplicationConfig = {
       deps: [    MqttService,
       ],
       multi: true,
-    }, provideAnimationsAsync(),
-    MqttRegisterService,
-    MqttSigninService,
-    AuthGuard
+    }, provideAnimationsAsync()
   ]
 };
 

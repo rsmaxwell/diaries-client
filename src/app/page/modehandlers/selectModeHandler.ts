@@ -25,8 +25,9 @@ export class SelectModeHandler extends PageModeHandler {
 
         this.calculateCursorStyle(event);
 
-        if (!this.pageComponent.selectedMarquee) return
-        const m = this.pageComponent.selectedMarquee;
+        if (!this.pageComponent.selectedMarqueeId) return
+        const m = this.pageComponent.marquees.find(m => m.id === this.pageComponent.selectedMarqueeId);
+        if (m == undefined) return;
 
         const bodyHorizontal = (m.rectangle.x < this.lastMouseX + margin) && (this.lastMouseX < m.rectangle.x + m.rectangle.width + margin);
         const bodyVertical = (m.rectangle.y < this.lastMouseY + margin) && (this.lastMouseY < m.rectangle.y + m.rectangle.height + margin);
@@ -49,6 +50,7 @@ export class SelectModeHandler extends PageModeHandler {
         if (!(this.isDraggingLeft || this.isDraggingTop || this.isDraggingRight || this.isDraggingBottom)) {
             this.isDraggingAll = true
         }
+        console.log(`SelectModeHandler: onMouseDown: dragging: ${this.isDraggingLeft},  ${this.isDraggingTop},  ${this.isDraggingRight},  ${this.isDraggingBottom},  ${this.isDraggingAll}`);
     }
     onSelectMarquee(marquee: Marquee): void {
         console.log(`SelectModeHandler.onSelectMarquee: fragment: ${JSON.stringify(marquee)}`);
@@ -62,12 +64,12 @@ export class SelectModeHandler extends PageModeHandler {
     onMouseUp(event: MouseEvent) {
         console.log(`SelectModeHandler.onMouseUp`);
 
-        if (this.isDraggingLeft || this.isDraggingTop || this.isDraggingRight || this.isDraggingBottom) {
+        if (this.isDraggingLeft || this.isDraggingTop || this.isDraggingRight || this.isDraggingBottom || this.isDraggingAll) {
             console.log(`SelectModeHandler.onMouseUp: is Dragging: true`);
-            const marquee = this.pageComponent.selectedMarquee;
-            if (marquee) {
-               console.log(`SelectModeHandler.onMouseUp: marquee: ${JSON.stringify(marquee)}`);
-               this.pageComponent.updateMarquee(marquee);
+            const m = this.pageComponent.marquees.find(m => m.id === this.pageComponent.selectedMarqueeId);
+            if (m) {
+                console.log(`SelectModeHandler.onMouseUp: marquee: ${JSON.stringify(m)}`);
+                this.pageComponent.updateMarquee(m);
             }
         }
         else {
@@ -84,6 +86,7 @@ export class SelectModeHandler extends PageModeHandler {
             this.pendingCancel = false;
             this.pageComponent.cancelSelection();
         }
+        console.log(`SelectModeHandler: onMouseUp: dragging: ${this.isDraggingLeft},  ${this.isDraggingTop},  ${this.isDraggingRight},  ${this.isDraggingBottom},  ${this.isDraggingAll}`);
     }
     onKeyDown(event: KeyboardEvent): void {
         if (event.key === 'Escape') {
@@ -95,14 +98,15 @@ export class SelectModeHandler extends PageModeHandler {
     }
     onMouseMove(event: MouseEvent) {
         this.calculateCursorStyle(event);
-        this.dragSelectedFragment(event);
+        this.dragSelectedMarquee(event);
     }
 
     calculateCursorStyle(event: MouseEvent) {
         let cursor = 'default';
 
-        if (this.pageComponent.selectedMarquee != null) {
-            const m = this.pageComponent.selectedMarquee;
+        if (this.pageComponent.selectedMarqueeId != null) {
+            const m = this.pageComponent.marquees.find(m => m.id === this.pageComponent.selectedMarqueeId);
+            if (m == undefined) return;
 
             let point = this.getMousePosition(event);
             if (point != null) {
@@ -136,8 +140,8 @@ export class SelectModeHandler extends PageModeHandler {
         this.pageComponent.style = cursor;
     }
 
-    dragSelectedFragment(event: MouseEvent) {
-        if (!this.pageComponent.selectedMarquee) return;
+    dragSelectedMarquee(event: MouseEvent) {
+        if (!this.pageComponent.selectedMarqueeId) return;
         if (!(this.isDraggingLeft || this.isDraggingRight || this.isDraggingTop || this.isDraggingBottom || this.isDraggingAll)) return;
 
         let newMouse = this.getMousePosition(event);
@@ -146,7 +150,9 @@ export class SelectModeHandler extends PageModeHandler {
         const dx = newMouse.x - this.lastMouseX;
         const dy = newMouse.y - this.lastMouseY;
 
-        const m = this.pageComponent.selectedMarquee;
+        const m = this.pageComponent.marquees.find(m => m.id === this.pageComponent.selectedMarqueeId);
+        if (m == undefined) return;
+
         if (this.isDraggingLeft) {
             m.rectangle.x += dx;
             m.rectangle.width -= dx;

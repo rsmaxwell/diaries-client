@@ -28,7 +28,7 @@
         [attr.y]="marquee.rectangle.y"
         [attr.width]="marquee.rectangle.width"
         [attr.height]="marquee.rectangle.height"
-        [attr.class]="marquee === selectedMarquee ? 'selected' : 'selectable'"
+        [attr.class]="marquee.id == selectedMarqueeId ? 'selected' : 'selectable'"
         (click)="onSelectMarquee(marquee)"
          />
 

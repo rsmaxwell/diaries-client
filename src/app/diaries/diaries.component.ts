@@ -34,7 +34,7 @@ export class DiariesComponent implements OnInit, OnDestroy {
   subscription: Subscription | null = null;
 
   constructor(
-    private subscriptionService: LiveObjectListService,
+    private liveObjectListService: LiveObjectListService,
     private router: Router
   ) {
     console.log(`DiariesComponent.constructor`);
@@ -42,7 +42,7 @@ export class DiariesComponent implements OnInit, OnDestroy {
 
    ngOnInit(): void {
     console.log(`DiariesComponent.ngOnInit`);
-    this.subscription = this.subscriptionService.getDiaries$().subscribe(diaries => {
+    this.subscription = this.liveObjectListService.getDiaries$().subscribe(diaries => {
       this.dataSource.data = diaries;
     });
   }
@@ -58,6 +58,6 @@ export class DiariesComponent implements OnInit, OnDestroy {
       console.log('DiariesComponent.ngOnDestroy: Unsubscribed from SubscriptionService');
       this.subscription.unsubscribe();
     }
-    this.subscriptionService.unsubscribeFromDiaries$();
+    this.liveObjectListService.unsubscribeFromDiaries$();
   }
 }
