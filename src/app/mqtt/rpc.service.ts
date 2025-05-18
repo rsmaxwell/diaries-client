@@ -1,4 +1,4 @@
-import { forkJoin, Observable, switchMap } from "rxjs";
+import { forkJoin, from, Observable, Subscriber, switchMap } from "rxjs";
 import { ConfigService } from "../config/config.service";
 import { MqttService } from "./mqtt.service";
 import { Page } from "../model/page";
@@ -22,13 +22,24 @@ import { UpdateDiaryRequest } from "../model/diary";
 @Injectable({ providedIn: 'root' })
 export class RpcService {
     private readonly reqTopic = 'request';
+    private subscribedTopics = new Set<string>();
+
+    // map of correlationIds to handlers
+    private responseHandlers = new Map<string, {
+        replyTopic: string,
+        observer: Subscriber<any>,
+        deserialize: (buf: Buffer) => any,
+        timer: NodeJS.Timeout
+    }>();
 
     constructor(
         private config: ConfigService,
         private mqtt: MqttService,
         private accessToken: AccessTokenService,
         private refreshToken: RefreshTokenService
-    ) { }
+    ) {
+        this.ensureListener()
+    }
 
     register$(register: Register): Observable<RegisterReply> {
         return forkJoin({
@@ -67,7 +78,7 @@ export class RpcService {
             accessToken: this.accessToken.getToken(),
             refreshToken: this.refreshToken.getToken()
         }).pipe(
-            switchMap(({ cfg, client, accessToken, refreshToken}) => {
+            switchMap(({ cfg, client, accessToken, refreshToken }) => {
                 const replyTopic = `reply/${cfg.clientId}/refreshToken`;
                 const payload = { function: 'refreshToken', args: new RefreshTokenRequest(cfg.username, refreshToken) };
                 const deserialize = ReplyHandler.getBufferAsObject as (buffer: Buffer) => RefreshTokenReply;
@@ -136,6 +147,63 @@ export class RpcService {
         );
     }
 
+    // Register a single global message listener once
+    private ensureListener(): void {
+        const observable$ = from(this.mqtt.getConnection());
+        observable$.subscribe({
+            next: client => {
+                if (!client.listeners('message').some(fn => fn.name === 'rpcDispatcher')) {
+                    client.on('message', this.rpcDispatcher.bind(this));
+                }
+            },
+            error: err => console.error("RpcServive.ensureListener: Error:", err),
+            complete: () => console.log("RpcServive.ensureListener: Completed")
+        });
+    }
+
+    // Dispatcher that routes based on correlationId
+    private rpcDispatcher(topic: string, payload: Buffer, packet: any) {
+        const props = packet.properties as mqtt.IClientPublishOptions['properties'];
+        const corr = props?.correlationData?.toString();
+
+        if (!corr || !this.responseHandlers.has(corr)) return;
+
+        const handler = this.responseHandlers.get(corr)!;
+
+        if (topic !== handler.replyTopic) return;
+
+        clearTimeout(handler.timer);
+        this.responseHandlers.delete(corr);
+
+
+
+        let status: Status | null = null
+
+        const statusRaw = props?.userProperties?.["status"];
+        if (statusRaw) {
+            const firstStatus = Array.isArray(statusRaw) ? statusRaw[0] : statusRaw;
+            try {
+                status = JSON.parse(firstStatus) as Status;
+            } catch (e) {
+                handler.observer.error(new Error("Failed to parse status JSON"));
+                return;
+            }
+        }
+
+        if (!status || status.code !== HttpStatusCode.Ok) {
+            handler.observer.error(new Error(`Status ${status?.code}: ${status?.message}`));
+            return;
+        }
+
+        try {
+            const value = handler.deserialize(payload);
+            handler.observer.next(value);
+            handler.observer.complete();
+        } catch (e) {
+            handler.observer.error(e);
+        }
+    }
+
     private rpcRequest<R>(
         client: mqtt.MqttClient,
         requestTopic: string,
@@ -147,71 +215,74 @@ export class RpcService {
     ): Observable<R> {
         return new Observable<R>(obs => {
             const corr = uuidv4();
-            const timer = setTimeout(() => obs.error(new Error('Timeout')), timeout);
-
-            const handler = (t: string, buf: Buffer, pkt: any) => {
-
-                const props = pkt.properties as {
-                    correlationData?: Buffer;
-                    userProperties?: { [key: string]: string };
-                };
-
-                if (t !== replyTopic || props?.correlationData?.toString() !== corr) return;
-                clearTimeout(timer);
-                client.removeListener('message', handler);
-
-                const statusJson = props?.userProperties?.["status"];
-                const status = statusJson ? JSON.parse(statusJson) as Status : null;
-                if (!status || status.code !== HttpStatusCode.Ok) {
-                    return obs.error(new Error(`Status ${status?.code}: ${status?.message}`));
-                }
-
-                try {
-                    const val = deserialize(buf);
-                    obs.next(val);
-                    obs.complete();
-                } catch (e) {
-                    obs.error(e);
-                }
-            };
-
-
-            client.subscribe(replyTopic, { qos: 1 }, err => {
-                if (err) return obs.error(err);
-
-                client.on('message', handler);
-
+    
+            if (this.responseHandlers.has(corr)) {
+                console.warn(`rpcRequest: Duplicate correlationId detected: ${corr}`);
+                obs.error(new Error('Duplicate correlationId'));
+                return;
+            }
+    
+            const timer = setTimeout(() => {
+                this.responseHandlers.delete(corr);
+                obs.error(new Error('Timeout'));
+            }, timeout);
+    
+            // Register the response handler
+            this.responseHandlers.set(corr, {
+                replyTopic,
+                observer: obs,
+                deserialize,
+                timer
+            });
+    
+            const publishRequest = () => {
                 const publishPayload = JSON.stringify(payload);
-
                 const properties: IPublishPacket['properties'] = {
                     responseTopic: replyTopic,
                     correlationData: Buffer.from(corr)
                 };
-            
+    
                 if (accessToken) {
                     properties.userProperties = { accessToken };
                 }
-            
+    
                 const publishOptions: IClientPublishOptions = {
                     qos: 1,
                     retain: false,
                     properties
                 };
-
-                console.log(`RpcServive: publish: topic: ${requestTopic}, payload: ${publishPayload}`);
+    
+                console.log(`[rpcRequest] Publishing to ${requestTopic} with corr=${corr}, replyTopic=${replyTopic}`);
                 client.publish(requestTopic, publishPayload, publishOptions, err => {
                     if (err) {
-                        console.error('rpcRequest.publish: Failed:', err);
+                        this.responseHandlers.delete(corr);
+                        clearTimeout(timer);
+                        console.error(`[rpcRequest] Publish failed: ${err.message}`);
                         obs.error(err);
                     } else {
-                        console.log('rpcRequest.publish: Succeeded');
+                        console.log(`[rpcRequest] Publish succeeded`);
                     }
                 });
-            });
-
+            };
+    
+            // Subscribe to replyTopic only once
+            if (!this.subscribedTopics.has(replyTopic)) {
+                client.subscribe(replyTopic, { qos: 1 }, err => {
+                    if (err) {
+                        this.responseHandlers.delete(corr);
+                        clearTimeout(timer);
+                        return obs.error(err);
+                    }
+                    this.subscribedTopics.add(replyTopic);
+                    publishRequest();
+                });
+            } else {
+                publishRequest();
+            }
+    
             return () => {
+                this.responseHandlers.delete(corr);
                 clearTimeout(timer);
-                client.removeListener('message', handler);
             };
         });
     }
