@@ -2,7 +2,7 @@ import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageheaderComponent } from "../headers/pageheader/pageheader.component";
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
-import { Diary } from '../diary/diary';
+import { Diary } from '../model/diary';
 import { Page } from '../model/page';
 import { ViewModeHandler } from './modehandlers/viewModeHandler';
 import { SelectModeHandler } from './modehandlers/selectModeHandler';

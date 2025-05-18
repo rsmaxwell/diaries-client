@@ -15,7 +15,9 @@ import { Signin, SigninReply, SigninRequest } from "../model/signin";
 import { Register, RegisterReply, RegisterRequest } from "../model/register";
 import { AddMarqueeRequest, DeleteMarqueeRequest, Marquee, UpdateMarqueeRequest } from "../model/marquee";
 import { Status } from "../model/status";
-import { RefreshToken, RefreshTokenRequest, RefreshTokenReply } from "../model/refresh.token";
+import { RefreshTokenRequest, RefreshTokenReply } from "../model/refresh.token";
+import { Diary } from "../model/diary";
+import { UpdateDiaryRequest } from "../model/diary";
 
 @Injectable({ providedIn: 'root' })
 export class RpcService {
@@ -119,6 +121,21 @@ export class RpcService {
         );
     }
 
+    updateDiary$(diary: Diary): Observable<number> {
+        return forkJoin({
+            cfg: this.config.getConfig(),
+            client: this.mqtt.getConnection(),
+            token: this.accessToken.getToken()
+        }).pipe(
+            switchMap(({ cfg, client, token }) => {
+                const replyTopic = `reply/${cfg.clientId}/updateDiary`;
+                const payload = { function: 'updateDiary', args: new UpdateDiaryRequest(diary) };
+                const deserialize = ReplyHandler.getBufferAsNumber
+                return this.rpcRequest<number>(client, this.reqTopic, replyTopic, payload, token, deserialize);
+            })
+        );
+    }
+
     private rpcRequest<R>(
         client: mqtt.MqttClient,
         requestTopic: string,
@@ -158,6 +175,7 @@ export class RpcService {
                 }
             };
 
+
             client.subscribe(replyTopic, { qos: 1 }, err => {
                 if (err) return obs.error(err);
 
@@ -180,10 +198,13 @@ export class RpcService {
                     properties
                 };
 
-                client.publish(requestTopic, JSON.stringify(payload), publishOptions, err => {
+                console.log(`RpcServive: publish: topic: ${requestTopic}, payload: ${publishPayload}`);
+                client.publish(requestTopic, publishPayload, publishOptions, err => {
                     if (err) {
                         console.error('rpcRequest.publish: Failed:', err);
                         obs.error(err);
+                    } else {
+                        console.log('rpcRequest.publish: Succeeded');
                     }
                 });
             });

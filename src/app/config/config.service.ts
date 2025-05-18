@@ -29,21 +29,14 @@ export class ConfigService {
   async getConfig(): Promise<Config> {
     console.log(`ConfigService.getConfig`);
 
-    if (this.configCache) {
-      console.log(`ConfigService.getConfig: returning cached value`);      
+    if (this.configCache) {     
       return this.configCache;
     }
 
-    console.log('ConfigService.getConfig: loading config');
-
     const config = await lastValueFrom(this.http.get<Config>(this.configUrl));
-
-    console.log('ConfigService.getConfig: config:', JSON.stringify(config));
-
     this.configCache = config;
     return config;
   }
-
 
   getCurrentConfig(): Config | null {
     return this.configCache;

@@ -2,7 +2,7 @@
 import { Injectable } from "@angular/core";
 import { from, Observable, switchMap } from "rxjs";
 import { MqttService } from "./mqtt.service";
-import { Diary } from "../diary/diary";
+import { Diary } from "../model/diary";
 import { Page } from "../model/page";
 
 @Injectable({ providedIn: 'root' })

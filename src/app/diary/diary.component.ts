@@ -1,5 +1,5 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
-import { Diary } from './diary';
+import { Diary } from '../model/diary';
 import { CommonModule, NgIf } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -42,7 +42,7 @@ export class DiaryComponent implements OnInit, OnDestroy {
 
   pages: Page[] = [];
   pageDataSource = new MatTableDataSource<Page>();
-  displayedColumns: string[] = ['id', 'name'];
+  displayedColumns: string[] = ['id', 'sequence', 'name'];
   pageSubscription: Subscription = new Subscription();
 
   diary: Diary | undefined;

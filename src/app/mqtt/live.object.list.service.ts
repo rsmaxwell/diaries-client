@@ -3,7 +3,7 @@ import mqtt from "mqtt";
 import { BehaviorSubject, from, Observable, switchMap } from "rxjs";
 import { MqttService } from "./mqtt.service";
 import { Rectangle } from "../utilities/rectangle";
-import { Diary } from "../diary/diary";
+import { Diary } from "../model/diary";
 import { Page } from "../model/page";
 import { Marquee } from "../model/marquee";
 
