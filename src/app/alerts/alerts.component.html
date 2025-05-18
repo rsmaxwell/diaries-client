@@ -1,5 +1,4 @@
-<div *ngFor="let alert of alerts" class="alert-container">
 
+<div *ngIf="alert" class="alert-container">
     <div class="alert-message {{ cssClass(alert) }}" [innerHTML]="alert.message" (click)="getRecord(alert)"></div>
-
 </div>

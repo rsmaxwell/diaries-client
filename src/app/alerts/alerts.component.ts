@@ -17,7 +17,7 @@ export class AlertsComponent implements OnInit, OnDestroy {
 
   @Input() fade = true;
 
-  alerts: Alert[] = [];
+  alert: Alert | null = null;
   alertSubscription!: Subscription;
   routeSubscription!: Subscription;
 
@@ -33,23 +33,26 @@ export class AlertsComponent implements OnInit, OnDestroy {
   getAlerts(): void {
     this.alertService.getAlerts().subscribe({
       next: value => {
-        // console.log(`AlertsComponent.getAlerts: next: value: ${JSON.stringify(value)}`)
-        this.alerts = value
+        if (value && value.length > 0) {
+          this.alert = value[value.length - 1]; // show only the most recent
+        } else {
+          this.alert = null;
+        }
       },
       error: err => console.error('AlertsComponent.getAlerts: error: ' + err),
       complete: () => console.log('AlertsComponent.getAlerts: complete')
-    })
+    });
   }
 
   ngOnDestroy() {
     console.log('AlertsComponent.ngOnDestroy')
   }
 
-  removeAlert(alert: Alert) {
-    console.log(`AlertComponent.removeAlert: ${alert.id}`)
-    this.alertService.removeAlert(alert)
+  removeAlert() {
+    console.log(`AlertComponent.removeAlert`);
+    this.alert = null;
   }
-
+  
   cssClass(alert: Alert) {
       if (!alert) return;
 
