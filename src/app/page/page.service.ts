@@ -4,9 +4,9 @@ import { Buffer } from 'buffer';
 import { MqttClient } from 'mqtt';
 
 import { MqttService } from '../mqtt/mqtt.service';
-import { GetPageReply, getUnexpectedReplyMessage, isGetPageReply } from '../utilities/reply';
+import { GetPageReply, getUnexpectedReplyMessage, isGetPageReply } from '../model/reply';
 import { ReplyHandler } from '../utilities/replyHandler';
-import { PageResponse } from './page';
+import { PageResponse } from '../model/page';
 
 
 @Injectable({ providedIn: 'root' })

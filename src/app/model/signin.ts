@@ -1,4 +1,5 @@
 import { FormGroup } from "@angular/forms";
+import { Reply } from "./reply";
 
 export class Signin {
     username: string;
@@ -14,22 +15,18 @@ export class Signin {
     }
 }
 
-export class SigninRequest {
-    username: string;
-    password: string;
-
+export class SigninRequest extends Signin {
     constructor(signin: Signin) {
-        this.username = signin.username;
-        this.password = signin.password;
+        super(
+            signin.username,
+            signin.password
+        );
     }
 }
 
-export class SigninReply {
-    username: string;
-    password: string;
-
-    constructor(signin: Signin) {
-        this.username = signin.username;
-        this.password = signin.password;
-    }
-}
+export interface SigninReply extends Reply {
+    accessToken: string
+    refreshToken: string
+    refreshPeriod: number
+    id: number
+};

@@ -3,7 +3,7 @@ import { BehaviorSubject, Observable, map, distinctUntilChanged } from 'rxjs';
 import { MqttClient } from 'mqtt';
 import { Buffer } from 'buffer';
 import { MqttService } from '../mqtt/mqtt.service';
-import { Page } from '../page/page';
+import { Page } from '../model/page';
 
 @Injectable({ providedIn: 'root' })
 export class PagesService implements OnDestroy {

@@ -1,5 +1,6 @@
 import { FormGroup } from "@angular/forms";
 import { User } from "./user";
+import { Reply } from "./reply";
 
 
 export class Register {
@@ -11,59 +12,60 @@ export class Register {
     email: string;
     phone: string;
 
-    constructor() {
-        this.firstname = ''
-        this.lastname = ''
-        this.username = ''
-        this.password = ''
-        this.knownas = ''
-        this.email = ''
-        this.phone = ''
+    constructor(firstname: string, lastname: string, username: string, password: string, knownas: string, email: string, phone: string) {
+        this.firstname = firstname;
+        this.lastname = lastname;
+        this.username = username;
+        this.password = password;
+        this.knownas = knownas;
+        this.email = email;
+        this.phone = phone;
     }
 
-    static fromPerson(user: User): Register {
-        let reg = new Register()
-        reg.firstname = user.firstname
-        reg.lastname = user.lastname
-        reg.username = user.username
-        reg.password = ''
-        reg.knownas = user.knownas
-        reg.email = user.email
-        reg.phone = user.phone
+    static fromUser(user: User): Register {
+        let reg = new Register(
+            user.firstname,
+            user.lastname,
+            user.username,
+            '',
+            user.knownas,
+            user.email,
+            user.phone,
+        );
         return reg
     }
 
     static fromFormGroup(form: FormGroup): Register {
-        let reg = new Register()
-        reg.firstname = form.value.firstname!
-        reg.lastname = form.value.lastname!
-        reg.username = form.value.username!
-        reg.password = form.value.password!
-        reg.knownas = form.value.knownas!
-        reg.email = form.value.email!
-        reg.phone = form.value.phone!
+        let reg = new Register(
+            form.value.firstname,
+            form.value.lastname,
+            form.value.username,
+            form.value.password,
+            form.value.knownas,
+            form.value.email,
+            form.value.phone
+        );
         return reg
     }
 }
 
 export class RegisterRequest extends Register {
-    
+
     constructor(register: Register) {
-        super();
-        this.firstname = register.firstname
-        this.lastname = register.lastname
-        this.username = register.username
-        this.password = register.password
-        this.knownas = register.knownas
-        this.email = register.email
-        this.phone = register.phone
+        super(
+            register.firstname,
+            register.lastname,
+            register.username,
+            register.password,
+            register.knownas,
+            register.email,
+            register.phone,
+        );
     }
 }
 
-export class RegisterReply {
-    id: number;
 
-    constructor(id: number) {
-        this.id = id
-    }
-}
+export interface RegisterReply extends Reply {
+    id: number
+};
+

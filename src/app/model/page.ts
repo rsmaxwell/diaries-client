@@ -1,4 +1,6 @@
-import { Marquee } from "../model/marquee/marquee";
+import { Marquee } from "./marquee";
+import { Reply } from "./reply";
+
 
 export class Page {
   id: number;
@@ -28,10 +30,3 @@ export class PageResponse {
   }
 }
 
-export class PagesResponse {
-  pages: Page[];
-
-  constructor(pages: Page[]) {
-    this.pages = pages;
-  }
-}

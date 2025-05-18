@@ -3,7 +3,7 @@ import { Injectable } from "@angular/core";
 import { from, Observable, switchMap } from "rxjs";
 import { MqttService } from "./mqtt.service";
 import { Diary } from "../diary/diary";
-import { Page } from "../page/page";
+import { Page } from "../model/page";
 
 @Injectable({ providedIn: 'root' })
 export class LiveObjectService {

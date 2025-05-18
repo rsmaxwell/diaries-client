@@ -1,6 +1,6 @@
 
 
-import { Page } from '../page/page';
+import { Page } from '../model/page';
 
 export class Diary {
   id: number;

@@ -1,5 +1,6 @@
 
-import { Marquee } from "../../model/marquee/marquee";
+
+import { Marquee } from "../../model/marquee";
 import { Point } from "../../utilities/point";
 import { PageComponent } from "../page.component";
 

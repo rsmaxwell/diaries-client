@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { PageheaderComponent } from "../headers/pageheader/pageheader.component";
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { Diary } from '../diary/diary';
-import { Page } from './page';
+import { Page } from '../model/page';
 import { ViewModeHandler } from './modehandlers/viewModeHandler';
 import { SelectModeHandler } from './modehandlers/selectModeHandler';
 import { AddModeHandler } from './modehandlers/addModeHandler';
@@ -12,12 +12,11 @@ import { AlertService } from '../alerts/alert.service';
 import { ConfigService } from '../config/config.service';
 import { BehaviorSubject, combineLatest, filter, Observable } from 'rxjs';
 import { PagefooterComponent } from '../headers/pagefooter/pagefooter.component';
-import { Marquee } from '../model/marquee/marquee';
 import { Rectangle } from '../utilities/rectangle';
 import { RpcService } from '../mqtt/rpc.service';
 import { LiveObjectService } from '../mqtt/live.object.service';
 import { LiveObjectListService } from '../mqtt/live.object.list.service';
-import { PagesService } from '../diary/pages.service';
+import { Marquee } from '../model/marquee';
 
 type Mode = 'view' | 'select' | 'add';
 

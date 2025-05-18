@@ -1,4 +1,16 @@
-import { Rectangle } from "../../utilities/rectangle";
+import { Rectangle } from "../utilities/rectangle";
+
+export class Marquee {
+    id: number;
+    rectangle: Rectangle;
+    sequence: number;
+
+    constructor(id: number, rectangle: Rectangle) {
+        this.id = id;
+        this.rectangle = rectangle;
+        this.sequence = 0;
+    }
+}
 
 export class AddMarqueeRequest {
     pageId: number;
@@ -41,18 +53,6 @@ export class DeleteMarqueeRequest {
 
     constructor(id: number) {
         this.id = id;
-    }
-}
-
-export class Marquee {
-    id: number;
-    rectangle: Rectangle;
-    sequence: number;
-
-    constructor(id: number, rectangle: Rectangle) {
-        this.id = id;
-        this.rectangle = rectangle;
-        this.sequence = 0;
     }
 }
 

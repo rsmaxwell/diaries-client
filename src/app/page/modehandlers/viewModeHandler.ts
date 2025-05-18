@@ -1,4 +1,5 @@
-import { Marquee } from "../../model/marquee/marquee";
+
+import { Marquee } from "../../model/marquee";
 import { Rectangle } from "../../utilities/rectangle";
 import { PageModeHandler } from "./pageModeHandler";
 

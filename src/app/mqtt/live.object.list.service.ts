@@ -2,10 +2,10 @@ import { Injectable } from "@angular/core";
 import mqtt from "mqtt";
 import { BehaviorSubject, from, Observable, switchMap } from "rxjs";
 import { MqttService } from "./mqtt.service";
-import { Marquee } from "../model/marquee/marquee";
 import { Rectangle } from "../utilities/rectangle";
 import { Diary } from "../diary/diary";
-import { Page } from "../page/page";
+import { Page } from "../model/page";
+import { Marquee } from "../model/marquee";
 
 @Injectable({ providedIn: 'root' })
 export class LiveObjectListService {
@@ -72,7 +72,6 @@ export class LiveObjectListService {
         const topic = `${topicPrefix}+`;
 
         if (this.topicSubscriptionMap.has(topicPrefix)) {
-            console.log(`LiveObjectListService: using cached stream for ${topicPrefix}`);
             return this.topicSubscriptionMap.get(topicPrefix)!.asObservable();
         }
 
@@ -80,7 +79,6 @@ export class LiveObjectListService {
         this.topicSubscriptionMap.set(topicPrefix, subject);
 
         const handler = (messageTopic: string, payload: Buffer) => {
-            console.log(`LiveObjectListService$: received message on '${messageTopic}' (expecting '${topic}')`);
             if (!messageTopic.startsWith(topicPrefix)) return;
 
             const current = subject.getValue();
@@ -91,7 +89,6 @@ export class LiveObjectListService {
                 const id = Number(parts.at(-1));
                 if (!isNaN(id)) {
                     subject.next(current.filter(item => item.id !== id));
-                    console.log(`LiveObjectListService: deleted id ${id} from ${topicPrefix}`);
                 }
                 return;
             }
@@ -110,9 +107,8 @@ export class LiveObjectListService {
                 }
 
                 updated.sort((a, b) => a.sequence - b.sequence);
-
                 subject.next(updated);
-                console.log(`LiveObjectListService: updated ${id} from ${topicPrefix}`);
+
             } catch (err) {
                 console.error(`LiveObjectListService: failed to parse message on ${messageTopic}`, err);
             }
@@ -137,7 +133,6 @@ export class LiveObjectListService {
                     client.unsubscribe(topic);
                     this.topicHandlerMap.delete(topicPrefix);
                     this.topicSubscriptionMap.delete(topicPrefix);
-                    console.log(`LiveObjectListService: unsubscribed from ${topic}`);
                 },
                 error: (err) => {
                     console.error(`LiveObjectListService: error in stream for ${topic}`, err);
@@ -147,8 +142,6 @@ export class LiveObjectListService {
                     this.topicSubscriptionMap.delete(topicPrefix);
                 }
             });
-
-            console.log(`LiveObjectListService: subscribed to ${topic}`);
         });
 
         return subject.asObservable();

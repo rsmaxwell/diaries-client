@@ -1,4 +1,5 @@
-import { Marquee } from "../../model/marquee/marquee";
+
+import { Marquee } from "../../model/marquee";
 import { PageModeHandler } from "./pageModeHandler";
 
 const margin = 30;

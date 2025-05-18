@@ -13,7 +13,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { Subscription, switchMap } from 'rxjs';
 import { AlertService } from '../alerts/alert.service';
-import { Page } from '../page/page';
+import { Page } from '../model/page';
 import { LiveObjectListService } from '../mqtt/live.object.list.service';
 import { LiveObjectService } from '../mqtt/live.object.service';
 

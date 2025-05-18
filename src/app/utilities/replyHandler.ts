@@ -1,6 +1,6 @@
 
 import { Subject } from 'rxjs';
-import { ErrorReply, Reply } from './reply';
+import { ErrorReply, Reply } from '../model/reply';
 import { Buffer } from 'buffer';
 import { AlertType } from '../alerts/alert.model';
 import { AlertBuilder } from '../alerts/alert.builder';
