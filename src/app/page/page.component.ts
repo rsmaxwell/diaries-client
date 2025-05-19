@@ -10,13 +10,17 @@ import { AddModeHandler } from './modehandlers/addModeHandler';
 import { ActivatedRoute } from '@angular/router';
 import { AlertService } from '../alerts/alert.service';
 import { ConfigService } from '../config/config.service';
-import { BehaviorSubject, combineLatest, filter, Observable } from 'rxjs';
+import { BehaviorSubject, combineLatest, filter, forkJoin, Observable, switchMap } from 'rxjs';
 import { PagefooterComponent } from '../headers/pagefooter/pagefooter.component';
 import { Rectangle } from '../utilities/rectangle';
 import { RpcService } from '../mqtt/rpc.service';
 import { LiveObjectService } from '../mqtt/live.object.service';
 import { LiveObjectListService } from '../mqtt/live.object.list.service';
-import { Marquee } from '../model/marquee';
+import { AddMarqueeRequest, DeleteMarqueeRequest, Marquee, UpdateMarqueeRequest } from '../model/marquee';
+import { MqttService } from '../mqtt/mqtt.service';
+import { AccessTokenService } from '../user/token/AccessTokenService';
+import { ReplyHandler } from '../utilities/replyHandler';
+import { Constants } from '../utilities/constants';
 
 type Mode = 'view' | 'select' | 'add';
 
@@ -59,10 +63,13 @@ export class PageComponent implements OnInit, OnDestroy {
 
 
   constructor(
+    private config: ConfigService,
+    private mqtt: MqttService,
+    private accessToken: AccessTokenService,
+    private rpcService: RpcService,
     private route: ActivatedRoute,
     private liveObjectService: LiveObjectService,
     private liveObjectListService: LiveObjectListService,
-    private rpcService: RpcService,
     private alertService: AlertService,
     private cdr: ChangeDetectorRef,
     private configService: ConfigService
@@ -185,7 +192,7 @@ export class PageComponent implements OnInit, OnDestroy {
   deleteSelection() {
     if (this.selectedMarqueeId) {
       console.log(`PageComponent.deleteSelection: marquee: ${this.selectedMarqueeId}`)
-      this.rpcService.deleteMarquee$(this.selectedMarqueeId).subscribe({
+      this.deleteMarquee$(this.selectedMarqueeId).subscribe({
         next: () => {
           console.log(`PageComponent.deleteSelection: delete succeeded`)
         },
@@ -212,7 +219,7 @@ export class PageComponent implements OnInit, OnDestroy {
   }
   addNewMarquee(rectangle: Rectangle, sequence: number) {
     console.log(`PageComponent.addMarquee: id: ${JSON.stringify(rectangle)}`)
-    this.rpcService.addMarquee$(this.page, rectangle, sequence).subscribe({
+    this.addMarquee$(this.page, rectangle, sequence).subscribe({
       next: (id) => {
         const marquee = new Marquee(id, rectangle);
         this.selectedMarqueeId = marquee.id;
@@ -229,7 +236,7 @@ export class PageComponent implements OnInit, OnDestroy {
   }
 
   updateMarquee(marquee: Marquee) {
-    this.rpcService.updateMarquee$(marquee).subscribe({
+    this.updateMarquee$(marquee).subscribe({
       next: () => {
         console.log(`PageComponent.updateMarquee: update succeeded`);
       },
@@ -239,4 +246,49 @@ export class PageComponent implements OnInit, OnDestroy {
       }
     });
   }
+
+  addMarquee$(page: Page, rect: Rectangle, sequence: number): Observable<number> {
+    return forkJoin({
+      cfg: this.config.getConfig(),
+      client: this.mqtt.getConnection(),
+      token: this.accessToken.getToken()
+    }).pipe(
+      switchMap(({ cfg, client, token }) => {
+        const replyTopic = `reply/${cfg.clientId}/addMarquee`;
+        const payload = { function: 'addMarquee', args: new AddMarqueeRequest(page.id, rect, sequence) };
+        const deserialize = ReplyHandler.getBufferAsNumber
+        return this.rpcService.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
+      })
+    );
+  }
+  
+  updateMarquee$(marquee: Marquee): Observable<number> {
+    return forkJoin({
+        cfg: this.config.getConfig(),
+        client: this.mqtt.getConnection(),
+        token: this.accessToken.getToken()
+    }).pipe(
+        switchMap(({ cfg, client, token }) => {
+            const replyTopic = `reply/${cfg.clientId}/updateMarquee`;
+            const payload = { function: 'updateMarquee', args: new UpdateMarqueeRequest(marquee) };
+            const deserialize = ReplyHandler.getBufferAsNumber
+            return this.rpcService.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
+        })
+    );
+}
+
+deleteMarquee$(id: number): Observable<number> {
+    return forkJoin({
+        cfg: this.config.getConfig(),
+        client: this.mqtt.getConnection(),
+        token: this.accessToken.getToken()
+    }).pipe(
+        switchMap(({ cfg, client, token }) => {
+            const replyTopic = `reply/${cfg.clientId}/deleteMarquee`;
+            const payload = { function: 'deleteMarquee', args: new DeleteMarqueeRequest(id) };
+            const deserialize = ReplyHandler.getBufferAsNumber
+            return this.rpcService.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
+        })
+    );
+}
 }

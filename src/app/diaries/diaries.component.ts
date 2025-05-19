@@ -1,6 +1,6 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Diary } from '../model/diary';
+import { Diary, UpdateDiaryRequest } from '../model/diary';
 import { Router } from '@angular/router';
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { ScrollingModule } from '@angular/cdk/scrolling';
@@ -8,11 +8,16 @@ import { FullheaderComponent } from '../headers/fullheader/fullheader.component'
 import { FullfooterComponent } from '../headers/fullfooter/fullfooter.component';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
-import { Subscription } from 'rxjs';
+import { forkJoin, Observable, Subscription, switchMap } from 'rxjs';
 import { LiveObjectListService } from '../mqtt/live.object.list.service';
 import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { RpcService } from '../mqtt/rpc.service';
 import { AlertService } from '../alerts/alert.service';
+import { ConfigService } from '../config/config.service';
+import { MqttService } from '../mqtt/mqtt.service';
+import { AccessTokenService } from '../user/token/AccessTokenService';
+import { ReplyHandler } from '../utilities/replyHandler';
+import { Constants } from '../utilities/constants';
 
 @Component({
   selector: 'app-diaries',
@@ -32,15 +37,19 @@ import { AlertService } from '../alerts/alert.service';
 })
 export class DiariesComponent implements OnInit, OnDestroy {
 
-  title = "Diaries";
+  title = 'Diaries';
+
   dataSource = new MatTableDataSource<Diary>();
   displayedColumns: string[] = ['id', 'sequence', 'name'];
   subscription: Subscription | null = null;
 
   constructor(
+    private config: ConfigService,
+    private mqtt: MqttService,
+    private accessToken: AccessTokenService,
+    private rpcService: RpcService,
     private liveObjectListService: LiveObjectListService,
     private router: Router,
-    private rpcService: RpcService,
     private alertService: AlertService
   ) {
     console.log(`DiariesComponent.constructor`);
@@ -71,8 +80,6 @@ export class DiariesComponent implements OnInit, OnDestroy {
     const data = this.dataSource.data;
     moveItemInArray(data, event.previousIndex, event.currentIndex);
     this.dataSource.data = data; // Trigger table update
-    // Optionally: emit/save the new order to backend here
-    console.log('Updated diary order:', data.map(d => d.id));
 
     let seq = 1;
     data.map(d => {
@@ -85,7 +92,7 @@ export class DiariesComponent implements OnInit, OnDestroy {
 
         d.sequence = seq;
 
-        this.rpcService.updateDiary$(d).subscribe({
+        this.updateDiary$(d).subscribe({
           next: (id) => {
             console.log(`diary: ${d.id}, ${d.sequence}, ${d.name} updated`);
           },
@@ -98,5 +105,20 @@ export class DiariesComponent implements OnInit, OnDestroy {
 
       seq++;
     })
+  }
+
+  updateDiary$(diary: Diary): Observable<number> {
+    return forkJoin({
+      cfg: this.config.getConfig(),
+      client: this.mqtt.getConnection(),
+      token: this.accessToken.getToken()
+    }).pipe(
+      switchMap(({ cfg, client, token }) => {
+        const replyTopic = `reply/${cfg.clientId}/updateDiary`;
+        const payload = { function: 'updateDiary', args: new UpdateDiaryRequest(diary) };
+        const deserialize = ReplyHandler.getBufferAsNumber
+        return this.rpcService.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
+      })
+    );
   }
 }

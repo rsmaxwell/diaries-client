@@ -1,23 +1,13 @@
-import { forkJoin, from, Observable, Subscriber, switchMap } from "rxjs";
-import { ConfigService } from "../config/config.service";
+import { from, Observable, Subscriber } from "rxjs";
 import { MqttService } from "./mqtt.service";
-import { Page } from "../model/page";
 import { Buffer } from 'buffer';
-import { AccessTokenService } from "../user/token/AccessTokenService";
-import { RefreshTokenService } from "../user/token/RefreshTokenService";
-import { Rectangle } from "../utilities/rectangle";
 import mqtt, { IClientPublishOptions, IPublishPacket } from "mqtt";
 import { HttpStatusCode } from "@angular/common/http";
 import { v4 as uuidv4 } from 'uuid';
 import { Injectable } from "@angular/core";
-import { ReplyHandler } from "../utilities/replyHandler";
-import { Signin, SigninReply, SigninRequest } from "../model/signin";
-import { Register, RegisterReply, RegisterRequest } from "../model/register";
-import { AddMarqueeRequest, DeleteMarqueeRequest, Marquee, UpdateMarqueeRequest } from "../model/marquee";
-import { Status } from "../model/status";
-import { RefreshTokenRequest, RefreshTokenReply } from "../model/refresh.token";
-import { Diary } from "../model/diary";
-import { UpdateDiaryRequest } from "../model/diary";
+
+import { Status } from "./status";
+
 
 @Injectable({ providedIn: 'root' })
 export class RpcService {
@@ -33,118 +23,9 @@ export class RpcService {
     }>();
 
     constructor(
-        private config: ConfigService,
-        private mqtt: MqttService,
-        private accessToken: AccessTokenService,
-        private refreshToken: RefreshTokenService
+        private mqtt: MqttService
     ) {
         this.ensureListener()
-    }
-
-    register$(register: Register): Observable<RegisterReply> {
-        return forkJoin({
-            cfg: this.config.getConfig(),
-            client: this.mqtt.getConnection()
-            // Note: no accessToken needed
-        }).pipe(
-            switchMap(({ cfg, client }) => {
-                const replyTopic = `reply/${cfg.clientId}/register`;
-                const payload = { function: 'register', args: new RegisterRequest(register) };
-                const deserialize = ReplyHandler.getBufferAsObject as (buffer: Buffer) => RegisterReply;
-                return this.rpcRequest<RegisterReply>(client, this.reqTopic, replyTopic, payload, null, deserialize);
-            })
-        );
-    }
-
-    signin$(signin: Signin): Observable<SigninReply> {
-        return forkJoin({
-            cfg: this.config.getConfig(),
-            client: this.mqtt.getConnection()
-            // No need for the access token
-        }).pipe(
-            switchMap(({ cfg, client }) => {
-                const replyTopic = `reply/${cfg.clientId}/signin`;
-                const payload = { function: 'signin', args: new SigninRequest(signin) };
-                const deserialize = ReplyHandler.getBufferAsObject as (buffer: Buffer) => SigninReply;
-                return this.rpcRequest<SigninReply>(client, this.reqTopic, replyTopic, payload, null, deserialize);
-            })
-        );
-    }
-
-    refreshToken$(): Observable<RefreshTokenReply> {
-        return forkJoin({
-            cfg: this.config.getConfig(),
-            client: this.mqtt.getConnection(),
-            accessToken: this.accessToken.getToken(),
-            refreshToken: this.refreshToken.getToken()
-        }).pipe(
-            switchMap(({ cfg, client, accessToken, refreshToken }) => {
-                const replyTopic = `reply/${cfg.clientId}/refreshToken`;
-                const payload = { function: 'refreshToken', args: new RefreshTokenRequest(cfg.username, refreshToken) };
-                const deserialize = ReplyHandler.getBufferAsObject as (buffer: Buffer) => RefreshTokenReply;
-                return this.rpcRequest<RefreshTokenReply>(client, this.reqTopic, replyTopic, payload, null, deserialize);
-            })
-        );
-    }
-
-    addMarquee$(page: Page, rect: Rectangle, sequence: number): Observable<number> {
-        return forkJoin({
-            cfg: this.config.getConfig(),
-            client: this.mqtt.getConnection(),
-            token: this.accessToken.getToken()
-        }).pipe(
-            switchMap(({ cfg, client, token }) => {
-                const replyTopic = `reply/${cfg.clientId}/addMarquee`;
-                const payload = { function: 'addMarquee', args: new AddMarqueeRequest(page.id, rect, sequence) };
-                const deserialize = ReplyHandler.getBufferAsNumber
-                return this.rpcRequest<number>(client, this.reqTopic, replyTopic, payload, token, deserialize);
-            })
-        );
-    }
-
-    updateMarquee$(marquee: Marquee): Observable<number> {
-        return forkJoin({
-            cfg: this.config.getConfig(),
-            client: this.mqtt.getConnection(),
-            token: this.accessToken.getToken()
-        }).pipe(
-            switchMap(({ cfg, client, token }) => {
-                const replyTopic = `reply/${cfg.clientId}/updateMarquee`;
-                const payload = { function: 'updateMarquee', args: new UpdateMarqueeRequest(marquee) };
-                const deserialize = ReplyHandler.getBufferAsNumber
-                return this.rpcRequest<number>(client, this.reqTopic, replyTopic, payload, token, deserialize);
-            })
-        );
-    }
-
-    deleteMarquee$(id: number): Observable<number> {
-        return forkJoin({
-            cfg: this.config.getConfig(),
-            client: this.mqtt.getConnection(),
-            token: this.accessToken.getToken()
-        }).pipe(
-            switchMap(({ cfg, client, token }) => {
-                const replyTopic = `reply/${cfg.clientId}/deleteMarquee`;
-                const payload = { function: 'deleteMarquee', args: new DeleteMarqueeRequest(id) };
-                const deserialize = ReplyHandler.getBufferAsNumber
-                return this.rpcRequest<number>(client, this.reqTopic, replyTopic, payload, token, deserialize);
-            })
-        );
-    }
-
-    updateDiary$(diary: Diary): Observable<number> {
-        return forkJoin({
-            cfg: this.config.getConfig(),
-            client: this.mqtt.getConnection(),
-            token: this.accessToken.getToken()
-        }).pipe(
-            switchMap(({ cfg, client, token }) => {
-                const replyTopic = `reply/${cfg.clientId}/updateDiary`;
-                const payload = { function: 'updateDiary', args: new UpdateDiaryRequest(diary) };
-                const deserialize = ReplyHandler.getBufferAsNumber
-                return this.rpcRequest<number>(client, this.reqTopic, replyTopic, payload, token, deserialize);
-            })
-        );
     }
 
     // Register a single global message listener once
@@ -204,7 +85,7 @@ export class RpcService {
         }
     }
 
-    private rpcRequest<R>(
+    rpcRequest<R>(
         client: mqtt.MqttClient,
         requestTopic: string,
         replyTopic: string,
@@ -252,7 +133,7 @@ export class RpcService {
                     properties
                 };
     
-                console.log(`[rpcRequest] Publishing to ${requestTopic} with corr=${corr}, replyTopic=${replyTopic}`);
+                console.log(`rpcRequest: Publishing to ${requestTopic} with corr=${corr}, replyTopic=${replyTopic}`);
                 client.publish(requestTopic, publishPayload, publishOptions, err => {
                     if (err) {
                         this.responseHandlers.delete(corr);

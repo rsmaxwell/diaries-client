@@ -1,9 +1,14 @@
 import { Injectable } from "@angular/core";
-import { catchError, EMPTY, interval, Observable, Subscription, switchMap } from "rxjs";
+import { catchError, EMPTY, forkJoin, interval, Observable, Subscription, switchMap } from "rxjs";
 import { AccessTokenService } from "./token/AccessTokenService";
 import { Router } from "@angular/router";
 import { RpcService } from "../mqtt/rpc.service";
-import { RefreshTokenReply } from "../model/refresh.token";
+import { RefreshTokenReply, RefreshTokenRequest } from "../model/refresh.token";
+import { ConfigService } from "../config/config.service";
+import { MqttService } from "../mqtt/mqtt.service";
+import { RefreshTokenService } from "./token/RefreshTokenService";
+import { Constants } from "../utilities/constants";
+import { ReplyHandler } from "../utilities/replyHandler";
 
 
 @Injectable({ providedIn: 'root' })
@@ -12,15 +17,19 @@ export class TokenRequestor {
   refreshSub?: Subscription;
 
   constructor(
-    private router: Router,
+    private config: ConfigService,
+    private mqtt: MqttService,
+    private accessToken: AccessTokenService,
+    private refreshToken: RefreshTokenService,
     private rpcService: RpcService,
+    private router: Router,
     private accessTokenService: AccessTokenService
   ) { }
 
   sendRefreshRequest(): Observable<string> {
     console.log('TokenRequestor: sendRefreshRequest() called');
 
-    return this.rpcService.refreshToken$().pipe(
+    return this.refreshToken$().pipe(
       switchMap((reply: RefreshTokenReply) => {
         console.log(`sendRefreshRequest: token: ${reply.token}`);
         this.accessTokenService.setToken(reply.token);
@@ -47,5 +56,21 @@ export class TokenRequestor {
 
   stop(): void {
     this.refreshSub?.unsubscribe();
+  }
+
+  refreshToken$(): Observable<RefreshTokenReply> {
+    return forkJoin({
+      cfg: this.config.getConfig(),
+      client: this.mqtt.getConnection(),
+      accessToken: this.accessToken.getToken(),
+      refreshToken: this.refreshToken.getToken()
+    }).pipe(
+      switchMap(({ cfg, client, accessToken, refreshToken }) => {
+        const replyTopic = `reply/${cfg.clientId}/refreshToken`;
+        const payload = { function: 'refreshToken', args: new RefreshTokenRequest(cfg.username, refreshToken) };
+        const deserialize = ReplyHandler.getBufferAsObject as (buffer: Buffer) => RefreshTokenReply;
+        return this.rpcService.rpcRequest<RefreshTokenReply>(client, Constants.reqTopic, replyTopic, payload, null, deserialize);
+      })
+    );
   }
 }

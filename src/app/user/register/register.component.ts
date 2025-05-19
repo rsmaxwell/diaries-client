@@ -12,8 +12,14 @@ import { AlertsComponent } from "../../alerts/alerts.component";
 import { Router } from '@angular/router';
 import { AlertService } from '../../alerts/alert.service';
 import { PasswordStrength } from '../../utilities/passwordStrength';
-import { Register } from '../../model/register';
+import { Register, RegisterReply, RegisterRequest } from '../../model/register';
 import { RpcService } from '../../mqtt/rpc.service';
+import { forkJoin, Observable, switchMap } from 'rxjs';
+import { ConfigService } from '../../config/config.service';
+import { MqttService } from '../../mqtt/mqtt.service';
+import { AccessTokenService } from '../token/AccessTokenService';
+import { ReplyHandler } from '../../utilities/replyHandler';
+import { Constants } from '../../utilities/constants';
 
 @Component({
   selector: 'app-register.page',
@@ -88,8 +94,11 @@ export class RegisterComponent implements OnDestroy {
 
 
   constructor(
-    private router: Router,
+    private config: ConfigService,
+    private mqtt: MqttService,
+    private accessToken: AccessTokenService,
     private rpcService: RpcService,
+    private router: Router,
     private alertService: AlertService
   ) { }
 
@@ -106,51 +115,66 @@ export class RegisterComponent implements OnDestroy {
 
     let value: Register = Register.fromFormGroup(this.form)
 
-    this.rpcService.register$(value).subscribe({
+    this.register$(value).subscribe({
       next: (reply) => {
-      console.log(`RegisterComponent.registered: '${value.username}' registered with id: '${reply.id}'`)
-      this.alertService.info(`username: '${value.username}' registered with id: '${reply.id}'`);
-      this.router.navigateByUrl('signin');
-    },
-    error: (err) => {
-      console.log(`RegisterComponent.onSubmit: error registering: '${err}'`)
-      this.alertService.error(err);
+        console.log(`RegisterComponent.registered: '${value.username}' registered with id: '${reply.id}'`)
+        this.alertService.info(`username: '${value.username}' registered with id: '${reply.id}'`);
+        this.router.navigateByUrl('signin');
+      },
+      error: (err) => {
+        console.log(`RegisterComponent.onSubmit: error registering: '${err}'`)
+        this.alertService.error(err);
+      }
+    })
+  }
+
+  ngOnDestroy(): void {
+    console.log("RegisterComponent.ngOnDestroy")
+  }
+
+  onSignin(): void {
+    console.log(`RegisterComponent.onSignin()`);
+    this.router.navigateByUrl('signin');
+  }
+
+  getErrorMessage(formControl: FormControl) {
+    if (formControl.hasError('required')) {
+      return "This field is required";
     }
-  })
-}
+    if (formControl.hasError('minlength')) {
+      let requiredLength = formControl.errors!['minlength'].requiredLength
+      return "The minimum length for this field is " + String(requiredLength) + " characters.";
+    }
+    if (formControl.hasError('maxlength')) {
+      let requiredLength = formControl.errors!['maxlength'].requiredLength
+      return "The maximum length for this field is " + String(requiredLength) + " characters.";
+    }
+    if (formControl.hasError('email')) {
+      return "Not a valid email address";
+    }
+    if (formControl.hasError('pattern')) {
+      return "Not a valid phone number";
+    }
+    if (formControl.hasError('passwordStrength')) {
+      let key = formControl.errors!['passwordStrength']
+      return PasswordStrength.getErrorMessage(key)
+    }
 
-ngOnDestroy(): void {
-  console.log("RegisterComponent.ngOnDestroy")
-}
-
-onSignin(): void {
-  console.log(`RegisterComponent.onSignin()`);
-  this.router.navigateByUrl('signin');
-}
-
-getErrorMessage(formControl: FormControl) {
-  if (formControl.hasError('required')) {
-    return "This field is required";
-  }
-  if (formControl.hasError('minlength')) {
-    let requiredLength = formControl.errors!['minlength'].requiredLength
-    return "The minimum length for this field is " + String(requiredLength) + " characters.";
-  }
-  if (formControl.hasError('maxlength')) {
-    let requiredLength = formControl.errors!['maxlength'].requiredLength
-    return "The maximum length for this field is " + String(requiredLength) + " characters.";
-  }
-  if (formControl.hasError('email')) {
-    return "Not a valid email address";
-  }
-  if (formControl.hasError('pattern')) {
-    return "Not a valid phone number";
-  }
-  if (formControl.hasError('passwordStrength')) {
-    let key = formControl.errors!['passwordStrength']
-    return PasswordStrength.getErrorMessage(key)
+    return '';
   }
 
-  return '';
-}
+  register$(register: Register): Observable<RegisterReply> {
+    return forkJoin({
+      cfg: this.config.getConfig(),
+      client: this.mqtt.getConnection()
+      // Note: no accessToken needed
+    }).pipe(
+      switchMap(({ cfg, client }) => {
+        const replyTopic = `reply/${cfg.clientId}/register`;
+        const payload = { function: 'register', args: new RegisterRequest(register) };
+        const deserialize = ReplyHandler.getBufferAsObject as (buffer: Buffer) => RegisterReply;
+        return this.rpcService.rpcRequest<RegisterReply>(client, Constants.reqTopic, replyTopic, payload, null, deserialize);
+      })
+    );
+  }
 }

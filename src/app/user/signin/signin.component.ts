@@ -10,11 +10,16 @@ import { PlainfooterComponent } from "../../headers/plainfooter/plainfooter.comp
 import { PlainheaderComponent } from "../../headers/plainheader/plainheader.component";
 import { ActivatedRoute, Router } from '@angular/router';
 import { AlertService } from '../../alerts/alert.service';
-import { Signin } from '../../model/signin';
+import { Signin, SigninReply, SigninRequest } from '../../model/signin';
 import { RpcService } from '../../mqtt/rpc.service';
 import { AccessTokenService } from '../token/AccessTokenService';
 import { TokenRequestor } from '../tokenRequestor';
 import { RefreshTokenService } from '../token/RefreshTokenService';
+import { forkJoin, Observable, switchMap } from 'rxjs';
+import { ConfigService } from '../../config/config.service';
+import { MqttService } from '../../mqtt/mqtt.service';
+import { ReplyHandler } from '../../utilities/replyHandler';
+import { Constants } from '../../utilities/constants';
 
 @Component({
   selector: 'app-signin.page',
@@ -55,9 +60,12 @@ export class SigninComponent implements OnDestroy {
   });
 
   constructor(
+    private config: ConfigService,
+    private mqtt: MqttService,
+    private accessToken: AccessTokenService,
+    private rpcService: RpcService,
     private route: ActivatedRoute,
     private router: Router,
-    private rpcService: RpcService,
     private accessTokenService: AccessTokenService,
     private refreshTokenService: RefreshTokenService,
     private tokenRequestor: TokenRequestor,
@@ -79,7 +87,7 @@ export class SigninComponent implements OnDestroy {
     let value: Signin = Signin.fromFormGroup(this.form)
 
     console.log(`SigninComponent - using RpcService`)
-    this.rpcService.signin$(value).subscribe({
+    this.signin$(value).subscribe({
       next: (reply) => {
         console.log(`SigninComponent.onSubmit: success`)
         this.accessTokenService.setToken(reply.accessToken);
@@ -111,5 +119,20 @@ export class SigninComponent implements OnDestroy {
     }
 
     return '';
+  }
+
+  signin$(signin: Signin): Observable<SigninReply> {
+    return forkJoin({
+      cfg: this.config.getConfig(),
+      client: this.mqtt.getConnection()
+      // No need for the access token
+    }).pipe(
+      switchMap(({ cfg, client }) => {
+        const replyTopic = `reply/${cfg.clientId}/signin`;
+        const payload = { function: 'signin', args: new SigninRequest(signin) };
+        const deserialize = ReplyHandler.getBufferAsObject as (buffer: Buffer) => SigninReply;
+        return this.rpcService.rpcRequest<SigninReply>(client, Constants.reqTopic, replyTopic, payload, null, deserialize);
+      })
+    );
   }
 }
