@@ -37,6 +37,8 @@ export class TokenRequestor {
       }),
       catchError((err) => {
         console.error(`sendRefreshRequest: error: ${err}`);
+        this.accessToken.clearToken();
+        this.refreshToken.clearToken();
         this.router.navigate(['/signin']);
         return EMPTY;
       })

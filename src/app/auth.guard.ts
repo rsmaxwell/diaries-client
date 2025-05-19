@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { Router, CanActivate, ActivatedRouteSnapshot, RouterStateSnapshot } from '@angular/router';
+import { Router, CanActivate, ActivatedRouteSnapshot, RouterStateSnapshot, UrlTree } from '@angular/router';
 import { AccessTokenService } from './user/token/AccessTokenService';
 
 @Injectable({ providedIn: 'root' })
@@ -11,19 +11,15 @@ export class AuthGuard implements CanActivate {
     console.log(`AuthGuard: constructor()`);
   }
 
-  async canActivate(route: ActivatedRouteSnapshot, state: RouterStateSnapshot): Promise<boolean> {
-
-    console.log(`AuthGuard: canActivate() called`);
-
-    const token = await this.accessTokenService.getToken();
-
+  canActivate(route: ActivatedRouteSnapshot, state: RouterStateSnapshot): boolean | UrlTree {
+    const token = this.accessTokenService.getCurrentToken();
+  
     if (token) {
       return true;
     }
-
-    console.log(`AuthGuard: accessToken NOT found`);
-
-    this.router.navigate(['/signin'], { queryParams: { returnUrl: state.url } });
-    return false;
+  
+    console.log(`AuthGuard: No token, redirecting to signin`);
+    return this.router.parseUrl(`/signin?returnUrl=${encodeURIComponent(state.url)}`);
   }
+  
 }

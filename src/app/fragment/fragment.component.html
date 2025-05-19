@@ -1,0 +1,18 @@
+<div class="fragment-container">
+    <div class="fragment-left">
+      <svg [attr.viewBox]="viewBoxString" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+        <rect
+          *ngIf="fragment"
+          [attr.x]="fragment.marquee.rectangle.x"
+          [attr.y]="fragment.marquee.rectangle.y"
+          [attr.width]="fragment.marquee.rectangle.width"
+          [attr.height]="fragment.marquee.rectangle.height"
+          class="fragment-rect"
+        />
+      </svg>
+    </div>
+    <div class="fragment-right">
+      <pre class="text-viewer">{{ fragment?.text }}</pre>
+    </div>
+  </div>
+  

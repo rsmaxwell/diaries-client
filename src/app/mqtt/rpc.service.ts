@@ -132,7 +132,7 @@ export class RpcService {
                     retain: false,
                     properties
                 };
-    
+
                 console.log(`rpcRequest: Publishing to ${requestTopic} with corr=${corr}, replyTopic=${replyTopic}`);
                 client.publish(requestTopic, publishPayload, publishOptions, err => {
                     if (err) {

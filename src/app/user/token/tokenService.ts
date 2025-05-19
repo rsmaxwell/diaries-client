@@ -4,9 +4,12 @@ export class TokenService {
 
   private token: string | null = null;
   private tokenSubject = new BehaviorSubject<string | null>(null);
+  private storageKey: string;
 
-  constructor() {
-    const saved = localStorage.getItem('accessToken');
+  constructor(storageKey: string) {
+    this.storageKey = storageKey;
+
+    const saved = localStorage.getItem(this.storageKey);
     if (saved) {
       this.token = saved;
       this.tokenSubject.next(saved);
@@ -16,7 +19,7 @@ export class TokenService {
   setToken(token: string) {
     this.token = token;
     this.tokenSubject.next(token);
-    localStorage.setItem('accessToken', token);
+    // localStorage.setItem(this.storageKey, token);  // removed for security reasons
   }
 
   getToken(): Promise<string> {
@@ -37,6 +40,6 @@ export class TokenService {
   clearToken(): void {
     this.token = null;
     this.tokenSubject.next(null);
-    localStorage.removeItem('accessToken');
+    localStorage.removeItem(this.storageKey);
   }
 }

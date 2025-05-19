@@ -54,7 +54,7 @@ export class SelectModeHandler extends PageModeHandler {
         console.log(`SelectModeHandler: onMouseDown: dragging: ${this.isDraggingLeft},  ${this.isDraggingTop},  ${this.isDraggingRight},  ${this.isDraggingBottom},  ${this.isDraggingAll}`);
     }
     onSelectMarquee(marquee: Marquee): void {
-        console.log(`SelectModeHandler.onSelectMarquee: fragment: ${JSON.stringify(marquee)}`);
+        console.log(`SelectModeHandler.onSelectMarquee: marquee: ${JSON.stringify(marquee)}`);
         this.isDraggingLeft = false;
         this.isDraggingRight = false;
         this.isDraggingTop = false;
