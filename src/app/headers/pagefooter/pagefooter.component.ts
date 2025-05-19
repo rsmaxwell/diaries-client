@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, EventEmitter, Output } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatToolbarModule } from '@angular/material/toolbar';
@@ -19,34 +19,35 @@ import { AlertsComponent } from "../../alerts/alerts.component";
 })
 export class PagefooterComponent {
 
+  @Output() back = new EventEmitter<void>();
+  @Output() up = new EventEmitter<void>();
+  @Output() forward = new EventEmitter<void>();
+
   constructor(
     private router: Router,
   ) {}
 
   home() {
-    console.log('Home');
     this.router.navigate(['/']);
   }
 
   diaries() {
-    console.log('diaries');
     this.router.navigate(['/diaries']);
   }
 
   pages() {
-    console.log('thing');
     this.router.navigate(['/thing']);
   }
 
   onBackClick() {
-    console.log('Back button clicked');
+    this.back.emit();
   }
 
   onUpClick() {
-    console.log('Up button clicked');
+    this.up.emit();
   }
 
   onForwardClick() {
-    console.log('Forward button clicked');
+    this.forward.emit();
   }
 }

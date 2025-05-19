@@ -23,11 +23,7 @@ export class AuthGuard implements CanActivate {
 
     console.log(`AuthGuard: accessToken NOT found`);
 
-    // Delay navigation to signin until after returning false
-    setTimeout(() => {
-      this.router.navigate(['/signin'], { queryParams: { returnUrl: state.url } });
-    }, 0);
-
+    this.router.navigate(['/signin'], { queryParams: { returnUrl: state.url } });
     return false;
   }
 }

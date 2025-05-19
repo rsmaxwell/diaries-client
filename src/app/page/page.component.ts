@@ -21,6 +21,7 @@ import { MqttService } from '../mqtt/mqtt.service';
 import { AccessTokenService } from '../user/token/AccessTokenService';
 import { ReplyHandler } from '../utilities/replyHandler';
 import { Constants } from '../utilities/constants';
+import { Router } from '@angular/router';
 
 type Mode = 'view' | 'select' | 'add';
 
@@ -42,6 +43,7 @@ export class PageComponent implements OnInit, OnDestroy {
 
   diary: Diary = new Diary();
   page: Page = new Page();
+  pages: Page[] = [];
   viewBox = new Rectangle(0, 0, 0, 0);
   viewBoxAsString = '0 0 0 0';
   fileServerUrl: string = "";
@@ -72,7 +74,7 @@ export class PageComponent implements OnInit, OnDestroy {
     private liveObjectListService: LiveObjectListService,
     private alertService: AlertService,
     private cdr: ChangeDetectorRef,
-    private configService: ConfigService
+    private router: Router,
   ) { }
 
 
@@ -86,9 +88,9 @@ export class PageComponent implements OnInit, OnDestroy {
     }
     this.svg = svgEl;
 
-    this.configService.getConfig()
-      .then((config) => {
-        this.fileServerUrl = config.fileServerUrl;
+    this.config.getConfig()
+      .then((cfg) => {
+        this.fileServerUrl = cfg.fileServerUrl;
 
         const diaryIdParam = this.route.snapshot.paramMap.get('diaryId');
         const pageIdParam = this.route.snapshot.paramMap.get('pageId');
@@ -120,6 +122,11 @@ export class PageComponent implements OnInit, OnDestroy {
         // Fetch the list of marquees
         this.liveObjectListService.getMarqueesForPage$(diaryId, pageId).subscribe(marquees => {
           this.marquees = marquees;
+        });
+
+        // Fetch the list of pages
+        this.liveObjectListService.getPagesForDiary$(diaryId).subscribe(pages => {
+          this.pages = pages;
         });
       })
       .catch((error) => {
@@ -261,34 +268,68 @@ export class PageComponent implements OnInit, OnDestroy {
       })
     );
   }
-  
+
   updateMarquee$(marquee: Marquee): Observable<number> {
     return forkJoin({
-        cfg: this.config.getConfig(),
-        client: this.mqtt.getConnection(),
-        token: this.accessToken.getToken()
+      cfg: this.config.getConfig(),
+      client: this.mqtt.getConnection(),
+      token: this.accessToken.getToken()
     }).pipe(
-        switchMap(({ cfg, client, token }) => {
-            const replyTopic = `reply/${cfg.clientId}/updateMarquee`;
-            const payload = { function: 'updateMarquee', args: new UpdateMarqueeRequest(marquee) };
-            const deserialize = ReplyHandler.getBufferAsNumber
-            return this.rpcService.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
-        })
+      switchMap(({ cfg, client, token }) => {
+        const replyTopic = `reply/${cfg.clientId}/updateMarquee`;
+        const payload = { function: 'updateMarquee', args: new UpdateMarqueeRequest(marquee) };
+        const deserialize = ReplyHandler.getBufferAsNumber
+        return this.rpcService.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
+      })
     );
-}
+  }
 
-deleteMarquee$(id: number): Observable<number> {
+  deleteMarquee$(id: number): Observable<number> {
     return forkJoin({
-        cfg: this.config.getConfig(),
-        client: this.mqtt.getConnection(),
-        token: this.accessToken.getToken()
+      cfg: this.config.getConfig(),
+      client: this.mqtt.getConnection(),
+      token: this.accessToken.getToken()
     }).pipe(
-        switchMap(({ cfg, client, token }) => {
-            const replyTopic = `reply/${cfg.clientId}/deleteMarquee`;
-            const payload = { function: 'deleteMarquee', args: new DeleteMarqueeRequest(id) };
-            const deserialize = ReplyHandler.getBufferAsNumber
-            return this.rpcService.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
-        })
+      switchMap(({ cfg, client, token }) => {
+        const replyTopic = `reply/${cfg.clientId}/deleteMarquee`;
+        const payload = { function: 'deleteMarquee', args: new DeleteMarqueeRequest(id) };
+        const deserialize = ReplyHandler.getBufferAsNumber
+        return this.rpcService.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
+      })
     );
-}
+  }
+
+  onBackPressed() {
+    if (!this.pages || this.pages.length === 0) return;
+  
+    const currentIndex = this.pages.findIndex(p => p.id === this.page.id);
+  
+    if (currentIndex > 0) {
+      const prevPage = this.pages[currentIndex - 1];
+      console.log(`Navigating to previous page: ${prevPage.id}`);
+      this.router.navigate([`/diary/${this.diary.id}/${prevPage.id}`]);
+    } else {
+      console.log('Already at the first page or current page not found.');
+    }
+  }
+  
+  onUpPressed() {
+    console.log('PageComponent: Up pressed');
+    // Your logic here
+  }
+
+  onForwardPressed() {
+    console.log('PageComponent: Forward pressed');
+    if (!this.pages || this.pages.length === 0) return;
+  
+    const currentIndex = this.pages.findIndex(p => p.id === this.page.id);
+  
+    if (currentIndex >= 0 && currentIndex < this.pages.length - 1) {
+      const nextPage = this.pages[currentIndex + 1];
+      console.log(`Navigating to next page: ${nextPage.id}`);
+      this.router.navigate([`/diary/${this.diary.id}/${nextPage.id}`]);
+    } else {
+      console.log('Already at the last page or current page not found.');
+    }
+  }
 }
