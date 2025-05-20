@@ -128,7 +128,7 @@ export class RpcService {
                 }
     
                 const publishOptions: IClientPublishOptions = {
-                    qos: 1,
+                    qos: 0,
                     retain: false,
                     properties
                 };

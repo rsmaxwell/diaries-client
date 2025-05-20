@@ -5,10 +5,10 @@ export class Marquee {
     rectangle: Rectangle;
     sequence: number;
 
-    constructor(id: number, rectangle: Rectangle) {
+    constructor(id: number, rectangle: Rectangle, sequence: number) {
         this.id = id;
         this.rectangle = rectangle;
-        this.sequence = 0;
+        this.sequence = sequence;
     }
 }
 

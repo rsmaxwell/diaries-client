@@ -78,6 +78,7 @@ export class ViewModeHandler extends PageModeHandler {
     onClick(event: MouseEvent) { }
     onKeyDown(event: KeyboardEvent): void { }
     onSelectMarquee(marquee: Marquee): void { }
+    onRightClick(event: MouseEvent): void { }
 
     
     setViewBox(viewBox: Rectangle) {

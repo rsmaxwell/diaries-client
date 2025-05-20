@@ -31,10 +31,12 @@ export class MqttService {
 
       this.configService.getConfig()
         .then((config) => {
-          console.log(`MqttService.getConnection: connecting`);
+
+          const clientId = `${config.clientId}-${Date.now()}`;
+          console.log(`MqttService.getConnection: connecting: ${clientId}`);
 
           let client: mqtt.MqttClient = mqtt.connect(config.brokerUrl, {
-            clientId: config.clientId,
+            clientId: clientId,
             username: config.username,
             password: config.password,
             keepalive: config.keepalive,

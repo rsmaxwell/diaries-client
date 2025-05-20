@@ -101,6 +101,10 @@ export class SelectModeHandler extends PageModeHandler {
         this.calculateCursorStyle(event);
         this.dragSelectedMarquee(event);
     }
+    onRightClick(event: MouseEvent): void {
+        event.preventDefault(); // Prevent browser context menu
+        console.log(`SelectModeHandler.onRightClick`);
+    }
 
     calculateCursorStyle(event: MouseEvent) {
         let cursor = 'default';

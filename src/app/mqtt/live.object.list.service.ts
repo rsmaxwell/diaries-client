@@ -44,7 +44,8 @@ export class LiveObjectListService {
             switchMap(client =>
                 this.subscribeToTopicTree$<Marquee>(client, topicPrefix, (buf: Buffer) => {
                     const obj = JSON.parse(buf.toString());
-                    return new Marquee(obj.id, new Rectangle(obj.x, obj.y, obj.width, obj.height));
+                    const rect = new Rectangle(obj.x, obj.y, obj.width, obj.height);
+                    return new Marquee(obj.id, rect, obj.sequence);
                 })
             )
         );

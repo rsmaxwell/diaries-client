@@ -191,7 +191,10 @@ export class PageComponent implements OnInit, OnDestroy {
     let handler = this.handlers[this.mode];
     handler.onKeyDown(e);
   }
-
+  onRightClick(e: MouseEvent) {
+    let handler = this.handlers[this.mode];
+    handler.onRightClick(e);
+  }
 
   cancelSelection() {
     this.selectedMarqueeId = null;
@@ -218,8 +221,12 @@ export class PageComponent implements OnInit, OnDestroy {
   setSelection(marquee: Marquee) {
     this.selectedMarqueeId = marquee.id;
   }
-  updateCurrentMarquee(rectangle: Rectangle) {
-    this.currentMarquee = new Marquee(0, rectangle);
+  updateCurrentMarquee(rectangle: Rectangle,) {
+    // console.log(`PageComponent.updateCurrentMarquee: rectangle: ${JSON.stringify(rectangle)}`);
+    if (this.currentMarquee != null) {
+      this.currentMarquee.rectangle = rectangle;
+      // console.log(`PageComponent.updateCurrentMarquee: rectangle: ${JSON.stringify(this.currentMarquee)}`);
+    }
   }
   clearCurrentMarquee() {
     this.currentMarquee = null;
@@ -228,7 +235,7 @@ export class PageComponent implements OnInit, OnDestroy {
     console.log(`PageComponent.addMarquee: id: ${JSON.stringify(rectangle)}`)
     this.addMarquee$(this.page, rectangle, sequence).subscribe({
       next: (id) => {
-        const marquee = new Marquee(id, rectangle);
+        const marquee = new Marquee(id, rectangle, sequence);
         this.selectedMarqueeId = marquee.id;
         this.currentMarquee = null;
 
@@ -301,9 +308,9 @@ export class PageComponent implements OnInit, OnDestroy {
 
   onBackPressed() {
     if (!this.pages || this.pages.length === 0) return;
-  
+
     const currentIndex = this.pages.findIndex(p => p.id === this.page.id);
-  
+
     if (currentIndex > 0) {
       const prevPage = this.pages[currentIndex - 1];
       console.log(`Navigating to previous page: ${prevPage.id}`);
@@ -312,7 +319,7 @@ export class PageComponent implements OnInit, OnDestroy {
       console.log('Already at the first page or current page not found.');
     }
   }
-  
+
   onUpPressed() {
     console.log('PageComponent: Up pressed');
     // Your logic here
@@ -321,15 +328,25 @@ export class PageComponent implements OnInit, OnDestroy {
   onForwardPressed() {
     console.log('PageComponent: Forward pressed');
     if (!this.pages || this.pages.length === 0) return;
-  
+
     const currentIndex = this.pages.findIndex(p => p.id === this.page.id);
-  
+
     if (currentIndex >= 0 && currentIndex < this.pages.length - 1) {
       const nextPage = this.pages[currentIndex + 1];
       console.log(`Navigating to next page: ${nextPage.id}`);
       this.router.navigate([`/diary/${this.diary.id}/${nextPage.id}`]);
     } else {
       console.log('Already at the last page or current page not found.');
+    }
+  }
+
+  onMarqueeRightClick(event: MouseEvent, marquee: Marquee) {
+    event.preventDefault(); // Prevent the browser context menu
+
+    if (this.mode === 'select') {
+      this.router.navigate([
+        `/diary/${this.diary.id}/${this.page.id}/fragment/${marquee.id}`
+      ]);
     }
   }
 }

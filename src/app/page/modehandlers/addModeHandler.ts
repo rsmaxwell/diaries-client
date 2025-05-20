@@ -47,4 +47,5 @@ export class AddModeHandler extends PageModeHandler {
     onWheel(event: WheelEvent) { }
     onKeyDown(event: KeyboardEvent): void { }
     onSelectMarquee(marquee: Marquee): void { }
+    onRightClick(event: MouseEvent): void { }
 }

@@ -4,6 +4,8 @@ import { from, Observable, switchMap } from "rxjs";
 import { MqttService } from "./mqtt.service";
 import { Diary } from "../model/diary";
 import { Page } from "../model/page";
+import { Marquee } from "../model/marquee";
+import { Rectangle } from "../utilities/rectangle";
 
 @Injectable({ providedIn: 'root' })
 export class LiveObjectService {
@@ -25,6 +27,16 @@ export class LiveObjectService {
         const topic = `diary/${diaryId}/${pageId}`;
         return this.getObjectById$<Page>(topic, (buf: Buffer) => {
             return JSON.parse(buf.toString()) as Page;
+        })
+    }
+
+    getMarqueeById$(diaryId: number, pageId: number, marqueeId: number): Observable<Marquee> {
+        console.log(`LiveObjectService: getMarqueesById$(${diaryId}, ${pageId}, ${marqueeId})`);
+        const topic = `diary/${diaryId}/${pageId}/${marqueeId}`;
+        return this.getObjectById$<Marquee>(topic, (buf: Buffer) => {
+            const raw = JSON.parse(buf.toString());
+            const rectangle = new Rectangle(raw.x, raw.y, raw.width, raw.height);
+            return new Marquee(raw.id, rectangle, raw.sequence);
         })
     }
 

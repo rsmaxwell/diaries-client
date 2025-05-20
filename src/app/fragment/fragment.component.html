@@ -1,4 +1,4 @@
-<div class="fragment-container">
+<div class="fragment-container" *ngIf="fragment">
     <div class="fragment-left">
       <svg [attr.viewBox]="viewBoxString" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
         <rect
@@ -12,7 +12,7 @@
       </svg>
     </div>
     <div class="fragment-right">
-      <pre class="text-viewer">{{ fragment?.text }}</pre>
+      <pre class="text-viewer">{{ fragment.text }}</pre>
     </div>
   </div>
   

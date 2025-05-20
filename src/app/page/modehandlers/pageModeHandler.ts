@@ -18,6 +18,7 @@ export abstract class PageModeHandler {
     abstract onWheel(event: WheelEvent): void;
     abstract onKeyDown(event: KeyboardEvent): void;
     abstract onSelectMarquee(marquee: Marquee): void;
+    abstract onRightClick(event: MouseEvent): void;
 
     getMousePosition(event: MouseEvent): Point | null {
         const svg = this.pageComponent.svg as SVGSVGElement; 
