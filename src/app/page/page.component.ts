@@ -1,6 +1,7 @@
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageheaderComponent } from "../headers/pageheader/pageheader.component";
+import { PagefooterComponent } from '../headers/pagefooter/pagefooter.component';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { Diary } from '../model/diary';
 import { Page } from '../model/page';
@@ -11,7 +12,6 @@ import { ActivatedRoute } from '@angular/router';
 import { AlertService } from '../alerts/alert.service';
 import { ConfigService } from '../config/config.service';
 import { BehaviorSubject, combineLatest, filter, forkJoin, Observable, switchMap } from 'rxjs';
-import { PagefooterComponent } from '../headers/pagefooter/pagefooter.component';
 import { Rectangle } from '../utilities/rectangle';
 import { RpcService } from '../mqtt/rpc.service';
 import { LiveObjectService } from '../mqtt/live.object.service';
