@@ -1,6 +1,6 @@
 
 import { Injectable } from "@angular/core";
-import { from, Observable, switchMap } from "rxjs";
+import { from, Observable, ReplaySubject, switchMap } from "rxjs";
 import { MqttService } from "./mqtt.service";
 import { Diary } from "../model/diary";
 import { Page } from "../model/page";
@@ -40,38 +40,38 @@ export class LiveObjectService {
         })
     }
 
-    private getObjectById$<T extends { id: number }>(
-        topic: string,
-        deserialize: (buf: Buffer) => T
-    ): Observable<T> {
-        return from(this.mqtt.getConnection()).pipe(
-            switchMap(client =>
-                new Observable<T>(observer => {
-                    const handler = (messageTopic: string, payload: Buffer) => {
-                        if (messageTopic !== topic) return;
-                        try {
-                            const obj = deserialize(payload);
-                            console.log(`LiveObjectService: deserialized:`, obj);
-                            observer.next(obj);
-                        } catch (err) {
-                            observer.error(err);
-                        }
-                    };
+    private subjects = new Map<string, ReplaySubject<any>>();
 
-                    client.subscribe(topic, { qos: 1 }, err => {
-                        if (err) {
-                            observer.error(err);
-                            return;
-                        }
-                        client.on('message', handler);
-                    });
-
-                    return () => {
-                        client.unsubscribe(topic);
-                        client.removeListener('message', handler);
-                    };
-                })
-            )
-        );
-    }
+    private getObjectById$<T>(topic: string, deserialize: (buf: Buffer) => T): Observable<T> {
+        if (this.subjects.has(topic)) {
+          return this.subjects.get(topic)!.asObservable();
+        }
+      
+        const subject = new ReplaySubject<T>(1);
+        this.subjects.set(topic, subject);
+      
+        this.mqtt.getConnection().then(client => {
+          const handler = (messageTopic: string, payload: Buffer) => {
+            if (messageTopic !== topic) return;
+            try {
+              const obj = deserialize(payload);
+              console.log(`LiveObjectService: deserialized for topic ${topic}:`, obj);
+              subject.next(obj);
+            } catch (err) {
+              subject.error(err);
+            }
+          };
+      
+          client.subscribe(topic, { qos: 1 }, err => {
+            if (err) {
+              subject.error(err);
+              return;
+            }
+            client.on('message', handler);
+          });
+        });
+      
+        return subject.asObservable();
+      }
+      
 }

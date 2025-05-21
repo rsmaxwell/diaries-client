@@ -16,6 +16,7 @@
 .fragment-container {
   display: flex;
   height: 100vh;
+  background: black;
 }
 
 .fragment-left,
@@ -28,7 +29,7 @@
 .fragment-left svg {
   width: 100%;
   height: 100%;
-  background: #f0f0f0;
+  background: black;
 }
 
 .text-viewer {

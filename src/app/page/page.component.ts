@@ -10,8 +10,8 @@ import { SelectModeHandler } from './modehandlers/selectModeHandler';
 import { AddModeHandler } from './modehandlers/addModeHandler';
 import { ActivatedRoute } from '@angular/router';
 import { AlertService } from '../alerts/alert.service';
-import { ConfigService } from '../config/config.service';
-import { BehaviorSubject, combineLatest, filter, forkJoin, Observable, switchMap } from 'rxjs';
+import { Config, ConfigService } from '../config/config.service';
+import { BehaviorSubject, combineLatest, filter, forkJoin, from, Observable, switchMap, tap } from 'rxjs';
 import { Rectangle } from '../utilities/rectangle';
 import { RpcService } from '../mqtt/rpc.service';
 import { LiveObjectService } from '../mqtt/live.object.service';
@@ -46,7 +46,7 @@ export class PageComponent implements OnInit, OnDestroy {
   pages: Page[] = [];
   viewBox = new Rectangle(0, 0, 0, 0);
   viewBoxAsString = '0 0 0 0';
-  fileServerUrl: string = "";
+  imageUrl: string = "";
   mode: 'select' | 'add' | 'view' = 'view';
   selectedMarqueeId: number | null = null;
   currentMarquee: Marquee | null = null;
@@ -60,12 +60,13 @@ export class PageComponent implements OnInit, OnDestroy {
     add: new AddModeHandler(this)
   };
 
+  config$: Observable<Config> | null = null;
   diary$: Observable<Diary> | null = null;
   page$: Observable<Page> | null = null;
-
+  marquees$: Observable<Marquee[]> | null = null;
 
   constructor(
-    private config: ConfigService,
+    private configService: ConfigService,
     private mqtt: MqttService,
     private accessToken: AccessTokenService,
     private rpcService: RpcService,
@@ -88,265 +89,245 @@ export class PageComponent implements OnInit, OnDestroy {
     }
     this.svg = svgEl;
 
-    this.config.getConfig()
-      .then((cfg) => {
-        this.fileServerUrl = cfg.fileServerUrl;
+    const diaryId = Number(this.route.snapshot.paramMap.get('diaryId'));
+    const pageId = Number(this.route.snapshot.paramMap.get('pageId'));
 
-        const diaryIdParam = this.route.snapshot.paramMap.get('diaryId');
-        const pageIdParam = this.route.snapshot.paramMap.get('pageId');
+    if (isNaN(diaryId) || isNaN(pageId)) {
+      this.alertService.error('Invalid route: diaryId or pageId is not a number');
+      return;
+    }
 
-        if (!diaryIdParam || !pageIdParam) {
-          this.alertService.error('Invalid route: missing diaryId or pageId');
-          return;
-        }
+    combineLatest([
+      this.config$ = from(this.configService.getConfig()).pipe(
+        tap(() => console.log('*** config$ emitted'))
+      ),
+      this.diary$ = this.liveObjectService.getDiaryById$(diaryId).pipe(
+        tap(() => console.log('*** diary$ emitted'))
+      ),
+      this.page$ = this.liveObjectService.getPageById$(diaryId, pageId).pipe(
+        tap(() => console.log('*** page$ emitted'))
+      ),
+      this.marquees$ = this.liveObjectListService.getMarqueesForPage$(diaryId, pageId).pipe(
+        tap(() => console.log('*** marquees$ emitted'))
+      ),
 
-        const diaryId = Number(diaryIdParam);
-        const pageId = Number(pageIdParam);
+    ]).subscribe(([config, diary, page, marquees]) => {
 
-        if (isNaN(diaryId) || isNaN(pageId)) {
-          this.alertService.error('Invalid route: diaryId or pageId is not a number');
-          return;
-        }
-
-        combineLatest([
-          this.diary$ = this.liveObjectService.getDiaryById$(diaryId),
-          this.page$ = this.liveObjectService.getPageById$(diaryId, pageId)
-        ])
-          .pipe(
-            filter(([d, p]) => d !== undefined && p !== undefined)
-          )
-          .subscribe(([diary, page]) => {
-            this.handlePageReply(diary as Diary, page as Page);
-          });
-
-        // Fetch the list of marquees
-        this.liveObjectListService.getMarqueesForPage$(diaryId, pageId).subscribe(marquees => {
-          this.marquees = marquees;
-        });
-
-        // Fetch the list of pages
-        this.liveObjectListService.getPagesForDiary$(diaryId).subscribe(pages => {
-          this.pages = pages;
-        });
-      })
-      .catch((error) => {
-        console.error(`PageComponent.ngOnInit: configuration error: ${error}`);
+        console.log(`pageComponent.ngOnInit: diary: ${JSON.stringify(diary)}, page: ${JSON.stringify(page)}`);
+        
+        this.imageUrl = `${config.fileServerUrl}/${diary.name}/${page.name}${page.extension}`
+        this.diary = diary;
+        this.page = page;
+        this.marquees = marquees;
+      
+        console.log(`pageComponent.ngOnInit: updating the title`);
+        this.title$.next(`${diary.name} - ${page.name}`);
+      
+        const rect = new Rectangle(0, 0, page.width, page.height);
+        this.viewModeHandler.setViewBox(rect);
+        this.updateViewBox(rect);
+        this.cdr.detectChanges();
       });
   }
 
-  ngOnDestroy(): void {
-    this.liveObjectListService.unsubscribeFromMarqueesForPage$(this.diary.id, this.page.id);
-  }
+ngOnDestroy(): void {
+  this.liveObjectListService.unsubscribeFromMarqueesForPage$(this.diary.id, this.page.id);
+}
 
-  handlePageReply(diary: Diary, page: Page) {
-    console.log(`pageComponent.handlePageReply: diary: ${JSON.stringify(diary)}, page: ${JSON.stringify(page)}`);
+onClick(event: MouseEvent) {
+  let handler = this.handlers[this.mode];
+  handler.onClick(event);
+}
+onMouseMove(event: MouseEvent) {
+  let handler = this.handlers[this.mode];
+  handler.onMouseMove(event);
+}
+onMouseDown(event: MouseEvent) {
+  console.log(`PageComponent.onMouseDown`);
+  let handler = this.handlers[this.mode];
+  handler.onMouseDown(event);
+}
+onMouseUp(event: MouseEvent) {
+  let handler = this.handlers[this.mode];
+  handler.onMouseUp(event);
+}
+onWheel(event: WheelEvent) {
+  let handler = this.handlers[this.mode];
+  handler.onWheel(event);
+}
+onAddButtonClick(): void {
+  this.mode = "add";
+}
+onViewButtonClick(): void {
+  this.mode = "view";
+}
+onSelectButtonClick(): void {
+  this.mode = "select";
+}
+onSelectMarquee(marquee: Marquee) {
+  let handler = this.handlers[this.mode];
+  handler.onSelectMarquee(marquee);
+}
+onKeyDown(e: KeyboardEvent) {
+  let handler = this.handlers[this.mode];
+  handler.onKeyDown(e);
+}
+onRightClick(e: MouseEvent) {
+  let handler = this.handlers[this.mode];
+  handler.onRightClick(e);
+}
 
-    this.diary = diary;
-    this.page = page;
-
-    console.log(`pageComponent.handlePageReply: updating the title`);
-    this.title$.next(`${diary.name} - ${page.name}`);
-
-    const rect = new Rectangle(0, 0, page.width, page.height);
-    this.viewModeHandler.setViewBox(rect);
-    this.updateViewBox(rect);
-    this.cdr.detectChanges();
-  }
-
-  onClick(event: MouseEvent) {
-    let handler = this.handlers[this.mode];
-    handler.onClick(event);
-  }
-  onMouseMove(event: MouseEvent) {
-    let handler = this.handlers[this.mode];
-    handler.onMouseMove(event);
-  }
-  onMouseDown(event: MouseEvent) {
-    console.log(`PageComponent.onMouseDown`);
-    let handler = this.handlers[this.mode];
-    handler.onMouseDown(event);
-  }
-  onMouseUp(event: MouseEvent) {
-    let handler = this.handlers[this.mode];
-    handler.onMouseUp(event);
-  }
-  onWheel(event: WheelEvent) {
-    let handler = this.handlers[this.mode];
-    handler.onWheel(event);
-  }
-  onAddButtonClick(): void {
-    this.mode = "add";
-  }
-  onViewButtonClick(): void {
-    this.mode = "view";
-  }
-  onSelectButtonClick(): void {
-    this.mode = "select";
-  }
-  onSelectMarquee(marquee: Marquee) {
-    let handler = this.handlers[this.mode];
-    handler.onSelectMarquee(marquee);
-  }
-  onKeyDown(e: KeyboardEvent) {
-    let handler = this.handlers[this.mode];
-    handler.onKeyDown(e);
-  }
-  onRightClick(e: MouseEvent) {
-    let handler = this.handlers[this.mode];
-    handler.onRightClick(e);
-  }
-
-  cancelSelection() {
+cancelSelection() {
+  this.selectedMarqueeId = null;
+}
+deleteSelection() {
+  if (this.selectedMarqueeId) {
+    console.log(`PageComponent.deleteSelection: marquee: ${this.selectedMarqueeId}`)
+    this.deleteMarquee$(this.selectedMarqueeId).subscribe({
+      next: () => {
+        console.log(`PageComponent.deleteSelection: delete succeeded`)
+      },
+      error: (err) => {
+        console.log(`PageComponent.deleteSelection: error: ${err}`);
+        this.alertService.error(err);
+      }
+    });
     this.selectedMarqueeId = null;
   }
-  deleteSelection() {
-    if (this.selectedMarqueeId) {
-      console.log(`PageComponent.deleteSelection: marquee: ${this.selectedMarqueeId}`)
-      this.deleteMarquee$(this.selectedMarqueeId).subscribe({
-        next: () => {
-          console.log(`PageComponent.deleteSelection: delete succeeded`)
-        },
-        error: (err) => {
-          console.log(`PageComponent.deleteSelection: error: ${err}`);
-          this.alertService.error(err);
-        }
-      });
-      this.selectedMarqueeId = null;
+}
+updateViewBox(viewBox: Rectangle) {
+  this.viewBox = viewBox
+  this.viewBoxAsString = `${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`;
+}
+setSelection(marquee: Marquee) {
+  this.selectedMarqueeId = marquee.id;
+}
+updateCurrentMarquee(rectangle: Rectangle,) {
+  // console.log(`PageComponent.updateCurrentMarquee: rectangle: ${JSON.stringify(rectangle)}`);
+  if (this.currentMarquee != null) {
+    this.currentMarquee.rectangle = rectangle;
+    // console.log(`PageComponent.updateCurrentMarquee: rectangle: ${JSON.stringify(this.currentMarquee)}`);
+  }
+}
+clearCurrentMarquee() {
+  this.currentMarquee = null;
+}
+addNewMarquee(rectangle: Rectangle, sequence: number) {
+  console.log(`PageComponent.addMarquee: id: ${JSON.stringify(rectangle)}`)
+  this.addMarquee$(this.page, rectangle, sequence).subscribe({
+    next: (id) => {
+      const marquee = new Marquee(id, rectangle, sequence);
+      this.selectedMarqueeId = marquee.id;
+      this.currentMarquee = null;
+
+      console.log(`PageComponent.addMarquee: fragment: id: ${marquee.id} added`);
+      this.alertService.info(`fragment: id: ${marquee.id} added`);
+    },
+    error: (err) => {
+      console.log(`PageComponent.addNewMarquee: error: ${err}`)
+      this.alertService.error(err);
     }
-  }
-  updateViewBox(viewBox: Rectangle) {
-    this.viewBox = viewBox
-    this.viewBoxAsString = `${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`;
-  }
-  setSelection(marquee: Marquee) {
-    this.selectedMarqueeId = marquee.id;
-  }
-  updateCurrentMarquee(rectangle: Rectangle,) {
-    // console.log(`PageComponent.updateCurrentMarquee: rectangle: ${JSON.stringify(rectangle)}`);
-    if (this.currentMarquee != null) {
-      this.currentMarquee.rectangle = rectangle;
-      // console.log(`PageComponent.updateCurrentMarquee: rectangle: ${JSON.stringify(this.currentMarquee)}`);
+  });
+}
+
+updateMarquee(marquee: Marquee) {
+  this.updateMarquee$(marquee).subscribe({
+    next: () => {
+      console.log(`PageComponent.updateMarquee: update succeeded`);
+    },
+    error: (err) => {
+      console.log(`PageComponent.updateMarquee: error: ${err}`);
+      this.alertService.error(err);
     }
+  });
+}
+
+addMarquee$(page: Page, rect: Rectangle, sequence: number): Observable < number > {
+  return forkJoin({
+    cfg: this.configService.getConfig(),
+    client: this.mqtt.getConnection(),
+    token: this.accessToken.getToken()
+  }).pipe(
+    switchMap(({ cfg, client, token }) => {
+      const replyTopic = `reply/${cfg.clientId}/addMarquee`;
+      const payload = { function: 'addMarquee', args: new AddMarqueeRequest(page.id, rect, sequence) };
+      const deserialize = ReplyHandler.getBufferAsNumber
+      return this.rpcService.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
+    })
+  );
+}
+
+updateMarquee$(marquee: Marquee): Observable < number > {
+  return forkJoin({
+    cfg: this.configService.getConfig(),
+    client: this.mqtt.getConnection(),
+    token: this.accessToken.getToken()
+  }).pipe(
+    switchMap(({ cfg, client, token }) => {
+      const replyTopic = `reply/${cfg.clientId}/updateMarquee`;
+      const payload = { function: 'updateMarquee', args: new UpdateMarqueeRequest(marquee) };
+      const deserialize = ReplyHandler.getBufferAsNumber
+      return this.rpcService.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
+    })
+  );
+}
+
+deleteMarquee$(id: number): Observable < number > {
+  return forkJoin({
+    cfg: this.configService.getConfig(),
+    client: this.mqtt.getConnection(),
+    token: this.accessToken.getToken()
+  }).pipe(
+    switchMap(({ cfg, client, token }) => {
+      const replyTopic = `reply/${cfg.clientId}/deleteMarquee`;
+      const payload = { function: 'deleteMarquee', args: new DeleteMarqueeRequest(id) };
+      const deserialize = ReplyHandler.getBufferAsNumber
+      return this.rpcService.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
+    })
+  );
+}
+
+onBackPressed() {
+  if (!this.pages || this.pages.length === 0) return;
+
+  const currentIndex = this.pages.findIndex(p => p.id === this.page.id);
+
+  if (currentIndex > 0) {
+    const prevPage = this.pages[currentIndex - 1];
+    console.log(`Navigating to previous page: ${prevPage.id}`);
+    this.router.navigate([`/diary/${this.diary.id}/${prevPage.id}`]);
+  } else {
+    console.log('Already at the first page or current page not found.');
   }
-  clearCurrentMarquee() {
-    this.currentMarquee = null;
+}
+
+onUpPressed() {
+  console.log('PageComponent: Up pressed');
+  // Your logic here
+}
+
+onForwardPressed() {
+  console.log('PageComponent: Forward pressed');
+  if (!this.pages || this.pages.length === 0) return;
+
+  const currentIndex = this.pages.findIndex(p => p.id === this.page.id);
+
+  if (currentIndex >= 0 && currentIndex < this.pages.length - 1) {
+    const nextPage = this.pages[currentIndex + 1];
+    console.log(`Navigating to next page: ${nextPage.id}`);
+    this.router.navigate([`/diary/${this.diary.id}/${nextPage.id}`]);
+  } else {
+    console.log('Already at the last page or current page not found.');
   }
-  addNewMarquee(rectangle: Rectangle, sequence: number) {
-    console.log(`PageComponent.addMarquee: id: ${JSON.stringify(rectangle)}`)
-    this.addMarquee$(this.page, rectangle, sequence).subscribe({
-      next: (id) => {
-        const marquee = new Marquee(id, rectangle, sequence);
-        this.selectedMarqueeId = marquee.id;
-        this.currentMarquee = null;
+}
 
-        console.log(`PageComponent.addMarquee: fragment: id: ${marquee.id} added`);
-        this.alertService.info(`fragment: id: ${marquee.id} added`);
-      },
-      error: (err) => {
-        console.log(`PageComponent.addNewMarquee: error: ${err}`)
-        this.alertService.error(err);
-      }
-    });
+onMarqueeRightClick(event: MouseEvent, marquee: Marquee) {
+  event.preventDefault(); // Prevent the browser context menu
+
+  if (this.mode === 'select') {
+    this.router.navigate([
+      `/diary/${this.diary.id}/${this.page.id}/fragment/${marquee.id}`
+    ]);
   }
-
-  updateMarquee(marquee: Marquee) {
-    this.updateMarquee$(marquee).subscribe({
-      next: () => {
-        console.log(`PageComponent.updateMarquee: update succeeded`);
-      },
-      error: (err) => {
-        console.log(`PageComponent.updateMarquee: error: ${err}`);
-        this.alertService.error(err);
-      }
-    });
-  }
-
-  addMarquee$(page: Page, rect: Rectangle, sequence: number): Observable<number> {
-    return forkJoin({
-      cfg: this.config.getConfig(),
-      client: this.mqtt.getConnection(),
-      token: this.accessToken.getToken()
-    }).pipe(
-      switchMap(({ cfg, client, token }) => {
-        const replyTopic = `reply/${cfg.clientId}/addMarquee`;
-        const payload = { function: 'addMarquee', args: new AddMarqueeRequest(page.id, rect, sequence) };
-        const deserialize = ReplyHandler.getBufferAsNumber
-        return this.rpcService.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
-      })
-    );
-  }
-
-  updateMarquee$(marquee: Marquee): Observable<number> {
-    return forkJoin({
-      cfg: this.config.getConfig(),
-      client: this.mqtt.getConnection(),
-      token: this.accessToken.getToken()
-    }).pipe(
-      switchMap(({ cfg, client, token }) => {
-        const replyTopic = `reply/${cfg.clientId}/updateMarquee`;
-        const payload = { function: 'updateMarquee', args: new UpdateMarqueeRequest(marquee) };
-        const deserialize = ReplyHandler.getBufferAsNumber
-        return this.rpcService.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
-      })
-    );
-  }
-
-  deleteMarquee$(id: number): Observable<number> {
-    return forkJoin({
-      cfg: this.config.getConfig(),
-      client: this.mqtt.getConnection(),
-      token: this.accessToken.getToken()
-    }).pipe(
-      switchMap(({ cfg, client, token }) => {
-        const replyTopic = `reply/${cfg.clientId}/deleteMarquee`;
-        const payload = { function: 'deleteMarquee', args: new DeleteMarqueeRequest(id) };
-        const deserialize = ReplyHandler.getBufferAsNumber
-        return this.rpcService.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
-      })
-    );
-  }
-
-  onBackPressed() {
-    if (!this.pages || this.pages.length === 0) return;
-
-    const currentIndex = this.pages.findIndex(p => p.id === this.page.id);
-
-    if (currentIndex > 0) {
-      const prevPage = this.pages[currentIndex - 1];
-      console.log(`Navigating to previous page: ${prevPage.id}`);
-      this.router.navigate([`/diary/${this.diary.id}/${prevPage.id}`]);
-    } else {
-      console.log('Already at the first page or current page not found.');
-    }
-  }
-
-  onUpPressed() {
-    console.log('PageComponent: Up pressed');
-    // Your logic here
-  }
-
-  onForwardPressed() {
-    console.log('PageComponent: Forward pressed');
-    if (!this.pages || this.pages.length === 0) return;
-
-    const currentIndex = this.pages.findIndex(p => p.id === this.page.id);
-
-    if (currentIndex >= 0 && currentIndex < this.pages.length - 1) {
-      const nextPage = this.pages[currentIndex + 1];
-      console.log(`Navigating to next page: ${nextPage.id}`);
-      this.router.navigate([`/diary/${this.diary.id}/${nextPage.id}`]);
-    } else {
-      console.log('Already at the last page or current page not found.');
-    }
-  }
-
-  onMarqueeRightClick(event: MouseEvent, marquee: Marquee) {
-    event.preventDefault(); // Prevent the browser context menu
-
-    if (this.mode === 'select') {
-      this.router.navigate([
-        `/diary/${this.diary.id}/${this.page.id}/fragment/${marquee.id}`
-      ]);
-    }
-  }
+}
 }

@@ -6,8 +6,11 @@ import { LiveObjectService } from '../mqtt/live.object.service';
 import { FullheaderComponent } from '../headers/fullheader/fullheader.component';
 import { FullfooterComponent } from '../headers/fullfooter/fullfooter.component';
 import { Page } from '../model/page';
-import { ConfigService } from '../config/config.service';
-import { forkJoin, from, take } from 'rxjs';
+import { Config, ConfigService } from '../config/config.service';
+import { combineLatest, filter, forkJoin, from, Observable, take, tap } from 'rxjs';
+import { Diary } from '../model/diary';
+import { Fragment } from '../model/fragment';
+import { Rectangle } from '../utilities/rectangle';
 
 @Component({
   selector: 'app-fragment',
@@ -25,8 +28,18 @@ export class FragmentComponent implements OnInit {
 
   title = 'Fragment';
 
-  fragment!: { marquee: Marquee, text: string };
-  viewBoxString = '0 0 1000 1000';
+  fragment!: Fragment;
+  viewBoxString = '0 0 0 0';
+  imageUrl: string = "";
+  x = 0;
+  y = 0;
+  width = 0;
+  height = 0;
+
+  config$: Observable<Config> | null = null;
+  diary$: Observable<Diary> | null = null;
+  page$: Observable<Page> | null = null;
+  marquee$: Observable<Marquee> | null = null;
 
   constructor(
     private route: ActivatedRoute,
@@ -39,27 +52,38 @@ export class FragmentComponent implements OnInit {
     const pageId = Number(this.route.snapshot.paramMap.get('pageId'));
     const fragmentId = Number(this.route.snapshot.paramMap.get('fragmentId'));
 
-    forkJoin({
-      config: from(this.configService.getConfig()),
-      page: this.liveObjectService.getPageById$(diaryId, pageId).pipe(take(1)),
-      marquee: this.liveObjectService.getMarqueeById$(diaryId, pageId, fragmentId).pipe(take(1))
-    }).subscribe({
-      next: ({ config, page, marquee }) => {
-        console.log(`FragmentComponent.ngOnInit: next`);
+    combineLatest([
+
+      this.config$ = from(this.configService.getConfig()),
+      this.diary$ = this.liveObjectService.getDiaryById$(diaryId),
+      this.page$ = this.liveObjectService.getPageById$(diaryId, pageId),
+      this.marquee$ = this.liveObjectService.getMarqueeById$(diaryId, pageId, fragmentId)
+
+    ]).subscribe(([config, diary, page, marquee]) => {
+
         this.fragment = {
-          marquee,
-          text: `marquee\n${JSON.stringify(marquee, null, 2)}\n\npage\n${JSON.stringify(page, null, 2)}\n\nconfig\n${JSON.stringify(config, null, 2)}`
+          id: 1,
+          year: 2024,
+          month: 5,
+          day: 20,
+          sequence: 100,
+          marquee: marquee,
+          text: 'This is a fragment of text.\nIt can span multiple lines.'
         };
 
-        const r = marquee.rectangle;
+        this.fragment.text = `marquee\n${JSON.stringify(marquee, null, 2)}\n\npage\n${JSON.stringify(page, null, 2)}\n\nconfig\n${JSON.stringify(config, null, 2)}`
+
+        const r = new Rectangle(0, 0, page.width, page.height);
         this.viewBoxString = `${r.x - 50} ${r.y - 50} ${r.width + 100} ${r.height + 100}`;
-      },
-      error: (err) => {
-        console.log(`FragmentComponent.ngOnInit: error: ${err}`);
-      },
-      complete: () => {
-        console.log(`FragmentComponent.ngOnInit: complete`);
-      }
-    });
+        this.imageUrl = `${config.fileServerUrl}/${diary.name}/${page.name}${page.extension}`
+        this.width = page.width;
+        this.height = page.height;
+      });
+    }
+
+    onWheel(event: WheelEvent) {}
+    onMouseMove(event: MouseEvent) {}
+    onMouseDown(event: MouseEvent) {}
+    onMouseUp(event: MouseEvent) {}
+    onRightClick(e: MouseEvent) {}
   }
-}

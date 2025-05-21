@@ -19,7 +19,7 @@ export class LiveObjectListService {
 
     getDiaries$(): Observable<Diary[]> {
         return from(this.mqtt.getConnection()).pipe(
-            switchMap(client => 
+            switchMap(client =>
                 this.subscribeToTopicTree$<Diary>(client, `diary/`, (buf: Buffer) => {
                     return JSON.parse(buf.toString()) as Diary;
                 })
@@ -29,7 +29,7 @@ export class LiveObjectListService {
 
     getPagesForDiary$(diaryId: number): Observable<Page[]> {
         return from(this.mqtt.getConnection()).pipe(
-            switchMap(client => 
+            switchMap(client =>
                 this.subscribeToTopicTree$<Page>(client, `diary/${diaryId}/`, (buf: Buffer) => {
                     return JSON.parse(buf.toString()) as Page;
                 })
