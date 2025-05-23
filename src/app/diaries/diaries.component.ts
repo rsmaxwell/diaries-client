@@ -78,47 +78,43 @@ export class DiariesComponent implements OnInit, OnDestroy {
 
   drop(event: CdkDragDrop<Diary[]>) {
     const data = this.dataSource.data;
+
+    // Move the item in the array
     moveItemInArray(data, event.previousIndex, event.currentIndex);
-    this.dataSource.data = data; // Trigger table update
 
-    let seq = 1;
-    data.map(d => {
+    // Get the moved item
+    const movedDiary = data[event.currentIndex];
 
-      console.log(`drop: id: ${d.id}, sequence: ${d.sequence}, name: ${d.name}`);
+    // Determine surrounding sequence values
+    const prevDiary = data[event.currentIndex - 1] ?? null;
+    const nextDiary = data[event.currentIndex + 1] ?? null;
 
-      if (seq != d.sequence) {
+    if (prevDiary && nextDiary) {
+      // Middle of the list --> set sequence to average
+      movedDiary.sequence = (prevDiary.sequence + nextDiary.sequence) / 2;
+    } else if (!prevDiary && nextDiary) {
+      // Moved to the beginning --> less than next
+      movedDiary.sequence = nextDiary.sequence - 1000;
+    } else if (prevDiary && !nextDiary) {
+      // Moved to the end --> more than previous
+      movedDiary.sequence = prevDiary.sequence + 1000;
+    } else {
+      // Only item in the list
+      movedDiary.sequence = 1000;
+    }
 
-        console.log(`          id: ${d.id}, sequence: ${d.sequence} --> ${seq}`);
+    // Trigger table update
+    this.dataSource.data = data;
 
-        d.sequence = seq;
-
-        this.updateDiary$(d).subscribe({
-          next: (id) => {
-            console.log(`diary: ${d.id}, ${d.sequence}, ${d.name} updated`);
-          },
-          error: (err) => {
-            console.log(`DiariesComponent.drop: error: ${err}`)
-            this.alertService.error(err);
-          }
-        });
+    // Normalise the diaries
+    this.rpcService.normaliseDiaries$().subscribe({
+      next: (n) => {
+        console.log(`NormaliseDiaries succeeded: n: ${n}`);
+      },
+      error: (err) => {
+        console.log(`NormaliseDiaries failed: ${err}`)
+        this.alertService.error(err);
       }
-
-      seq++;
-    })
-  }
-
-  updateDiary$(diary: Diary): Observable<number> {
-    return forkJoin({
-      cfg: this.config.getConfig(),
-      client: this.mqtt.getConnection(),
-      token: this.accessToken.getToken()
-    }).pipe(
-      switchMap(({ cfg, client, token }) => {
-        const replyTopic = `reply/${cfg.clientId}/updateDiary`;
-        const payload = { function: 'updateDiary', args: new UpdateDiaryRequest(diary) };
-        const deserialize = ReplyHandler.getBufferAsNumber
-        return this.rpcService.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
-      })
-    );
+    });
   }
 }

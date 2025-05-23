@@ -115,7 +115,7 @@ export class RegisterComponent implements OnDestroy {
 
     let value: Register = Register.fromFormGroup(this.form)
 
-    this.register$(value).subscribe({
+    this.rpcService.register$(value).subscribe({
       next: (reply) => {
         console.log(`RegisterComponent.registered: '${value.username}' registered with id: '${reply.id}'`)
         this.alertService.info(`username: '${value.username}' registered with id: '${reply.id}'`);
@@ -161,20 +161,5 @@ export class RegisterComponent implements OnDestroy {
     }
 
     return '';
-  }
-
-  register$(register: Register): Observable<RegisterReply> {
-    return forkJoin({
-      cfg: this.config.getConfig(),
-      client: this.mqtt.getConnection()
-      // Note: no accessToken needed
-    }).pipe(
-      switchMap(({ cfg, client }) => {
-        const replyTopic = `reply/${cfg.clientId}/register`;
-        const payload = { function: 'register', args: new RegisterRequest(register) };
-        const deserialize = ReplyHandler.getBufferAsObject as (buffer: Buffer) => RegisterReply;
-        return this.rpcService.rpcRequest<RegisterReply>(client, Constants.reqTopic, replyTopic, payload, null, deserialize);
-      })
-    );
   }
 }

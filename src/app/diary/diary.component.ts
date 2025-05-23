@@ -132,7 +132,7 @@ export class DiaryComponent implements OnInit, OnDestroy {
 
         p.sequence = seq;
 
-        this.updatePage$(p).subscribe({
+        this.rpcService.updatePage$(p).subscribe({
           next: (id) => {
             console.log(`diary: ${p.id}, ${p.sequence}, ${p.name} updated`);
           },
@@ -145,21 +145,5 @@ export class DiaryComponent implements OnInit, OnDestroy {
 
       seq++;
     })
-  }
-
-
-  updatePage$(page: Page): Observable<number> {
-    return forkJoin({
-      cfg: this.config.getConfig(),
-      client: this.mqtt.getConnection(),
-      token: this.accessToken.getToken()
-    }).pipe(
-      switchMap(({ cfg, client, token }) => {
-        const replyTopic = `reply/${cfg.clientId}/updatePage`;
-        const payload = { function: 'updatePage', args: new UpdateDiaryRequest(page) };
-        const deserialize = ReplyHandler.getBufferAsNumber
-        return this.rpcService.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
-      })
-    );
   }
 }

@@ -1,59 +1,66 @@
-<div class="page">
-  <app-fullheader [title]="title"></app-fullheader>
+<app-fullheader [title]="title"></app-fullheader>
 
-  <div class="fragment-container" *ngIf="fragment">
-    <div class="fragment-left">
+<div class="fragment-container" *ngIf="fragment">
+  <div id="svg-container">
+    <svg
+      #svgRef
+      id="zoomable-svg"
+      xmlns="http://www.w3.org/2000/svg"
+      version="1.1"
+      [attr.width]="width"
+      [attr.height]="height"
+      [attr.viewBox]="viewBoxString()"
+      preserveAspectRatio="xMidYMid meet"
+      (wheel)="onWheel($event)"
+      (mousedown)="onMouseDown($event)"
+      (mousemove)="onMouseMove($event)"
+      (mouseup)="onMouseUp()"
+      (mouseleave)="onMouseUp()"
+      (contextmenu)="onRightClick($event)"
+      >
 
-      <svg id="zoomable-svg" xmlns="http://www.w3.org/2000/svg" [attr.viewBox]="viewBoxString"
-        preserveAspectRatio="xMidYMid meet" (wheel)="onWheel($event)" (mousedown)="onMouseDown($event)"
-        (mousemove)="onMouseMove($event)" (mouseup)="onMouseUp($event)" (contextmenu)="onRightClick($event)">
-
-        <defs id="defs1">
-          <mask maskUnits="userSpaceOnUse" id="mask15">
-            <g id="g17" transform="translate(-3.2850943e-5)" style="display:inline">
-              <rect
-                style="display:inline;fill:#808080;fill-opacity:1;stroke:#000000;stroke-width:1.5;stroke-linecap:round;stroke-opacity:0.0274136;paint-order:stroke fill markers"
-                id="rect16"
-                [attr.width]="width"
-                [attr.height]="height"
-                [attr.x]="x"
-                [attr.y]="y" />
-              <rect
-                style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:1.5;stroke-linecap:round;stroke-opacity:0.162098;paint-order:stroke fill markers"
-                id="rect17"
-                [attr.width]="fragment.marquee.rectangle.width"
-                [attr.height]="fragment.marquee.rectangle.height"
-                [attr.x]="fragment.marquee.rectangle.x"
-                [attr.y]="fragment.marquee.rectangle.y" />
-            </g>
-          </mask>
-        </defs>
-
-        <image
-         [attr.x]="x"
-         [attr.y]="y"
-         [attr.width]="width"
-         [attr.height]="height"
-         [attr.href]="imageUrl"
-         class="ng-star-inserted"
-         id="image1"
-         mask="url(#mask15)"
-         style="display:inline"
-         transform="translate(-166.48025,271.30114)"
-       />
-
+      <defs id="defs1">
+        <mask maskUnits="userSpaceOnUse" id="mask15">
+          <g id="g17" style="display:inline">
+            <rect
+              style="display:inline;fill:#808080;fill-opacity:1;stroke:#000000;stroke-width:1.5;stroke-linecap:round;stroke-opacity:0.0274136;paint-order:stroke fill markers"
+              id="rect16"
+              [attr.x]="x"
+              [attr.y]="y"
+              [attr.width]="width"
+              [attr.height]="height" />
+            <rect
+              style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:1.5;stroke-linecap:round;stroke-opacity:0.162098;paint-order:stroke fill markers"
+              id="rect17"
+              [attr.width]="fragment.marquee.rectangle.width"
+              [attr.height]="fragment.marquee.rectangle.height"
+              [attr.x]="fragment.marquee.rectangle.x"
+              [attr.y]="fragment.marquee.rectangle.y" />
+          </g>
+        </mask>
+      </defs>
+  
+      <image
+        [attr.x]="x"
+        [attr.y]="y"
+        [attr.width]="width"
+        [attr.height]="height"
+        [attr.href]="imageUrl"
+        class="ng-star-inserted"
+        id="image1"
+        mask="url(#mask15)"
+        style="display:inline"
+      />
       </svg>
     </div>
-    <div class="fragment-right">
-      <pre class="text-viewer">{{ fragment.text }}</pre>
+
+
+    <div class="fragment-text">
+      <pre>{{ fragment.text }}</pre>
     </div>
-  </div>
 
-
-  <div class="padding"></div>
-
-  <div class="padding"></div>
-  <!-- <app-alerts></app-alerts> -->
-  <!-- <app-alertbuttons></app-alertbuttons> -->
-  <app-fullfooter></app-fullfooter>
 </div>
+
+<div class="padding"></div>
+<app-fullfooter></app-fullfooter>
+

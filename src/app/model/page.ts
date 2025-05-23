@@ -1,32 +1,26 @@
-import { Marquee } from "./marquee";
-import { Reply } from "./reply";
-
 
 export class Page {
-  id: number;
-  name: string;
-  extension: string;
-  width: number;
-  height: number;
-  sequence: number;
+  constructor(
+    public id: number,
+    public name: string,
+    public extension: string,
+    public width: number,
+    public height: number,
+    public sequence: number
+  ) { }
 
-  constructor() {
-    this.id = 0;
-    this.name = ``;
-    this.extension = ``;
-    this.width = 0;
-    this.height = 0;
-    this.sequence = 0;
-  }
+  static default = new Page(0, '', '', 0, 0, 0);
 }
 
-export class PageResponse {
-  page: Page;
-  marquees: Marquee[];
-
-  constructor(page: Page, marquees: Marquee[]) {
-    this.page = page;
-    this.marquees = marquees;
+export class UpdatePageRequest extends Page {
+  static fromPage(page: Page): UpdatePageRequest {
+    return new UpdatePageRequest(
+      page.id,
+      page.name,
+      page.extension,
+      page.width,
+      page.height,
+      page.sequence
+    );
   }
-}
-
+};

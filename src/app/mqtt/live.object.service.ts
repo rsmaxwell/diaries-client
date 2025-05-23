@@ -55,7 +55,6 @@ export class LiveObjectService {
             if (messageTopic !== topic) return;
             try {
               const obj = deserialize(payload);
-              console.log(`LiveObjectService: deserialized for topic ${topic}:`, obj);
               subject.next(obj);
             } catch (err) {
               subject.error(err);

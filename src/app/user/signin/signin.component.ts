@@ -87,7 +87,7 @@ export class SigninComponent implements OnDestroy {
     let value: Signin = Signin.fromFormGroup(this.form)
 
     console.log(`SigninComponent - using RpcService`)
-    this.signin$(value).subscribe({
+    this.rpcService.signin$(value).subscribe({
       next: (reply) => {
         console.log(`SigninComponent.onSubmit: success`)
         this.accessTokenService.setToken(reply.accessToken);
@@ -119,20 +119,5 @@ export class SigninComponent implements OnDestroy {
     }
 
     return '';
-  }
-
-  signin$(signin: Signin): Observable<SigninReply> {
-    return forkJoin({
-      cfg: this.config.getConfig(),
-      client: this.mqtt.getConnection()
-      // No need for the access token
-    }).pipe(
-      switchMap(({ cfg, client }) => {
-        const replyTopic = `reply/${cfg.clientId}/signin`;
-        const payload = { function: 'signin', args: new SigninRequest(signin) };
-        const deserialize = ReplyHandler.getBufferAsObject as (buffer: Buffer) => SigninReply;
-        return this.rpcService.rpcRequest<SigninReply>(client, Constants.reqTopic, replyTopic, payload, null, deserialize);
-      })
-    );
   }
 }

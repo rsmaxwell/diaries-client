@@ -29,7 +29,7 @@ export class TokenRequestor {
   sendRefreshRequest(): Observable<string> {
     console.log('TokenRequestor: sendRefreshRequest() called');
 
-    return this.refreshToken$().pipe(
+    return this.rpcService.refreshToken$().pipe(
       switchMap((reply: RefreshTokenReply) => {
         console.log(`sendRefreshRequest: token: ${reply.token}`);
         this.accessTokenService.setToken(reply.token);
@@ -58,21 +58,5 @@ export class TokenRequestor {
 
   stop(): void {
     this.refreshSub?.unsubscribe();
-  }
-
-  refreshToken$(): Observable<RefreshTokenReply> {
-    return forkJoin({
-      cfg: this.config.getConfig(),
-      client: this.mqtt.getConnection(),
-      accessToken: this.accessToken.getToken(),
-      refreshToken: this.refreshToken.getToken()
-    }).pipe(
-      switchMap(({ cfg, client, accessToken, refreshToken }) => {
-        const replyTopic = `reply/${cfg.clientId}/refreshToken`;
-        const payload = { function: 'refreshToken', args: new RefreshTokenRequest(cfg.username, refreshToken) };
-        const deserialize = ReplyHandler.getBufferAsObject as (buffer: Buffer) => RefreshTokenReply;
-        return this.rpcService.rpcRequest<RefreshTokenReply>(client, Constants.reqTopic, replyTopic, payload, null, deserialize);
-      })
-    );
   }
 }

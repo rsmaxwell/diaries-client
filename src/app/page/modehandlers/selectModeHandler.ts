@@ -142,7 +142,7 @@ export class SelectModeHandler extends PageModeHandler {
             }
         }
 
-        this.pageComponent.style = cursor;
+        this.pageComponent.cursorStyle = cursor;
     }
 
     dragSelectedMarquee(event: MouseEvent) {

@@ -11,16 +11,14 @@ import { AddModeHandler } from './modehandlers/addModeHandler';
 import { ActivatedRoute } from '@angular/router';
 import { AlertService } from '../alerts/alert.service';
 import { Config, ConfigService } from '../config/config.service';
-import { BehaviorSubject, combineLatest, filter, forkJoin, from, Observable, switchMap, tap } from 'rxjs';
+import { BehaviorSubject, combineLatest, from, Observable } from 'rxjs';
 import { Rectangle } from '../utilities/rectangle';
 import { RpcService } from '../mqtt/rpc.service';
 import { LiveObjectService } from '../mqtt/live.object.service';
 import { LiveObjectListService } from '../mqtt/live.object.list.service';
-import { AddMarqueeRequest, DeleteMarqueeRequest, Marquee, UpdateMarqueeRequest } from '../model/marquee';
+import { Marquee } from '../model/marquee';
 import { MqttService } from '../mqtt/mqtt.service';
 import { AccessTokenService } from '../user/token/AccessTokenService';
-import { ReplyHandler } from '../utilities/replyHandler';
-import { Constants } from '../utilities/constants';
 import { Router } from '@angular/router';
 
 type Mode = 'view' | 'select' | 'add';
@@ -41,19 +39,18 @@ export class PageComponent implements OnInit, OnDestroy {
 
   title$ = new BehaviorSubject<string>('Loading...');
 
-  diary: Diary = new Diary();
-  page: Page = new Page();
+  diary: Diary = Diary.default;
+  page: Page = Page.default;
   pages: Page[] = [];
+  marquees: Marquee[] = [];
   viewBox = new Rectangle(0, 0, 0, 0);
-  viewBoxAsString = '0 0 0 0';
   imageUrl: string = "";
   mode: 'select' | 'add' | 'view' = 'view';
   selectedMarqueeId: number | null = null;
   currentMarquee: Marquee | null = null;
-  marquees: Marquee[] = [];
   svg: HTMLElement | SVGSVGElement = {} as HTMLElement;
   viewModeHandler = new ViewModeHandler(this);
-  style: string = '';
+
   handlers = {
     view: this.viewModeHandler,
     select: new SelectModeHandler(this),
@@ -64,6 +61,8 @@ export class PageComponent implements OnInit, OnDestroy {
   diary$: Observable<Diary> | null = null;
   page$: Observable<Page> | null = null;
   marquees$: Observable<Marquee[]> | null = null;
+  svgContainerClass = 'svg-container';
+  cursorStyle = '';
 
   constructor(
     private configService: ConfigService,
@@ -98,29 +97,18 @@ export class PageComponent implements OnInit, OnDestroy {
     }
 
     combineLatest([
-      this.config$ = from(this.configService.getConfig()).pipe(
-        tap(() => console.log('*** config$ emitted'))
-      ),
-      this.diary$ = this.liveObjectService.getDiaryById$(diaryId).pipe(
-        tap(() => console.log('*** diary$ emitted'))
-      ),
-      this.page$ = this.liveObjectService.getPageById$(diaryId, pageId).pipe(
-        tap(() => console.log('*** page$ emitted'))
-      ),
-      this.marquees$ = this.liveObjectListService.getMarqueesForPage$(diaryId, pageId).pipe(
-        tap(() => console.log('*** marquees$ emitted'))
-      ),
+      this.config$ = from(this.configService.getConfig()),
+      this.diary$ = this.liveObjectService.getDiaryById$(diaryId),
+      this.page$ = this.liveObjectService.getPageById$(diaryId, pageId),
+      this.marquees$ = this.liveObjectListService.getMarqueesForPage$(diaryId, pageId)
 
     ]).subscribe(([config, diary, page, marquees]) => {
 
-        console.log(`pageComponent.ngOnInit: diary: ${JSON.stringify(diary)}, page: ${JSON.stringify(page)}`);
-        
         this.imageUrl = `${config.fileServerUrl}/${diary.name}/${page.name}${page.extension}`
         this.diary = diary;
         this.page = page;
         this.marquees = marquees;
-      
-        console.log(`pageComponent.ngOnInit: updating the title`);
+
         this.title$.next(`${diary.name} - ${page.name}`);
       
         const rect = new Rectangle(0, 0, page.width, page.height);
@@ -131,6 +119,7 @@ export class PageComponent implements OnInit, OnDestroy {
   }
 
 ngOnDestroy(): void {
+  if (this.diary == null || this.page == null) return;
   this.liveObjectListService.unsubscribeFromMarqueesForPage$(this.diary.id, this.page.id);
 }
 
@@ -183,7 +172,7 @@ cancelSelection() {
 deleteSelection() {
   if (this.selectedMarqueeId) {
     console.log(`PageComponent.deleteSelection: marquee: ${this.selectedMarqueeId}`)
-    this.deleteMarquee$(this.selectedMarqueeId).subscribe({
+    this.rpcService.deleteMarquee$(this.selectedMarqueeId).subscribe({
       next: () => {
         console.log(`PageComponent.deleteSelection: delete succeeded`)
       },
@@ -197,7 +186,9 @@ deleteSelection() {
 }
 updateViewBox(viewBox: Rectangle) {
   this.viewBox = viewBox
-  this.viewBoxAsString = `${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`;
+}
+viewBoxString(): string {
+  return `${this.viewBox.x} ${this.viewBox.y} ${this.viewBox.width} ${this.viewBox.height}`;
 }
 setSelection(marquee: Marquee) {
   this.selectedMarqueeId = marquee.id;
@@ -214,7 +205,7 @@ clearCurrentMarquee() {
 }
 addNewMarquee(rectangle: Rectangle, sequence: number) {
   console.log(`PageComponent.addMarquee: id: ${JSON.stringify(rectangle)}`)
-  this.addMarquee$(this.page, rectangle, sequence).subscribe({
+  this.rpcService.addMarquee$(this.page, rectangle, sequence).subscribe({
     next: (id) => {
       const marquee = new Marquee(id, rectangle, sequence);
       this.selectedMarqueeId = marquee.id;
@@ -231,7 +222,7 @@ addNewMarquee(rectangle: Rectangle, sequence: number) {
 }
 
 updateMarquee(marquee: Marquee) {
-  this.updateMarquee$(marquee).subscribe({
+  this.rpcService.updateMarquee$(marquee).subscribe({
     next: () => {
       console.log(`PageComponent.updateMarquee: update succeeded`);
     },
@@ -240,51 +231,6 @@ updateMarquee(marquee: Marquee) {
       this.alertService.error(err);
     }
   });
-}
-
-addMarquee$(page: Page, rect: Rectangle, sequence: number): Observable < number > {
-  return forkJoin({
-    cfg: this.configService.getConfig(),
-    client: this.mqtt.getConnection(),
-    token: this.accessToken.getToken()
-  }).pipe(
-    switchMap(({ cfg, client, token }) => {
-      const replyTopic = `reply/${cfg.clientId}/addMarquee`;
-      const payload = { function: 'addMarquee', args: new AddMarqueeRequest(page.id, rect, sequence) };
-      const deserialize = ReplyHandler.getBufferAsNumber
-      return this.rpcService.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
-    })
-  );
-}
-
-updateMarquee$(marquee: Marquee): Observable < number > {
-  return forkJoin({
-    cfg: this.configService.getConfig(),
-    client: this.mqtt.getConnection(),
-    token: this.accessToken.getToken()
-  }).pipe(
-    switchMap(({ cfg, client, token }) => {
-      const replyTopic = `reply/${cfg.clientId}/updateMarquee`;
-      const payload = { function: 'updateMarquee', args: new UpdateMarqueeRequest(marquee) };
-      const deserialize = ReplyHandler.getBufferAsNumber
-      return this.rpcService.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
-    })
-  );
-}
-
-deleteMarquee$(id: number): Observable < number > {
-  return forkJoin({
-    cfg: this.configService.getConfig(),
-    client: this.mqtt.getConnection(),
-    token: this.accessToken.getToken()
-  }).pipe(
-    switchMap(({ cfg, client, token }) => {
-      const replyTopic = `reply/${cfg.clientId}/deleteMarquee`;
-      const payload = { function: 'deleteMarquee', args: new DeleteMarqueeRequest(id) };
-      const deserialize = ReplyHandler.getBufferAsNumber
-      return this.rpcService.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
-    })
-  );
 }
 
 onBackPressed() {

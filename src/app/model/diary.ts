@@ -1,35 +1,37 @@
 
 
-import { Page } from './page';
-import { Reply } from './reply';
 
 export class Diary {
-  id: number;
-  name: string;
-  sequence: number;
+  constructor(
+    public id: number,
+    public name: string,
+    public sequence: number
+  ) { }
 
-  constructor() {
-    this.id = 0;
-    this.name = ``;
-    this.sequence = 0;
-  }
+  static default = new Diary(0, '', 0);
 }
 
-export interface GetDiaryReply extends Reply {
-  diary: Diary
-  pages: Page[];
-};
-
-export class UpdateDiaryRequest {
+export class xUpdateDiaryRequest {
   id: number;
   name: string;
   sequence: number;
 
   constructor(diary: Diary) {
-      this.id = diary.id;
-      this.name = diary.name;
-      this.sequence = diary.sequence;
+    this.id = diary.id;
+    this.name = diary.name;
+    this.sequence = diary.sequence;
   }
 }
+
+export class UpdateDiaryRequest extends Diary {
+  static fromDiary(diary: Diary): UpdateDiaryRequest {
+    return new UpdateDiaryRequest(
+      diary.id,
+      diary.name,
+      diary.sequence
+    );
+  }
+};
+
 
 
