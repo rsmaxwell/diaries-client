@@ -16,6 +16,7 @@
 
 #svg-container {
   background-color: black;
+  overflow: hidden;
 }
 
 // Both panels take up 50% width
@@ -23,7 +24,6 @@
 .fragment-text {
   width: 50%;
   height: 100%;
-  overflow: hidden;
   display: flex;
   justify-content: center;
   align-items: center;
