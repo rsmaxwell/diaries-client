@@ -21,7 +21,7 @@ export abstract class PageModeHandler {
     abstract onRightClick(event: MouseEvent): void;
 
     getMousePosition(event: MouseEvent): Point | null {
-        const svg = this.pageComponent.svg as SVGSVGElement; 
+        const svg = this.pageComponent.svgRef.nativeElement as SVGSVGElement; 
         const pt = svg.createSVGPoint();
         pt.x = event.clientX;
         pt.y = event.clientY;

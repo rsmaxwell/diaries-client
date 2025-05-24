@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageheaderComponent } from "../headers/pageheader/pageheader.component";
 import { PagefooterComponent } from '../headers/pagefooter/pagefooter.component';
@@ -37,6 +37,8 @@ type Mode = 'view' | 'select' | 'add';
 })
 export class PageComponent implements OnInit, OnDestroy {
 
+  @ViewChild('svgRef') svgRef!: ElementRef<SVGSVGElement>;
+  
   title$ = new BehaviorSubject<string>('Loading...');
 
   diary: Diary = Diary.default;
@@ -48,7 +50,7 @@ export class PageComponent implements OnInit, OnDestroy {
   mode: 'select' | 'add' | 'view' = 'view';
   selectedMarqueeId: number | null = null;
   currentMarquee: Marquee | null = null;
-  svg: HTMLElement | SVGSVGElement = {} as HTMLElement;
+  // svg: HTMLElement | SVGSVGElement = {} as HTMLElement;
   viewModeHandler = new ViewModeHandler(this);
 
   handlers = {
@@ -66,8 +68,6 @@ export class PageComponent implements OnInit, OnDestroy {
 
   constructor(
     private configService: ConfigService,
-    private mqtt: MqttService,
-    private accessToken: AccessTokenService,
     private rpcService: RpcService,
     private route: ActivatedRoute,
     private liveObjectService: LiveObjectService,
@@ -80,14 +80,6 @@ export class PageComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     console.log(`PageComponent.ngOnInit`);
-
-    const svgEl = document.getElementById('zoomable-svg');
-    if (!(svgEl instanceof SVGSVGElement)) {
-      console.error('zoomable-svg is not an SVG element');
-      return;
-    }
-    this.svg = svgEl;
-
     const diaryId = Number(this.route.snapshot.paramMap.get('diaryId'));
     const pageId = Number(this.route.snapshot.paramMap.get('pageId'));
 
@@ -103,18 +95,26 @@ export class PageComponent implements OnInit, OnDestroy {
       this.marquees$ = this.liveObjectListService.getMarqueesForPage$(diaryId, pageId)
 
     ]).subscribe(([config, diary, page, marquees]) => {
-
         this.imageUrl = `${config.fileServerUrl}/${diary.name}/${page.name}${page.extension}`
         this.diary = diary;
         this.page = page;
         this.marquees = marquees;
-
         this.title$.next(`${diary.name} - ${page.name}`);
-      
-        const rect = new Rectangle(0, 0, page.width, page.height);
-        this.viewModeHandler.setViewBox(rect);
-        this.updateViewBox(rect);
+
+        const margin = 1500;
+        // const r = marquee.rectangle;
+        const r = new Rectangle(0, 0, page.width, page.height);
+        this.viewBox = new Rectangle(r.x - margin, r.y - margin, r.width + 2*margin, r.height + 2*margin);
+
+        // Ensure the view is updated before accessing svgRef
         this.cdr.detectChanges();
+
+        if (!this.svgRef) {
+          console.error(`svgRef is undefined`);
+          return;
+        }
+
+        const rect = this.svgRef.nativeElement.getBoundingClientRect();
       });
   }
 

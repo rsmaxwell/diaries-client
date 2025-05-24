@@ -1,10 +1,7 @@
-@import "../../constants";
-
-
 :host {
   display: flex;
   flex-direction: column;
-  height: 100vh; // full screen height
+  height: 100vh;
 }
 
 .fragment-container {
@@ -14,30 +11,49 @@
   overflow: hidden;
 }
 
+/* SVG panel - left side */
 #svg-container {
+  width: 50%;
+  height: 100%;
+  position: relative;
+  overflow: hidden; // still blocks scrollbars, but we’ll zoom within
   background-color: black;
-  overflow: hidden;
 }
 
-// Both panels take up 50% width
-#svg-container,
+#zoomable-svg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: auto;
+  height: auto;
+  max-width: none;
+  max-height: none;
+  display: block;
+}
+
+/* Make the SVG flexible and allow it to grow beyond bounds */
+svg {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: none;
+  max-height: none;
+}
+
+/* Text panel - right side */
 .fragment-text {
   width: 50%;
   height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-// Text panel specific styling
-.fragment-text {
   padding: 1rem;
-  background-color: white;  
-  border-left: 1px solid;
-  overflow: auto; // enables scrolling if text overflows
+  background-color: white;
+  border-left: 1px solid #ccc;
+  overflow: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-// Footer stays at the bottom
+/* Footer remains at the bottom */
 app-fullfooter {
   flex-shrink: 0;
 }
