@@ -25,6 +25,7 @@ import { Page } from '../model/page';
 })
 export class FragmentComponent implements OnInit {
 
+  @ViewChild('svgContainerRef') svgContainerRef!: ElementRef<SVGSVGElement>;
   @ViewChild('svgRef') svgRef!: ElementRef<SVGSVGElement>;
 
   title = 'Fragment';
@@ -33,15 +34,15 @@ export class FragmentComponent implements OnInit {
   windowHeight = window.innerHeight;
 
   fragment!: { marquee: Marquee; text: string };
-  viewBox = new Rectangle(0, 0, 1000, 1000);
   imageUrl = '';
-  x = 0;
-  y = 0;
   width = 0;
   height = 0;
   lastMouseX = 0;
   lastMouseY = 0;
   isDragging = false;
+  scale = 1;
+  offsetX = 0;
+  offsetY = 0;
 
   config$: Observable<Config> | null = null;
   diary$: Observable<Diary> | null = null;
@@ -89,42 +90,47 @@ export class FragmentComponent implements OnInit {
       this.height = page.height;
       this.imageUrl = `${config.fileServerUrl}/${diary.name}/${page.name}${page.extension}`;
 
-      const margin = 50;
-      // const r = marquee.rectangle;
-      const r = new Rectangle(0, 0, page.width, page.height);
-      this.viewBox = new Rectangle(r.x - margin, r.y - margin, r.width + 2 * margin, r.height + 2 * margin);
-
       // Ensure the view is updated before accessing svgRef
       this.cdr.detectChanges();
 
       if (this.svgRef) {
         const rect = this.svgRef.nativeElement.getBoundingClientRect();
-        console.log(`SVG Size - this.svgRef.nativeElement (after view update): width = ${rect.width}, height = ${rect.height}`);
+        console.log(`SVG rect: {x:${rect.x}, y:${rect.y}, width:${rect.width}, height:${rect.height}}`);
       }
     });
   }
 
-  viewBoxString(): string {
-    return `${this.viewBox.x} ${this.viewBox.y} ${this.viewBox.width} ${this.viewBox.height}`;
+  get transformStyle(): string {
+    return `translate(${this.offsetX}, ${this.offsetY}) scale(${this.scale})`;
   }
 
   onWheel(event: WheelEvent) {
     event.preventDefault();
-    const scaleFactor = event.deltaY < 0 ? 0.9 : 1.1;
 
-    // Center point to zoom on
+    // This increases (scroll up) or decreases (scroll down) the scale.
+    const scaleFactor = event.deltaY < 0 ? 1.1 : 0.9;
+    const newScale = this.scale * scaleFactor;
+
+    // This computes the mouse position relative to the SVG element in screen/pixel space.
     const rect = this.svgRef.nativeElement.getBoundingClientRect();
-    const svgX = (event.clientX - rect.left) * (this.viewBox.width / rect.width) + this.viewBox.x;
-    const svgY = (event.clientY - rect.top) * (this.viewBox.height / rect.height) + this.viewBox.y;
+    const pt = this.svgRef.nativeElement.createSVGPoint();
+    pt.x = event.clientX;
+    pt.y = event.clientY;
 
-    // Zoom logic
-    this.viewBox.x = svgX - (svgX - this.viewBox.x) * scaleFactor;
-    this.viewBox.y = svgY - (svgY - this.viewBox.y) * scaleFactor;
-    this.viewBox.width *= scaleFactor;
-    this.viewBox.height *= scaleFactor;
+    // Transform to SVG coordinates
+    const ctm = this.svgRef.nativeElement.getScreenCTM();
+    if (!ctm) return;
+    const svgPoint = pt.matrixTransform(ctm.inverse());
 
-    console.log(`Zoom level:     ${this.viewBox.width.toFixed(2)} x ${this.viewBox.height.toFixed(2)}`);
-    console.log(`SVG pixel size: ${rect.width.toFixed(2)} x ${rect.height.toFixed(2)}`);
+    // Get mouse position in SVG logical coordinates before zoom
+    const svgXBefore = (svgPoint.x - this.offsetX) / this.scale;
+    const svgYBefore = (svgPoint.y - this.offsetY) / this.scale;
+
+    // Recalculate offset so the same point stays under the mouse
+    this.offsetX = svgPoint.x - svgXBefore * newScale;
+    this.offsetY = svgPoint.y - svgYBefore * newScale;
+
+    this.scale = newScale;
   }
 
   onMouseDown(event: MouseEvent) {
@@ -134,14 +140,15 @@ export class FragmentComponent implements OnInit {
   }
 
   onMouseMove(event: MouseEvent) {
+    // console.log(`FragmentComponent.onMouseMove: ${event.clientX}, ${event.clientY}`);
     if (!this.isDragging) return;
 
-    const rect = this.svgRef.nativeElement.getBoundingClientRect();
+    const dx = (event.clientX - this.lastMouseX) / this.scale;
+    const dy = (event.clientY - this.lastMouseY) / this.scale;
 
-    const dx = (event.clientX - this.lastMouseX) * (this.viewBox.width / rect.width);
-    const dy = (event.clientY - this.lastMouseY) * (this.viewBox.height / rect.height);
-    this.viewBox.x -= dx;
-    this.viewBox.y -= dy;
+    this.offsetX += dx;
+    this.offsetY += dy;
+
     this.lastMouseX = event.clientX;
     this.lastMouseY = event.clientY;
   }
@@ -149,6 +156,7 @@ export class FragmentComponent implements OnInit {
   onMouseUp() {
     this.isDragging = false;
   }
+
 
   onRightClick(e: MouseEvent) {
   }

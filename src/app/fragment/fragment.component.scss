@@ -4,56 +4,37 @@
   height: 100vh;
 }
 
-.fragment-container {
-  flex: 1;
+.container {
   display: flex;
+  flex: 1;
   flex-direction: row;
-  overflow: hidden;
+  width: 100%;
+  height: 100%;
 }
 
-/* SVG panel - left side */
-#svg-container {
-  width: 50%;
+#svg {
+  flex: 1;
+  width: 100%;
   height: 100%;
-  position: relative;
-  overflow: hidden; // still blocks scrollbars, but we’ll zoom within
+  display: block;
   background-color: black;
 }
 
-#zoomable-svg {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: auto;
-  height: auto;
-  max-width: none;
-  max-height: none;
-  display: block;
-}
-
-/* Make the SVG flexible and allow it to grow beyond bounds */
-svg {
-  display: block;
-  width: auto;
-  height: auto;
-  max-width: none;
-  max-height: none;
-}
-
-/* Text panel - right side */
-.fragment-text {
-  width: 50%;
-  height: 100%;
+.text {
+  flex: 1;
   padding: 1rem;
-  background-color: white;
-  border-left: 1px solid #ccc;
   overflow: auto;
+  background-color: #fff;
+  border-left: 1px solid #ccc;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-/* Footer remains at the bottom */
+.padding {
+  height: 0.5rem;
+}
+
 app-fullfooter {
   flex-shrink: 0;
 }
