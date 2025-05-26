@@ -6,6 +6,7 @@ import { Diary } from "../model/diary";
 import { Page } from "../model/page";
 import { Marquee } from "../model/marquee";
 import { Rectangle } from "../utilities/rectangle";
+import { Fragment } from "../model/fragment";
 
 @Injectable({ providedIn: 'root' })
 export class LiveObjectService {
@@ -37,6 +38,14 @@ export class LiveObjectService {
             const raw = JSON.parse(buf.toString());
             const rectangle = new Rectangle(raw.x, raw.y, raw.width, raw.height);
             return new Marquee(raw.id, rectangle, raw.sequence);
+        })
+    }
+
+    getFragmentById$(diaryId: number, pageId: number, fragmentId: number): Observable<Fragment> {
+        console.log(`LiveObjectService: getFragmentById$(${diaryId}, ${pageId}, ${fragmentId})`);
+        const topic = `diary/${diaryId}/${pageId}/${fragmentId}`;
+        return this.getObjectById$<Fragment>(topic, (buf: Buffer) => {
+            return JSON.parse(buf.toString()) as Fragment;
         })
     }
 

@@ -11,6 +11,7 @@ import { CommonModule } from '@angular/common';
 import { combineLatest, from, Observable } from 'rxjs';
 import { Diary } from '../model/diary';
 import { Page } from '../model/page';
+import { Point } from '../utilities/point';
 
 @Component({
   selector: 'app-fragment',
@@ -37,12 +38,16 @@ export class FragmentComponent implements OnInit {
   imageUrl = '';
   width = 0;
   height = 0;
-  lastMouseX = 0;
-  lastMouseY = 0;
-  isDragging = false;
   scale = 1;
   offsetX = 0;
   offsetY = 0;
+  cursorStyle = '';
+  isDraggingGlobal = false;
+  isDraggingMarquee = false;
+  dragStart?: DOMPoint;
+  dragStartMarquee?: Point;
+  originalRectangle?: Rectangle;
+  resizeEdge?: { left: boolean; right: boolean; top: boolean; bottom: boolean; };
 
   config$: Observable<Config> | null = null;
   diary$: Observable<Diary> | null = null;
@@ -89,6 +94,9 @@ export class FragmentComponent implements OnInit {
       this.width = page.width;
       this.height = page.height;
       this.imageUrl = `${config.fileServerUrl}/${diary.name}/${page.name}${page.extension}`;
+      this.originalRectangle = { ...this.fragment.marquee.rectangle }; // shallow copy
+
+      this.title = `${diary.name} - ${page.name}`;
 
       // Ensure the view is updated before accessing svgRef
       this.cdr.detectChanges();
@@ -112,7 +120,6 @@ export class FragmentComponent implements OnInit {
     const newScale = this.scale * scaleFactor;
 
     // This computes the mouse position relative to the SVG element in screen/pixel space.
-    const rect = this.svgRef.nativeElement.getBoundingClientRect();
     const pt = this.svgRef.nativeElement.createSVGPoint();
     pt.x = event.clientX;
     pt.y = event.clientY;
@@ -134,30 +141,188 @@ export class FragmentComponent implements OnInit {
   }
 
   onMouseDown(event: MouseEvent) {
-    this.lastMouseX = event.clientX;
-    this.lastMouseY = event.clientY;
-    this.isDragging = true;
+    const mousePosition = this.getMousePosition(event);
+    const isCtrlKeyDown = event.ctrlKey;
+
+    if (isCtrlKeyDown && this.fragment?.marquee) {
+      this.resizeEdge = this.detectResizeEdge(mousePosition);
+
+      this.dragStart = mousePosition;
+      this.originalRectangle = { ...this.fragment.marquee.rectangle };
+
+      if (Object.values(this.resizeEdge).every(v => v === false)) {
+        // Ctrl + click inside marquee = move marquee
+        this.isDraggingMarquee = true;
+        this.dragStart = mousePosition;
+        const r = this.fragment.marquee.rectangle;
+        this.dragStartMarquee = { x: r.x, y: r.y };
+      } else {
+        // Ctrl + click near edge = resize
+        this.dragStart = mousePosition;
+      }
+    } else {
+      // fallback to global pan
+      this.isDraggingGlobal = true;
+      this.dragStart = mousePosition;
+    }
   }
 
   onMouseMove(event: MouseEvent) {
-    // console.log(`FragmentComponent.onMouseMove: ${event.clientX}, ${event.clientY}`);
-    if (!this.isDragging) return;
+    const isCtrlKeyDown = event.ctrlKey;
+    let mousePosition = this.getMousePosition(event);
+    this.calculateCursorStyle(mousePosition, isCtrlKeyDown)
+    if (!this.dragStart) return;
 
-    const dx = (event.clientX - this.lastMouseX) / this.scale;
-    const dy = (event.clientY - this.lastMouseY) / this.scale;
+    const dx = mousePosition.x - this.dragStart.x;
+    const dy = mousePosition.y - this.dragStart.y;
 
-    this.offsetX += dx;
-    this.offsetY += dy;
+    const r = this.fragment.marquee.rectangle;
 
-    this.lastMouseX = event.clientX;
-    this.lastMouseY = event.clientY;
+    if (this.isDraggingGlobal) {
+      this.offsetX += dx;
+      this.offsetY += dy;
+      this.dragStart = mousePosition;
+    }
+
+    if (this.isDraggingMarquee && this.fragment?.marquee && this.dragStartMarquee) {
+      const dxSvg = dx / this.scale;
+      const dySvg = dy / this.scale;
+    
+      r.x = this.dragStartMarquee.x + dxSvg;
+      r.y = this.dragStartMarquee.y + dySvg;
+    }
+
+    if (isCtrlKeyDown && this.isResizeActive() && this.originalRectangle) {
+      const { left, right, top, bottom } = this.resizeEdge!;
+      const dx = (mousePosition.x - this.dragStart!.x) / this.scale;
+      const dy = (mousePosition.y - this.dragStart!.y) / this.scale;
+
+      if (left) {
+        r.x = this.originalRectangle.x + dx;
+        r.width = this.originalRectangle.width - dx;
+      }
+      if (right) {
+        r.width = this.originalRectangle.width + dx;
+      }
+      if (top) {
+        r.y = this.originalRectangle.y + dy;
+        r.height = this.originalRectangle.height - dy;
+      }
+      if (bottom) {
+        r.height = this.originalRectangle.height + dy;
+      }
+      return;
+    }
+  }
+
+  private isResizeActive(): boolean {
+    const e = this.resizeEdge;
+    return !!e && (e.left || e.right || e.top || e.bottom);
   }
 
   onMouseUp() {
-    this.isDragging = false;
+    this.isDraggingGlobal = false;
+    this.isDraggingMarquee = false;
+    this.resizeEdge = undefined;
+    this.dragStart = undefined;
+    this.dragStartMarquee = undefined;
+    this.originalRectangle = undefined;
+  }
+
+  onRightClick(e: MouseEvent) {
+  }
+
+  calculateCursorStyle(mousePosition: DOMPoint, isCtrlKeyDown: boolean) {
+
+    const m = this.fragment.marquee.rectangle;
+
+    // Apply the <g> transform to get the position of the marquee in SVG logical space
+    const rectX = m.x * this.scale + this.offsetX;
+    const rectY = m.y * this.scale + this.offsetY;
+    const rectWidth = m.width * this.scale;
+    const rectHeight = m.height * this.scale;
+
+    const left = rectX;
+    const right = rectX + rectWidth;
+    const top = rectY;
+    const bottom = rectY + rectHeight;
+
+    // The mouse position is already in SVG logical space
+
+    // Now hit-test against the transformed marquee
+    const margin = 40;
+    const nearLeft = Math.abs(mousePosition.x - left) < margin;
+    const nearRight = Math.abs(mousePosition.x - right) < margin;
+    const nearTop = Math.abs(mousePosition.y - top) < margin;
+    const nearBottom = Math.abs(mousePosition.y - bottom) < margin;
+
+    const insideHoriz = (mousePosition.x + margin >= left) && (mousePosition.x - margin <= right);
+    const insideVert = (mousePosition.y + margin >= top) && (mousePosition.y - margin <= bottom);
+
+    let cursor = 'default';
+
+    if (isCtrlKeyDown && insideHoriz && insideVert) {
+
+      if ((nearLeft && nearTop) || (nearRight && nearBottom)) {
+        cursor = 'corner-1-resize';
+      } else if ((nearLeft && nearBottom) || (nearRight && nearTop)) {
+        cursor = 'corner-2-resize';
+      } else if (nearLeft || nearRight) {
+        cursor = 'horizontal-resize';
+      } else if (nearTop || nearBottom) {
+        cursor = 'vertical-resize';
+      } else {
+        cursor = 'move';
+      }
+    }
+
+    this.cursorStyle = cursor;
+  }
+
+  detectResizeEdge(mousePosition: DOMPoint): { left: boolean, right: boolean, top: boolean, bottom: boolean } {
+    const m = this.fragment.marquee.rectangle;
+    const margin = 40;
+
+    // Apply the <g> transform to get the position of the marquee in SVG logical space
+    const left = m.x * this.scale + this.offsetX;
+    const right = (m.x + m.width) * this.scale + this.offsetX;
+    const top = m.y * this.scale + this.offsetY;
+    const bottom = (m.y + m.height) * this.scale + this.offsetY;
+
+    // The mouse position is already in SVG logical space
+
+    // Now hit-test against the transformed marquee
+
+    const insideHoriz = (mousePosition.x + margin >= left) && (mousePosition.x - margin <= right);
+    const insideVert = (mousePosition.y + margin >= top) && (mousePosition.y - margin <= bottom);
+
+    const edges = { left: false, right: false, top: false, bottom: false };
+
+    if (insideHoriz && insideVert) {
+      edges.left = Math.abs(mousePosition.x - left) < margin;
+      edges.right = Math.abs(mousePosition.x - right) < margin;
+      edges.top = Math.abs(mousePosition.y - top) < margin;
+      edges.bottom = Math.abs(mousePosition.y - bottom) < margin;
+    }
+
+    return edges;
   }
 
 
-  onRightClick(e: MouseEvent) {
+  // Get the mouse position relative to the SVG element in screen/pixel space.
+  getMousePosition(event: MouseEvent): DOMPoint {
+
+    const svg = this.svgRef.nativeElement;
+    const pt = svg.createSVGPoint();
+    pt.x = event.clientX;
+    pt.y = event.clientY;
+
+    // Transform to SVG coordinates
+    const ctm = svg.getScreenCTM();
+    if (!ctm) {
+      return pt; // Assume identity transform
+    }
+
+    return pt.matrixTransform(ctm.inverse());
   }
 }

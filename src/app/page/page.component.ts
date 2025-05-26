@@ -132,7 +132,6 @@ onMouseMove(event: MouseEvent) {
   handler.onMouseMove(event);
 }
 onMouseDown(event: MouseEvent) {
-  console.log(`PageComponent.onMouseDown`);
   let handler = this.handlers[this.mode];
   handler.onMouseDown(event);
 }

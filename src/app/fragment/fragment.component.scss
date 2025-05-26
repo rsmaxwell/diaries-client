@@ -18,6 +18,27 @@
   height: 100%;
   display: block;
   background-color: black;
+  cursor: default;
+
+  &.corner-1-resize {
+    cursor: url('/assets/cursors/corner-1-resize.svg') 16 16, default;
+  }
+
+  &.corner-2-resize {
+    cursor: url('/assets/cursors/corner-2-resize.svg') 16 16, default;
+  }
+
+  &.horizontal-resize {
+    cursor: url('/assets/cursors/horizontal-resize.svg') 16 16, default;
+  }
+
+  &.vertical-resize {
+    cursor: url('/assets/cursors/vertical-resize.svg') 16 16, default;
+  }
+
+  &.move {
+    cursor: url('/assets/cursors/move.svg') 16 16, default;
+  }
 }
 
 .text {
@@ -29,10 +50,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.padding {
-  height: 0.5rem;
 }
 
 app-fullfooter {
