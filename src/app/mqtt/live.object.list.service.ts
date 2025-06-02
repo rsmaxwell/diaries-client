@@ -20,7 +20,7 @@ export class LiveObjectListService {
     getDiaries$(): Observable<Diary[]> {
         return from(this.mqtt.getConnection()).pipe(
             switchMap(client =>
-                this.subscribeToTopicTree$<Diary>(client, `diary/`, (buf: Buffer) => {
+                this.subscribeToTopicTree$<Diary>(client, `diaries/`, (buf: Buffer) => {
                     return JSON.parse(buf.toString()) as Diary;
                 })
             )
@@ -30,7 +30,7 @@ export class LiveObjectListService {
     getPagesForDiary$(diaryId: number): Observable<Page[]> {
         return from(this.mqtt.getConnection()).pipe(
             switchMap(client =>
-                this.subscribeToTopicTree$<Page>(client, `diary/${diaryId}/`, (buf: Buffer) => {
+                this.subscribeToTopicTree$<Page>(client, `diaries/${diaryId}/`, (buf: Buffer) => {
                     return JSON.parse(buf.toString()) as Page;
                 })
             )
@@ -38,7 +38,7 @@ export class LiveObjectListService {
     }
 
     getMarqueesForPage$(diaryId: number, pageId: number): Observable<Marquee[]> {
-        const topicPrefix = `diary/${diaryId}/${pageId}/`;
+        const topicPrefix = `diaries/${diaryId}/${pageId}/fragments/`;
 
         return from(this.mqtt.getConnection()).pipe(
             switchMap(client =>
@@ -52,15 +52,15 @@ export class LiveObjectListService {
     }
 
     async unsubscribeFromDiaries$(): Promise<void> {
-        await this.unsubscribeTopicTree(`diary/`);
+        await this.unsubscribeTopicTree(`diaries/`);
     }
 
     async unsubscribeFromgetDiaryById$(id: number): Promise<void> {
-        await this.unsubscribeTopicTree(`diary/${id}`);
+        await this.unsubscribeTopicTree(`diaries/${id}`);
     }
 
     async unsubscribeFromMarqueesForPage$(diaryId: number, pageId: number): Promise<void> {
-        const topicPrefix = `diary/${diaryId}/${pageId}/`;
+        const topicPrefix = `diaries/${diaryId}/${pageId}/`;
         await this.unsubscribeTopicTree(topicPrefix);
     }
 

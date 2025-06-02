@@ -66,11 +66,14 @@ export class SelectModeHandler extends PageModeHandler {
         console.log(`SelectModeHandler.onMouseUp`);
 
         if (this.isDraggingLeft || this.isDraggingTop || this.isDraggingRight || this.isDraggingBottom || this.isDraggingAll) {
-            console.log(`SelectModeHandler.onMouseUp: is Dragging: true`);
+            console.log(`SelectModeHandler.onMouseUp: is Dragging: true: this.pageComponent.selectedMarqueeId: ${this.pageComponent.selectedMarqueeId}`);
             const m = this.pageComponent.marquees.find(m => m.id === this.pageComponent.selectedMarqueeId);
             if (m) {
-                console.log(`SelectModeHandler.onMouseUp: marquee: ${JSON.stringify(m)}`);
+                console.log(`SelectModeHandler.onMouseUp: found id: ${m.id}`);
                 this.pageComponent.updateMarquee(m);
+            }
+            else {
+                console.log(`SelectModeHandler.onMouseUp: NOT found id: ${this.pageComponent.selectedMarqueeId}`);
             }
         }
         else {

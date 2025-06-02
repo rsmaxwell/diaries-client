@@ -221,6 +221,7 @@ addNewMarquee(rectangle: Rectangle, sequence: number) {
 }
 
 updateMarquee(marquee: Marquee) {
+  console.log(`PageComponent.updateMarquee: id: ${JSON.stringify(marquee)}`);
   this.rpcService.updateMarquee$(marquee).subscribe({
     next: () => {
       console.log(`PageComponent.updateMarquee: update succeeded`);

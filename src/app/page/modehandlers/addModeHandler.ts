@@ -12,6 +12,11 @@ export class AddModeHandler extends PageModeHandler {
 
     onMouseDown(event: MouseEvent) {
         this.start = this.getMousePosition(event);
+
+        if (this.start) {
+            const rect = new Rectangle(this.start.x, this.start.y, 0, 0);
+            this.pageComponent.currentMarquee = new Marquee(-1, rect, 0); // id = -1 means temporary
+          }
     }
     onMouseMove(event: MouseEvent) {
         if (this.start != null) {
@@ -39,6 +44,7 @@ export class AddModeHandler extends PageModeHandler {
 
                 this.pageComponent.addNewMarquee(new Rectangle(x, y, width, height), 1);
                 this.start = null;
+                this.pageComponent.clearCurrentMarquee();
             }
         }
     }
