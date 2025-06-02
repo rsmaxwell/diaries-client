@@ -314,8 +314,8 @@ export class RpcService {
             token: this.accessTokenService.getToken()
         }).pipe(
             switchMap(({ cfg, client, token }) => {
-                const replyTopic = `reply/${cfg.clientId}/deleteMarquee`;
-                const payload = { function: 'deleteMarquee', args: new DeleteMarqueeRequest(id) };
+                const replyTopic = `reply/${cfg.clientId}/deleteFragment`;
+                const payload = { function: 'deleteFragment', args: new DeleteMarqueeRequest(id) };
                 const deserialize = ReplyHandler.getBufferAsNumber
                 return this.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
             })
