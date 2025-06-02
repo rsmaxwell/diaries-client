@@ -38,7 +38,7 @@ export class LiveObjectListService {
     }
 
     getMarqueesForPage$(diaryId: number, pageId: number): Observable<Marquee[]> {
-        const topicPrefix = `diaries/${diaryId}/${pageId}/fragments/`;
+        const topicPrefix = `diaries/${diaryId}/${pageId}/`;
 
         return from(this.mqtt.getConnection()).pipe(
             switchMap(client =>
