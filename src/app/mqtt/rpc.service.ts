@@ -299,9 +299,6 @@ export class RpcService {
                 const replyTopic = `reply/${cfg.clientId}/updateMarquee`;
                 const payload = { function: 'updateMarquee', args: new UpdateMarqueeRequest(marquee) };
                 const deserialize = ReplyHandler.getBufferAsNumber
-
-                console.log(`RpcService.updateMarquee$: sending request`);
-
                 return this.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
             })
         );
