@@ -41,8 +41,6 @@ export class FragmentComponent implements OnInit, OnDestroy {
   page: Page = Page.default;
   fragment!: { marquee: Marquee; text: string };
   imageUrl = '';
-  width = 0;
-  height = 0;
   scale = 1;
   offsetX = 0;
   offsetY = 0;
@@ -87,10 +85,6 @@ export class FragmentComponent implements OnInit, OnDestroy {
         const pageId = Number(this.route.snapshot.paramMap.get('pageId'));
         const fragmentId = Number(this.route.snapshot.paramMap.get('fragmentId'));
 
-        const width = window.innerWidth;
-        const height = window.innerHeight;
-        console.log(`Viewport size: ${width} x ${height}`);
-
         combineLatest([
           this.config$ = from(this.configService.getConfig()),
           this.diary$ = this.liveObjectService.getDiaryById$(diaryId),
@@ -106,11 +100,9 @@ export class FragmentComponent implements OnInit, OnDestroy {
               text: `marquee\n${JSON.stringify(marquee, null, 2)}\n\n` +
                 `page\n${JSON.stringify(page, null, 2)}\n\n` +
                 `config\n${JSON.stringify(config, null, 2)}\n\n` +
-                `viewport size: width: ${width}, height ${height}`
+                `viewport size: width: ${window.innerWidth}, height ${window.innerHeight}`
             };
 
-            this.width = page.width;
-            this.height = page.height;
             this.diary = diary;
             this.page = page;
             this.pages = pages;
