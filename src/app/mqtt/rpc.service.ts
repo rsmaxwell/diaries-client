@@ -148,7 +148,8 @@ export class RpcService {
                     properties
                 };
 
-                console.log(`rpcRequest: Publishing to ${requestTopic} with corr=${corr}, replyTopic=${replyTopic}`);
+                console.log(`rpcRequest: topic: '${requestTopic}', payload: '${publishPayload}'`);
+                // console.log(`rpcRequest: corr: '${corr}', replyTopic: '${replyTopic}'`);                
                 client.publish(requestTopic, publishPayload, publishOptions, err => {
                     if (err) {
                         this.responseHandlers.delete(corr);

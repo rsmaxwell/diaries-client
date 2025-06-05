@@ -1,4 +1,4 @@
-import { BehaviorSubject, firstValueFrom, filter, timeout } from "rxjs";
+import { BehaviorSubject, filter, firstValueFrom, timeout } from "rxjs";
 
 export class TokenService {
 
@@ -9,7 +9,7 @@ export class TokenService {
   constructor(storageKey: string) {
     this.storageKey = storageKey;
 
-    const saved = localStorage.getItem(this.storageKey);
+    const saved = sessionStorage.getItem(this.storageKey);
     if (saved) {
       this.token = saved;
       this.tokenSubject.next(saved);
@@ -19,7 +19,7 @@ export class TokenService {
   setToken(token: string) {
     this.token = token;
     this.tokenSubject.next(token);
-    // localStorage.setItem(this.storageKey, token);  // removed for security reasons
+    sessionStorage.setItem(this.storageKey, token);
   }
 
   getToken(): Promise<string> {
@@ -40,6 +40,6 @@ export class TokenService {
   clearToken(): void {
     this.token = null;
     this.tokenSubject.next(null);
-    localStorage.removeItem(this.storageKey);
+    sessionStorage.removeItem(this.storageKey);
   }
 }

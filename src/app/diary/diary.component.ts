@@ -1,5 +1,5 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
-import { Diary, UpdateDiaryRequest } from '../model/diary';
+import { Diary } from '../model/diary';
 import { CommonModule, NgIf } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -11,18 +11,13 @@ import { MatCardModule } from '@angular/material/card';
 import { MatSelectModule } from '@angular/material/select';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
-import { forkJoin, Observable, Subscription, switchMap } from 'rxjs';
+import { Subject, switchMap, takeUntil } from 'rxjs';
 import { AlertService } from '../alerts/alert.service';
 import { Page } from '../model/page';
 import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { LiveObjectListService } from '../mqtt/live.object.list.service';
 import { LiveObjectService } from '../mqtt/live.object.service';
 import { RpcService } from '../mqtt/rpc.service';
-import { ConfigService } from '../config/config.service';
-import { AccessTokenService } from '../user/token/AccessTokenService';
-import { MqttService } from '../mqtt/mqtt.service';
-import { ReplyHandler } from '../utilities/replyHandler';
-import { Constants } from '../utilities/constants';
 
 
 
@@ -48,19 +43,12 @@ import { Constants } from '../utilities/constants';
 export class DiaryComponent implements OnInit, OnDestroy {
 
   title = 'Diaries';
-
-  pages: Page[] = [];
-  dataSource = new MatTableDataSource<Page>();
   displayedColumns: string[] = ['id', 'sequence', 'name'];
-  pageSubscription: Subscription = new Subscription();
-
+  dataSource = new MatTableDataSource<Page>();
   diary: Diary | undefined;
-
+  private destroy$ = new Subject<void>();
 
   constructor(
-    private config: ConfigService,
-    private mqtt: MqttService,
-    private accessToken: AccessTokenService,
     private rpcService: RpcService,
     private liveObjectListService: LiveObjectListService,
     private liveObjectService: LiveObjectService,
@@ -68,40 +56,42 @@ export class DiaryComponent implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private alertService: AlertService
   ) {
-    console.log(`DiaryComponent.constructor`)
+    console.log(`DiaryComponent.constructor`);
   }
 
   ngOnInit(): void {
-    console.log(`DiaryComponent.ngOnInit`)
+    console.log(`DiaryComponent.ngOnInit`);
 
-    this.dataSource.data = this.pages;
-
-    const sub = this.route.params
+    this.route.params
       .pipe(
+        takeUntil(this.destroy$),
         switchMap(params => {
           const id = +params['diaryId'];
           return this.liveObjectService.getDiaryById$(id);
         })
       )
       .subscribe(diary => {
-        if (!diary) return;
         this.diary = diary;
 
-        console.log(`PageComponent.ngOnInit: diary.id: ${diary.id}`)
+        console.log(`PageComponent.ngOnInit: diary.id: ${diary.id}`);
 
         // Only now get the pages
         this.liveObjectListService.getPagesForDiary$(diary.id)
+          .pipe(takeUntil(this.destroy$))
           .subscribe(pages => {
-            this.pages = pages;
             this.dataSource.data = pages;
           });
       });
+  }
 
-    this.pageSubscription.add(sub);
+  ngOnDestroy(): void {
+    console.log('DiaryComponent.ngOnDestroy');
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   selectItem(id: number) {
-    console.log(`PageComponent.selectItem: id: ${id}`)
+    console.log(`PageComponent.selectItem: id: ${id}`);
 
     if (typeof id !== 'number') {
       console.error('Expected numeric page ID, got:', id);
@@ -111,39 +101,33 @@ export class DiaryComponent implements OnInit, OnDestroy {
     this.router.navigate([`/diary/${this.diary?.id}/${id}`]);
   }
 
-  ngOnDestroy(): void {
-    console.log('PagesComponent.ngOnDestroy: unsubscribing');
-    this.pageSubscription?.unsubscribe();
-  }
-
   drop(event: CdkDragDrop<Diary[]>) {
     const data = this.dataSource.data;
     moveItemInArray(data, event.previousIndex, event.currentIndex);
-    this.dataSource.data = data; // Trigger table update
+    this.dataSource.data = data;
 
     let seq = 1;
     data.map(p => {
-
       console.log(`drop: id: ${p.id}, sequence: ${p.sequence}, name: ${p.name}`);
 
       if (seq != p.sequence) {
-
         console.log(`          id: ${p.id}, sequence: ${p.sequence} --> ${seq}`);
-
         p.sequence = seq;
 
-        this.rpcService.updatePage$(p).subscribe({
-          next: (id) => {
-            console.log(`diary: ${p.id}, ${p.sequence}, ${p.name} updated`);
-          },
-          error: (err) => {
-            console.log(`DiaryComponent.drop: error: ${err}`)
-            this.alertService.error(err);
-          }
-        });
+        this.rpcService.updatePage$(p)
+          .pipe(takeUntil(this.destroy$))
+          .subscribe({
+            next: (id) => {
+              console.log(`diary: ${p.id}, ${p.sequence}, ${p.name} updated`);
+            },
+            error: (err) => {
+              console.log(`DiaryComponent.drop: error: ${err}`);
+              this.alertService.error(err);
+            }
+          });
       }
 
       seq++;
-    })
+    });
   }
 }

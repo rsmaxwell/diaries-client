@@ -55,8 +55,8 @@ export class LiveObjectListService {
         await this.unsubscribeTopicTree(`diaries/`);
     }
 
-    async unsubscribeFromgetDiaryById$(id: number): Promise<void> {
-        await this.unsubscribeTopicTree(`diaries/${id}`);
+    async unsubscribeFromPagesForDiary$(id: number): Promise<void> {
+        await this.unsubscribeTopicTree(`diaries/${id}/`);
     }
 
     async unsubscribeFromMarqueesForPage$(diaryId: number, pageId: number): Promise<void> {

@@ -1,6 +1,6 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Diary, UpdateDiaryRequest } from '../model/diary';
+import { Diary } from '../model/diary';
 import { Router } from '@angular/router';
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { ScrollingModule } from '@angular/cdk/scrolling';
@@ -8,16 +8,11 @@ import { FullheaderComponent } from '../headers/fullheader/fullheader.component'
 import { FullfooterComponent } from '../headers/fullfooter/fullfooter.component';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
-import { forkJoin, Observable, Subscription, switchMap } from 'rxjs';
+import { Subject, Subscription, takeUntil } from 'rxjs';
 import { LiveObjectListService } from '../mqtt/live.object.list.service';
 import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { RpcService } from '../mqtt/rpc.service';
 import { AlertService } from '../alerts/alert.service';
-import { ConfigService } from '../config/config.service';
-import { MqttService } from '../mqtt/mqtt.service';
-import { AccessTokenService } from '../user/token/AccessTokenService';
-import { ReplyHandler } from '../utilities/replyHandler';
-import { Constants } from '../utilities/constants';
 
 @Component({
   selector: 'app-diaries',
@@ -41,12 +36,9 @@ export class DiariesComponent implements OnInit, OnDestroy {
 
   dataSource = new MatTableDataSource<Diary>();
   displayedColumns: string[] = ['id', 'sequence', 'name'];
-  subscription: Subscription | null = null;
+  private destroy$ = new Subject<void>();
 
   constructor(
-    private config: ConfigService,
-    private mqtt: MqttService,
-    private accessToken: AccessTokenService,
     private rpcService: RpcService,
     private liveObjectListService: LiveObjectListService,
     private router: Router,
@@ -57,23 +49,27 @@ export class DiariesComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     console.log(`DiariesComponent.ngOnInit`);
-    this.subscription = this.liveObjectListService.getDiaries$().subscribe(diaries => {
-      this.dataSource.data = diaries;
-    });
+
+    this.liveObjectListService.getDiaries$()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(diaries => {
+        console.log(`DiariesComponent.ngOnInit: list updated: ${JSON.stringify(diaries)}`)
+        this.dataSource.data = diaries;
+      });
+  }
+
+  ngOnDestroy(): void {
+    console.log('DiariesComponent.ngOnDestroy');
+
+    this.destroy$.next();       // Emit destroy signal
+    this.destroy$.complete();   // Complete the subject
+
+    this.liveObjectListService.unsubscribeFromDiaries$(); // Still useful if explicitly needed
   }
 
   selectItem(id: number): void {
     console.log(`DiariesComponent.selectItem: id: ${id}`)
     this.router.navigate([`/diary/${id}`]);
-  }
-
-  ngOnDestroy(): void {
-    console.log('DiariesComponent.ngOnDestroy');
-    if (this.subscription) {
-      console.log('DiariesComponent.ngOnDestroy: Unsubscribed from SubscriptionService');
-      this.subscription.unsubscribe();
-    }
-    this.liveObjectListService.unsubscribeFromDiaries$();
   }
 
   drop(event: CdkDragDrop<Diary[]>) {
@@ -106,15 +102,29 @@ export class DiariesComponent implements OnInit, OnDestroy {
     // Trigger table update
     this.dataSource.data = data;
 
-    // Normalise the diaries
-    this.rpcService.normaliseDiaries$().subscribe({
+    // Update the diary 
+    this.rpcService.updateDiary$(movedDiary).subscribe({
       next: (n) => {
-        console.log(`NormaliseDiaries succeeded: n: ${n}`);
+        console.log(`UpdateDiary succeeded: n: ${n}`);
+
+        // Normalise the diaries
+        this.rpcService.normaliseDiaries$().subscribe({
+          next: (n) => {
+            console.log(`NormaliseDiaries succeeded: n: ${n}`);
+          },
+          error: (err) => {
+            console.log(`NormaliseDiaries failed: ${err}`)
+            this.alertService.error(err);
+          }
+        });
+
       },
       error: (err) => {
-        console.log(`NormaliseDiaries failed: ${err}`)
+        console.log(`UpdateDiary failed: ${err}`)
         this.alertService.error(err);
       }
     });
+
+
   }
 }

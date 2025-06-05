@@ -1,39 +1,44 @@
 // fragment.component.ts
-import { ChangeDetectorRef, Component, HostListener, ElementRef, OnInit, ViewChild } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ChangeDetectorRef, Component, HostListener, ElementRef, OnInit, ViewChild, OnDestroy } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Config, ConfigService } from '../config/config.service';
 import { LiveObjectService } from '../mqtt/live.object.service';
 import { Rectangle } from '../utilities/rectangle';
 import { Marquee } from '../model/marquee';
-import { FullheaderComponent } from '../headers/fullheader/fullheader.component';
-import { FullfooterComponent } from '../headers/fullfooter/fullfooter.component';
 import { CommonModule } from '@angular/common';
-import { combineLatest, from, Observable } from 'rxjs';
+import { combineLatest, from, Observable, Subject, Subscription, takeUntil } from 'rxjs';
 import { Diary } from '../model/diary';
 import { Page } from '../model/page';
 import { Point } from '../utilities/point';
+import { PageheaderComponent } from '../headers/pageheader/pageheader.component';
+import { PagefooterComponent } from '../headers/pagefooter/pagefooter.component';
+import { LiveObjectListService } from '../mqtt/live.object.list.service';
 
 @Component({
   selector: 'app-fragment',
   standalone: true,
   imports: [
     CommonModule,
-    FullheaderComponent,
-    FullfooterComponent
+    PageheaderComponent,
+    PagefooterComponent
   ],
   templateUrl: './fragment.component.html',
   styleUrls: ['./fragment.component.scss']
 })
-export class FragmentComponent implements OnInit {
+export class FragmentComponent implements OnInit, OnDestroy {
 
   @ViewChild('svgContainerRef') svgContainerRef!: ElementRef<SVGSVGElement>;
   @ViewChild('svgRef') svgRef!: ElementRef<SVGSVGElement>;
 
   title = 'Fragment';
 
+  private destroy$ = new Subject<void>();
+
   windowWidth = window.innerWidth;
   windowHeight = window.innerHeight;
 
+  diary: Diary = Diary.default;
+  page: Page = Page.default;
   fragment!: { marquee: Marquee; text: string };
   imageUrl = '';
   width = 0;
@@ -48,16 +53,22 @@ export class FragmentComponent implements OnInit {
   dragStartMarquee?: Point;
   originalRectangle?: Rectangle;
   resizeEdge?: { left: boolean; right: boolean; top: boolean; bottom: boolean; };
+  pages: Page[] = [];
+  marquees: Marquee[] = [];
 
   config$: Observable<Config> | null = null;
   diary$: Observable<Diary> | null = null;
   page$: Observable<Page> | null = null;
+  pages$: Observable<Page[]> | null = null;
   marquee$: Observable<Marquee> | null = null;
+  marquees$: Observable<Marquee[]> | null = null;
 
   constructor(
     private route: ActivatedRoute,
+    private router: Router,
     private configService: ConfigService,
     private liveObjectService: LiveObjectService,
+    private liveObjectListService: LiveObjectListService,
     private cdr: ChangeDetectorRef
   ) { }
 
@@ -69,43 +80,62 @@ export class FragmentComponent implements OnInit {
   }
 
   ngOnInit() {
-    const diaryId = Number(this.route.snapshot.paramMap.get('diaryId'));
-    const pageId = Number(this.route.snapshot.paramMap.get('pageId'));
-    const fragmentId = Number(this.route.snapshot.paramMap.get('fragmentId'));
+    this.route.paramMap
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        const diaryId = Number(this.route.snapshot.paramMap.get('diaryId'));
+        const pageId = Number(this.route.snapshot.paramMap.get('pageId'));
+        const fragmentId = Number(this.route.snapshot.paramMap.get('fragmentId'));
 
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    console.log(`Viewport size: ${width} x ${height}`);
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        console.log(`Viewport size: ${width} x ${height}`);
 
-    combineLatest([
-      this.config$ = from(this.configService.getConfig()),
-      this.diary$ = this.liveObjectService.getDiaryById$(diaryId),
-      this.page$ = this.liveObjectService.getPageById$(diaryId, pageId),
-      this.marquee$ = this.liveObjectService.getMarqueeById$(diaryId, pageId, fragmentId)
+        combineLatest([
+          this.config$ = from(this.configService.getConfig()),
+          this.diary$ = this.liveObjectService.getDiaryById$(diaryId),
+          this.page$ = this.liveObjectService.getPageById$(diaryId, pageId),
+          this.pages$ = this.liveObjectListService.getPagesForDiary$(diaryId),
+          this.marquee$ = this.liveObjectService.getMarqueeById$(diaryId, pageId, fragmentId),
+          this.marquees$ = this.liveObjectListService.getMarqueesForPage$(diaryId, pageId),
+        ])
+          .pipe(takeUntil(this.destroy$))
+          .subscribe(([config, diary, page, pages, marquee, marquees]) => {
+            this.fragment = {
+              marquee,
+              text: `marquee\n${JSON.stringify(marquee, null, 2)}\n\n` +
+                `page\n${JSON.stringify(page, null, 2)}\n\n` +
+                `config\n${JSON.stringify(config, null, 2)}\n\n` +
+                `viewport size: width: ${width}, height ${height}`
+            };
 
-    ]).subscribe(([config, diary, page, marquee]) => {
-      this.fragment = {
-        marquee,
-        text: `marquee\n${JSON.stringify(marquee, null, 2)}\n\n` +
-          `page\n${JSON.stringify(page, null, 2)}\n\n` +
-          `config\n${JSON.stringify(config, null, 2)}\n\n` +
-          `viewport size: width: ${width}, height ${height}`
-      };
-      this.width = page.width;
-      this.height = page.height;
-      this.imageUrl = `${config.fileServerUrl}/${diary.name}/${page.name}${page.extension}`;
-      this.originalRectangle = { ...this.fragment.marquee.rectangle }; // shallow copy
+            this.width = page.width;
+            this.height = page.height;
+            this.diary = diary;
+            this.page = page;
+            this.pages = pages;
+            this.marquees = marquees;
+            this.imageUrl = `${config.fileServerUrl}/${diary.name}/${page.name}${page.extension}`;
+            this.originalRectangle = { ...this.fragment.marquee.rectangle };
+            this.title = `${diary.name} - ${page.name} - ${fragmentId}`;
 
-      this.title = `${diary.name} - ${page.name}`;
+            this.cdr.detectChanges();
+            if (this.svgRef) {
+              const rect = this.svgRef.nativeElement.getBoundingClientRect();
+              console.log(`SVG rect: {x:${rect.x}, y:${rect.y}, width:${rect.width}, height:${rect.height}}`);
+            }
+          });
+      });
+  }
 
-      // Ensure the view is updated before accessing svgRef
-      this.cdr.detectChanges();
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
 
-      if (this.svgRef) {
-        const rect = this.svgRef.nativeElement.getBoundingClientRect();
-        console.log(`SVG rect: {x:${rect.x}, y:${rect.y}, width:${rect.width}, height:${rect.height}}`);
-      }
-    });
+    if (this.diary && this.page) {
+      this.liveObjectListService.unsubscribeFromPagesForDiary$(this.diary.id);
+      this.liveObjectListService.unsubscribeFromMarqueesForPage$(this.diary.id, this.page.id);
+    }
   }
 
   get transformStyle(): string {
@@ -187,7 +217,7 @@ export class FragmentComponent implements OnInit {
     if (this.isDraggingMarquee && this.fragment?.marquee && this.dragStartMarquee) {
       const dxSvg = dx / this.scale;
       const dySvg = dy / this.scale;
-    
+
       r.x = this.dragStartMarquee.x + dxSvg;
       r.y = this.dragStartMarquee.y + dySvg;
     }
@@ -324,5 +354,41 @@ export class FragmentComponent implements OnInit {
     }
 
     return pt.matrixTransform(ctm.inverse());
+  }
+
+  onBackPressed() {
+    console.log(`FragmentComponent.onBackPressed`);
+    if (!this.pages || this.pages.length === 0) return;
+
+    const currentIndex = this.pages.findIndex(p => p.id === this.page.id);
+
+    if (currentIndex > 0) {
+      const prevPage = this.pages[currentIndex - 1];
+      console.log(`Navigating to previous page: ${prevPage.id}`);
+
+      this.router.navigate([`/diary/${this.diary.id}/${prevPage.id}`]);
+    } else {
+      console.log('Already at the first page or current page not found.');
+    }
+  }
+
+  onUpPressed() {
+    console.log('FragmentComponent: Up pressed');
+    // Your logic here
+  }
+
+  onForwardPressed() {
+    console.log('FragmentComponent: Forward pressed');
+    if (!this.pages || this.pages.length === 0) return;
+
+    const currentIndex = this.pages.findIndex(p => p.id === this.page.id);
+
+    if (currentIndex >= 0 && currentIndex < this.pages.length - 1) {
+      const nextPage = this.pages[currentIndex + 1];
+      console.log(`Navigating to next page: ${nextPage.id}`);
+      this.router.navigate([`/diary/${this.diary.id}/${nextPage.id}`]);
+    } else {
+      console.log('Already at the last page or current page not found.');
+    }
   }
 }

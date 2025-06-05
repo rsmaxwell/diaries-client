@@ -1,4 +1,4 @@
-<app-fullheader [title]="title"></app-fullheader>
+<app-pageheader [title]="title"></app-pageheader>
 
 <div class="container" *ngIf="fragment">
   <svg
@@ -65,5 +65,9 @@
 
 </div>
 
-<app-fullfooter></app-fullfooter>
+  <app-pagefooter
+  (back)="onBackPressed()"
+  (up)="onUpPressed()"
+  (forward)="onForwardPressed()"
+></app-pagefooter>
 
