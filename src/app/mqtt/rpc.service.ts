@@ -148,7 +148,7 @@ export class RpcService {
                     properties
                 };
 
-                console.log(`rpcRequest: topic: '${requestTopic}', payload: '${publishPayload}'`);
+                // console.log(`rpcRequest: topic: '${requestTopic}', payload: '${publishPayload}'`);
                 // console.log(`rpcRequest: corr: '${corr}', replyTopic: '${replyTopic}'`);                
                 client.publish(requestTopic, publishPayload, publishOptions, err => {
                     if (err) {
@@ -315,7 +315,19 @@ export class RpcService {
                 const replyTopic = `reply/${cfg.clientId}/deleteFragment`;
                 const payload = { function: 'deleteFragment', args: new DeleteMarqueeRequest(id) };
                 const deserialize = ReplyHandler.getBufferAsNumber
+
+                console.log(`RpcService.deleteMarquee: token:${token}`);
+
                 return this.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
+
+        // client: mqtt.MqttClient,
+        // requestTopic: string,
+        // replyTopic: string,
+        // payload: unknown,
+        // accessToken: string | null,
+        // deserialize: (buf: Buffer) => R,
+        // timeout = 5000
+
             })
         );
     }

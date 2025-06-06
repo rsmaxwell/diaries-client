@@ -105,6 +105,8 @@ export class PageComponent implements OnInit, OnDestroy {
           .pipe(takeUntil(this.destroy$))
           .subscribe(([config, diary, page, pages, marquees]) => {
             this.imageUrl = `${config.fileServerUrl}/${diary.name}/${page.name}${page.extension}`;
+            // console.log(`PageComponent.ngOnInit: imageUrl: ${this.imageUrl}`);
+
             this.diary = diary;
             this.page = page;
             this.pages = pages;

@@ -1,4 +1,4 @@
-<div class="page" (keydown)="onKeyDown($event)" tabindex="0">
+<div class="page">
 
   <app-pageheader (add)="onAddButtonClick()" (view)="onViewButtonClick()" (select)="onSelectButtonClick()" [title]="title$ | async"></app-pageheader>
 
@@ -15,6 +15,7 @@
       (mousemove)="onMouseMove($event)"
       (mouseup)="onMouseUp($event)"
       (contextmenu)="onRightClick($event)"
+      (keydown)="onKeyDown($event)"  tabindex="0"
       >
       <image *ngIf="diary && page"
         x="0" y="0"

@@ -14,9 +14,11 @@ export class RefreshTokenRequest extends RefreshToken {
 }
 
 export class RefreshTokenReply {
-    token: string;
+    accessToken: string;
+    refreshPeriod: number;
 
-    constructor(token: string) {
-        this.token = token;
+    constructor(token: string, refreshPeriod: number) {
+        this.accessToken = token;
+        this.refreshPeriod = refreshPeriod;
     }
 }

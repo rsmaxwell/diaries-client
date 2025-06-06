@@ -33,7 +33,7 @@ export class LiveObjectService {
     })
   }
 
-  getMarqueeById$(diaryId: number, pageId: number, marqueeId: number): Observable<Marquee> {
+  xgetMarqueeById$(diaryId: number, pageId: number, marqueeId: number): Observable<Marquee> {
     console.log(`LiveObjectService: getMarqueesById$(${diaryId}, ${pageId}, ${marqueeId})`);
     const topic = `diaries/${diaryId}/${pageId}/${marqueeId}`;
     return this.getObjectById$<Marquee>(topic, (buf: Buffer) => {
@@ -47,7 +47,9 @@ export class LiveObjectService {
     console.log(`LiveObjectService: getFragmentById$(${diaryId}, ${pageId}, ${fragmentId})`);
     const topic = `diaries/${diaryId}/${pageId}/${fragmentId}`;
     return this.getObjectById$<Fragment>(topic, (buf: Buffer) => {
-      return JSON.parse(buf.toString()) as Fragment;
+      const raw = JSON.parse(buf.toString());
+      const rectangle = new Rectangle(raw.x, raw.y, raw.width, raw.height);
+      return new Fragment(raw.id, raw.year, raw.month, raw.day, raw.sequence, rectangle, raw.text);
     })
   }
 

@@ -53,7 +53,6 @@ export class DiariesComponent implements OnInit, OnDestroy {
     this.liveObjectListService.getDiaries$()
       .pipe(takeUntil(this.destroy$))
       .subscribe(diaries => {
-        console.log(`DiariesComponent.ngOnInit: list updated: ${JSON.stringify(diaries)}`)
         this.dataSource.data = diaries;
       });
   }

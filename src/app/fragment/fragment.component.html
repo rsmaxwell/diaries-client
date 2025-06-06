@@ -17,6 +17,7 @@
     (mouseup)="onMouseUp()"
     (mouseleave)="onMouseUp()"
     (contextmenu)="onRightClick($event)"
+    (keydown)="onKeyDown($event)" tabindex="0"
     >
       <g
         [attr.transform]="transformStyle"
@@ -25,21 +26,34 @@
           <mask maskUnits="userSpaceOnUse" id="mask15">
             <g id="g17" style="display:inline">
               <rect
-                id="rect16"
-                style="display:inline;fill:#808080;fill-opacity:1;stroke:#000000;stroke-width:1.5;stroke-linecap:round;stroke-opacity:0.0274136;paint-order:stroke fill markers"
+                id="rect-base"
                 x="0"
                 y="0"
                 [attr.width]="width"
                 [attr.height]="height"
+                class='base'
               />
+
+              <rect *ngFor="let marquee of otherMarquees"
+                [attr.id]="marquee.id"
+                [attr.x]="marquee.rectangle.x"
+                [attr.y]="marquee.rectangle.y"
+                [attr.width]="marquee.rectangle.width"
+                [attr.height]="marquee.rectangle.height"
+                class='other'
+                (click)="onSelectMarquee(marquee)"
+                (contextmenu)="onMarqueeRightClick($event, marquee)"
+               />
+
               <rect
-                id="rect17"
-                style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:1.5;stroke-linecap:round;stroke-opacity:0.162098;paint-order:stroke fill markers"
-                [attr.x]="fragment.marquee.rectangle.x"
-                [attr.y]="fragment.marquee.rectangle.y"
-                [attr.width]="fragment.marquee.rectangle.width"
-                [attr.height]="fragment.marquee.rectangle.height"
+                id="rect-selected"
+                [attr.x]="fragment.rectangle.x"
+                [attr.y]="fragment.rectangle.y"
+                [attr.width]="fragment.rectangle.width"
+                [attr.height]="fragment.rectangle.height"
+                class='selected'
               />
+
             </g>
           </mask>
         </defs>

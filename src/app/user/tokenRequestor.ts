@@ -1,14 +1,10 @@
 import { Injectable } from "@angular/core";
-import { catchError, EMPTY, forkJoin, interval, Observable, Subscription, switchMap } from "rxjs";
+import { catchError, EMPTY, interval, Observable, Subscription, switchMap } from "rxjs";
 import { AccessTokenService } from "./token/AccessTokenService";
 import { Router } from "@angular/router";
 import { RpcService } from "../mqtt/rpc.service";
-import { RefreshTokenReply, RefreshTokenRequest } from "../model/refresh.token";
-import { ConfigService } from "../config/config.service";
-import { MqttService } from "../mqtt/mqtt.service";
+import { RefreshTokenReply } from "../model/refresh.token";
 import { RefreshTokenService } from "./token/RefreshTokenService";
-import { Constants } from "../utilities/constants";
-import { ReplyHandler } from "../utilities/replyHandler";
 
 
 @Injectable({ providedIn: 'root' })
@@ -16,9 +12,9 @@ export class TokenRequestor {
 
   refreshSub?: Subscription;
 
+  refreshPeriod = 30;
+
   constructor(
-    private config: ConfigService,
-    private mqtt: MqttService,
     private accessToken: AccessTokenService,
     private refreshToken: RefreshTokenService,
     private rpcService: RpcService,
@@ -31,14 +27,24 @@ export class TokenRequestor {
 
     return this.rpcService.refreshToken$().pipe(
       switchMap((reply: RefreshTokenReply) => {
-        console.log(`sendRefreshRequest: token: ${reply.token}`);
-        this.accessTokenService.setToken(reply.token);
+        console.log(`TokenRequestor: sendRefreshRequest: reply: ${JSON.stringify(reply)}`);
+        console.log(`TokenRequestor: sendRefreshRequest: refreshInterval: ${reply.refreshPeriod}`);
+        this.accessTokenService.setToken(reply.accessToken);
+
+        if (this.refreshPeriod != reply.refreshPeriod) {
+          this.refreshPeriod = reply.refreshPeriod
+          this.stop();
+          this.start(this.refreshPeriod)
+        }
+
+        this.refreshPeriod = reply.refreshPeriod;
         return EMPTY;
       }),
       catchError((err) => {
-        console.error(`sendRefreshRequest: error: ${err}`);
+        console.log(`TokenRequestor: sendRefreshRequest: error: ${err}`);
         this.accessToken.clearToken();
         this.refreshToken.clearToken();
+        this.stop();
         this.router.navigate(['/signin']);
         return EMPTY;
       })

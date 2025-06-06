@@ -41,6 +41,18 @@
   }
 }
 
+.base {
+  fill:rgb(60, 60, 60);
+}
+
+.selected {
+  fill: white;
+}
+
+.other {
+  fill: rgb(80, 80, 80);
+}
+
 .text {
   flex: 1;
   padding: 1rem;

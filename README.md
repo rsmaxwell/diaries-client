@@ -35,3 +35,8 @@ npm install mqtt
 npm install buffer
 
 ng add @angular/material
+
+
+## Rich text Editor
+
+https://ej2.syncfusion.com/angular/documentation/rich-text-editor/getting-started
