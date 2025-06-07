@@ -17,6 +17,11 @@ import { Fragment } from '../model/fragment';
 import { RpcService } from '../mqtt/rpc.service';
 import { AlertService } from '../alerts/alert.service';
 
+enum ViewMode {
+  WithFragment,
+  WithoutFragment
+}
+
 @Component({
   selector: 'app-fragment',
   standalone: true,
@@ -59,6 +64,7 @@ export class FragmentComponent implements OnInit, OnDestroy {
   pages: Page[] = [];
   marquees: Marquee[] = [];
   otherMarquees: Marquee[] = [];
+  mode: ViewMode = ViewMode.WithoutFragment;
 
   constructor(
     private route: ActivatedRoute,
@@ -100,15 +106,12 @@ export class FragmentComponent implements OnInit, OnDestroy {
         const marquees$ = this.liveObjectListService.getMarqueesForPage$(diaryId, pageId);
 
         if (hasValidFragmentId) {
-
-          console.log(`FragmeComponent.ngOninit: hasValidFragmentId: true`)
+          this.mode = ViewMode.WithFragment;
 
           const fragment$ = this.liveObjectService.getFragmentById$(diaryId, pageId, fragmentId);
           combineLatest([config$, diary$, page$, pages$, marquees$, fragment$])
             .pipe(takeUntil(this.destroy$))
             .subscribe(([config, diary, page, pages, marquees, fragment]) => {
-
-              console.log(`FragmeComponent.ngOninit: fragment: ${JSON.stringify(fragment)}`)
 
               this.width = page.width;
               this.height = page.height;
@@ -132,14 +135,9 @@ export class FragmentComponent implements OnInit, OnDestroy {
 
             });
         } else {
-
-          console.log(`FragmeComponent.ngOninit: hasValidFragmentId: false`)
-
           combineLatest([config$, diary$, page$, pages$, marquees$])
             .pipe(takeUntil(this.destroy$))
             .subscribe(([config, diary, page, pages, marquees]) => {
-
-              console.log(`FragmentComponent.ngOninit: have data`)
 
               this.width = page.width;
               this.height = page.height;
@@ -148,7 +146,7 @@ export class FragmentComponent implements OnInit, OnDestroy {
               this.pages = pages;
               this.marquees = marquees;
               this.imageUrl = `${config.fileServerUrl}/${diary.name}/${page.name}${page.extension}`;
-              this.title = `${diary.name} - ${page.name} - ${fragmentId}`;
+              this.title = `${diary.name} - ${page.name}`;
 
               this.fragment = undefined as any;
               this.originalRectangle = undefined as any;
@@ -201,29 +199,27 @@ export class FragmentComponent implements OnInit, OnDestroy {
   }
 
   onMouseDown(event: MouseEvent) {
-    console.log(`FragmentComponent.onMouseDown`);    
-    if (!this.svgRef?.nativeElement || !this.page) return;
+    console.log(`FragmentComponent.onMouseDown`);
+    if (this.mode !== ViewMode.WithFragment || !this.page || !this.svgRef) return;
 
     const mousePosition = this.getMousePosition(event);
+
     const isCtrlKeyDown = event.ctrlKey;
-
     if (isCtrlKeyDown) {
-      if (this.fragment) {
-        this.resizeEdge = this.detectResizeEdge(mousePosition);
+      this.resizeEdge = this.detectResizeEdge(mousePosition);
 
+      this.dragStart = mousePosition;
+      this.originalRectangle = { ...this.fragment.rectangle };
+
+      if (Object.values(this.resizeEdge).every(v => v === false)) {
+        // Ctrl + click inside marquee = move marquee
+        this.isDraggingMarquee = true;
         this.dragStart = mousePosition;
-        this.originalRectangle = { ...this.fragment.rectangle };
-
-        if (Object.values(this.resizeEdge).every(v => v === false)) {
-          // Ctrl + click inside marquee = move marquee
-          this.isDraggingMarquee = true;
-          this.dragStart = mousePosition;
-          const r = this.fragment.rectangle;
-          this.dragStartMarquee = { x: r.x, y: r.y };
-        } else {
-          // Ctrl + click near edge = resize
-          this.dragStart = mousePosition;
-        }
+        const r = this.fragment.rectangle;
+        this.dragStartMarquee = { x: r.x, y: r.y };
+      } else {
+        // Ctrl + click near edge = resize
+        this.dragStart = mousePosition;
       }
     } else {
       // fallback to global pan
@@ -234,6 +230,7 @@ export class FragmentComponent implements OnInit, OnDestroy {
 
   onKeyDown(event: KeyboardEvent) {
     console.log(`FragmentComponent.onKeyDown: key: ${event.key}`);
+    if (this.mode !== ViewMode.WithFragment) return;
 
     if (event.key === 'Delete' && event.ctrlKey) {
       console.log('FragmentComponent.onKeyDown: Control + Delete was pressed');
@@ -269,7 +266,7 @@ export class FragmentComponent implements OnInit, OnDestroy {
   }
 
   onMouseMove(event: MouseEvent) {
-    if (!this.svgRef?.nativeElement || !this.page) return;
+    if (this.mode !== ViewMode.WithFragment || !this.page || !this.svgRef) return;
 
     const isCtrlKeyDown = event.ctrlKey;
     let mousePosition = this.getMousePosition(event);
@@ -324,6 +321,8 @@ export class FragmentComponent implements OnInit, OnDestroy {
   }
 
   onMouseUp() {
+    if (this.mode !== ViewMode.WithFragment) return;
+
     if (this.isResizeActive()) {
       this.rpcService.updateMarquee$(this.fragment.toMarquee()).subscribe({
         next: () => {
@@ -348,6 +347,7 @@ export class FragmentComponent implements OnInit, OnDestroy {
   }
 
   calculateCursorStyle(mousePosition: DOMPoint, isCtrlKeyDown: boolean) {
+    if (this.mode !== ViewMode.WithFragment) return;
 
     const m = this.fragment.rectangle;
 
@@ -395,6 +395,9 @@ export class FragmentComponent implements OnInit, OnDestroy {
   }
 
   detectResizeEdge(mousePosition: DOMPoint): { left: boolean, right: boolean, top: boolean, bottom: boolean } {
+    const edges = { left: false, right: false, top: false, bottom: false };
+    if (this.mode !== ViewMode.WithFragment) return edges;
+
     const m = this.fragment.rectangle;
     const margin = 40;
 
@@ -405,13 +408,9 @@ export class FragmentComponent implements OnInit, OnDestroy {
     const bottom = (m.y + m.height) * this.scale + this.offsetY;
 
     // The mouse position is already in SVG logical space
-
     // Now hit-test against the transformed marquee
-
     const insideHoriz = (mousePosition.x + margin >= left) && (mousePosition.x - margin <= right);
     const insideVert = (mousePosition.y + margin >= top) && (mousePosition.y - margin <= bottom);
-
-    const edges = { left: false, right: false, top: false, bottom: false };
 
     if (insideHoriz && insideVert) {
       edges.left = Math.abs(mousePosition.x - left) < margin;
@@ -426,7 +425,7 @@ export class FragmentComponent implements OnInit, OnDestroy {
 
   // Get the mouse position relative to the SVG element in screen/pixel space.
   getMousePosition(event: MouseEvent): DOMPoint {
-    if (!this.svgRef?.nativeElement) {
+    if (!this.svgRef) {
       console.warn('svgRef.nativeElement is not yet available');
       return new DOMPoint(0, 0);
     }
