@@ -1,5 +1,5 @@
 
-@import "../../../constants";
+@use '../../../styles/constants' as *;
 
 .footer {
   background-color: $primary;
