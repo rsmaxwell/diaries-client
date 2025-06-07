@@ -1,8 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { PageComponent } from './page/page.component';
-import { DiariesComponent } from './diaries/diaries.component';
-import { AlertComponent } from './alert/alert.component';
+import { RouterOutlet } from '@angular/router';
 import { AccessTokenService } from './user/token/AccessTokenService';
 import { RefreshTokenService } from './user/token/RefreshTokenService';
 import { TokenRequestor } from './user/tokenRequestor';

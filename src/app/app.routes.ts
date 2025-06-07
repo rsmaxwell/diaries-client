@@ -1,7 +1,6 @@
 import { RouterModule, Routes } from '@angular/router';
 import { DiariesComponent } from './diaries/diaries.component';
 import { DiaryComponent } from './diary/diary.component';
-import { PageComponent } from './page/page.component';
 import { SigninComponent } from './user/signin/signin.component';
 import { RegisterComponent } from './user/register/register.component';
 import { AuthGuard } from './auth.guard';
