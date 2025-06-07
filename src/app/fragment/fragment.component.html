@@ -117,10 +117,14 @@
     </svg>
 
 
-    <div class="text">
-      <pre *ngIf="fragment"
-      >{{ fragment.text }}</pre>
-    </div>
+<div class="text">
+  <ng-container *ngIf="fragment; else noFragment">
+    <pre>{{ fragment.text }}</pre>
+  </ng-container>
+  <ng-template #noFragment>
+    <p>No fragment selected. Please click on a marquee to view details.</p>
+  </ng-template>
+</div>
 
 </div>
 
