@@ -1,5 +1,5 @@
 import { Injectable } from "@angular/core";
-import { catchError, EMPTY, interval, Observable, Subscription, switchMap } from "rxjs";
+import { catchError, interval, Observable, Subscription, switchMap } from "rxjs";
 import { AccessTokenService } from "./token/AccessTokenService";
 import { Router } from "@angular/router";
 import { RpcService } from "../mqtt/rpc.service";
@@ -38,7 +38,7 @@ export class TokenRequestor {
         }
 
         this.refreshPeriod = reply.refreshPeriod;
-        return EMPTY;
+        return "ok";
       }),
       catchError((err) => {
         console.log(`TokenRequestor: sendRefreshRequest: error: ${err}`);
@@ -46,7 +46,7 @@ export class TokenRequestor {
         this.refreshToken.clearToken();
         this.stop();
         this.router.navigate(['/signin']);
-        return EMPTY;
+        return "ok";
       })
     );
   }

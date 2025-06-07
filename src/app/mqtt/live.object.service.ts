@@ -70,6 +70,8 @@ export class LiveObjectService {
    * @returns An observable stream of deserialized objects for the given topic.
    */
   private getObjectById$<T>(topic: string, deserialize: (buf: Buffer) => T): Observable<T> {
+    console.log(`LiveObjectService.getObjectById: topic: ${topic}`);
+
     if (this.subjects.has(topic)) {
       const entry = this.subjects.get(topic)!;
       entry.refCount++;
@@ -82,10 +84,17 @@ export class LiveObjectService {
       refCount: 1,
       handler: (messageTopic: string, payload: Buffer) => {
         if (messageTopic === topic) {
+          const payloadStr = payload.toString();
+          if (!payloadStr.trim()) {
+            console.log(`LiveObjectService.getObjectById: Empty payload received: Object at topic: ${topic} has been deleted`);
+            subject.complete(); // Object has been deleted
+            return;
+          }
           try {
             subject.next(deserialize(payload));
           } catch (err) {
-            subject.error(err);
+            console.log(`LiveObjectService.getObjectById: ${payloadStr}`);
+            subject.error(new Error(`LiveObjectService.getObjectById: Error: ${err}`));
           }
         }
       }

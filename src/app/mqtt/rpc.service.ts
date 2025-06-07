@@ -19,6 +19,7 @@ import { Register, RegisterReply, RegisterRequest } from "../model/register";
 import { Diary, UpdateDiaryRequest } from "../model/diary";
 import { RefreshTokenReply, RefreshTokenRequest } from "../model/refresh.token";
 import { RefreshTokenService } from "../user/token/RefreshTokenService";
+import { NormaliseFragmentsRequest } from "../model/fragment";
 
 
 @Injectable({ providedIn: 'root' })
@@ -260,6 +261,21 @@ export class RpcService {
         );
     }
 
+    normaliseFragments$(year: number, month: number, day: number): Observable<number> {
+        return forkJoin({
+            cfg: this.configService.getConfig(),
+            client: this.mqtt.getConnection(),
+            token: this.accessTokenService.getToken()
+        }).pipe(
+            switchMap(({ cfg, client, token }) => {
+                const replyTopic = `reply/${cfg.clientId}/normaliseFragments`;
+                const payload = { function: 'normaliseFragments', args: new NormaliseFragmentsRequest(year, month, day) };
+                const deserialize = ReplyHandler.getBufferAsNumber
+                return this.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
+            })
+        );
+    }
+
     updatePage$(page: Page): Observable<number> {
         return forkJoin({
             cfg: this.configService.getConfig(),
@@ -315,19 +331,7 @@ export class RpcService {
                 const replyTopic = `reply/${cfg.clientId}/deleteFragment`;
                 const payload = { function: 'deleteFragment', args: new DeleteMarqueeRequest(id) };
                 const deserialize = ReplyHandler.getBufferAsNumber
-
-                console.log(`RpcService.deleteMarquee: token:${token}`);
-
                 return this.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
-
-        // client: mqtt.MqttClient,
-        // requestTopic: string,
-        // replyTopic: string,
-        // payload: unknown,
-        // accessToken: string | null,
-        // deserialize: (buf: Buffer) => R,
-        // timeout = 5000
-
             })
         );
     }

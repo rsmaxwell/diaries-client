@@ -41,16 +41,23 @@
   }
 }
 
-.base {
+.baseMask {
   fill:rgb(60, 60, 60);
 }
 
-.selected {
+.selectedMask {
   fill: white;
 }
 
-.other {
+.otherMask {
   fill: rgb(80, 80, 80);
+}
+
+.other {
+  fill: transparent;
+  stroke: black;
+  stroke-width: 10;
+  stroke-dasharray: 30
 }
 
 .text {

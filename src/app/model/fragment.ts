@@ -10,9 +10,17 @@ export class Fragment {
     public sequence: number,
     public rectangle: Rectangle,
     public text: string
-  ) {};
+  ) { };
 
   public toMarquee() {
     return new Marquee(this.id, this.rectangle, this.sequence);
   }
+}
+
+export class NormaliseFragmentsRequest {
+  constructor(
+    public year: number,
+    public month: number,
+    public day: number
+  ) { };
 }

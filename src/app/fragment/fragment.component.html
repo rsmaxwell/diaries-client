@@ -1,6 +1,6 @@
-<app-pageheader [title]="title"></app-pageheader>
+<app-pageheader (add)="onAddButtonClick()" [title]="title"></app-pageheader>
 
-<div class="container" *ngIf="fragment">
+<div class="container" *ngIf="page">
   <svg
     #svgRef
     id="svg"
@@ -17,7 +17,7 @@
     (mouseup)="onMouseUp()"
     (mouseleave)="onMouseUp()"
     (contextmenu)="onRightClick($event)"
-    (keydown)="onKeyDown($event)" tabindex="0"
+    (keydown)="onKeyDown($event)" tabindex="0"    
     >
       <g
         [attr.transform]="transformStyle"
@@ -31,7 +31,7 @@
                 y="0"
                 [attr.width]="width"
                 [attr.height]="height"
-                class='base'
+                class='baseMask'
               />
 
               <rect *ngFor="let marquee of otherMarquees"
@@ -40,22 +40,44 @@
                 [attr.y]="marquee.rectangle.y"
                 [attr.width]="marquee.rectangle.width"
                 [attr.height]="marquee.rectangle.height"
-                class='other'
-                (click)="onSelectMarquee(marquee)"
-                (contextmenu)="onMarqueeRightClick($event, marquee)"
+                class='otherMask'
                />
 
-              <rect
+              <rect *ngIf="fragment"
                 id="rect-selected"
                 [attr.x]="fragment.rectangle.x"
                 [attr.y]="fragment.rectangle.y"
                 [attr.width]="fragment.rectangle.width"
                 [attr.height]="fragment.rectangle.height"
-                class='selected'
+                class='selectedMask'
               />
 
             </g>
           </mask>
+
+
+          <mask maskUnits="userSpaceOnUse" id="mask16">
+            <g id="g17" style="display:inline">
+              <rect
+                id="rect-base"
+                x="0"
+                y="0"
+                [attr.width]="width"
+                [attr.height]="height"
+                class='baseMask'
+              />
+
+              <rect *ngIf="fragment"
+                id="rect-selected"
+                [attr.x]="fragment.rectangle.x"
+                [attr.y]="fragment.rectangle.y"
+                [attr.width]="fragment.rectangle.width"
+                [attr.height]="fragment.rectangle.height"
+                class='selectedMask'
+              />
+
+            </g>
+          </mask>          
         </defs>
     
         <image
@@ -69,12 +91,35 @@
           mask="url(#mask15)"
           style="display:inline"
         />
+
+        <rect *ngFor="let marquee of otherMarquees"
+          [attr.id]="marquee.id"
+          [attr.x]="marquee.rectangle.x"
+          [attr.y]="marquee.rectangle.y"
+          [attr.width]="marquee.rectangle.width"
+          [attr.height]="marquee.rectangle.height"
+          class='other'
+          (click)="onSelectMarquee(marquee)"
+         /> 
+
+        <image
+          id="image2"
+          [attr.href]="imageUrl"
+          x="0"
+          y="0"
+          [attr.width]="width"
+          [attr.height]="height"
+          class="ng-star-inserted"
+          mask="url(#mask16)"
+          style="display:inline; pointer-events: none"
+        />       
       </g>
     </svg>
 
 
     <div class="text">
-      <pre>{{ fragment.text }}</pre>
+      <pre *ngIf="fragment"
+      >{{ fragment.text }}</pre>
     </div>
 
 </div>

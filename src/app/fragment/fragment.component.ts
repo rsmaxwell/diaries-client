@@ -60,13 +60,6 @@ export class FragmentComponent implements OnInit, OnDestroy {
   marquees: Marquee[] = [];
   otherMarquees: Marquee[] = [];
 
-  config$: Observable<Config> | null = null;
-  diary$: Observable<Diary> | null = null;
-  page$: Observable<Page> | null = null;
-  pages$: Observable<Page[]> | null = null;
-  fragment$: Observable<Fragment> | null = null;
-  marquees$: Observable<Marquee[]> | null = null;
-
   constructor(
     private route: ActivatedRoute,
     private router: Router,
@@ -91,45 +84,77 @@ export class FragmentComponent implements OnInit, OnDestroy {
       .subscribe(() => {
         const diaryId = Number(this.route.snapshot.paramMap.get('diaryId'));
         const pageId = Number(this.route.snapshot.paramMap.get('pageId'));
-        const fragmentId = Number(this.route.snapshot.paramMap.get('fragmentId'));
 
-        const width = window.innerWidth;
-        const height = window.innerHeight;
-        console.log(`Viewport size: ${width} x ${height}`);
+        const fragmentParam = this.route.snapshot.paramMap.get('fragmentId');
+        const fragmentId = fragmentParam !== null ? Number(fragmentParam) : null;
+        const hasValidFragmentId = fragmentId !== null && !isNaN(fragmentId);
 
-        combineLatest([
-          this.config$ = from(this.configService.getConfig()),
-          this.diary$ = this.liveObjectService.getDiaryById$(diaryId),
-          this.page$ = this.liveObjectService.getPageById$(diaryId, pageId),
-          this.pages$ = this.liveObjectListService.getPagesForDiary$(diaryId),
-          this.fragment$ = this.liveObjectService.getFragmentById$(diaryId, pageId, fragmentId),
-          this.marquees$ = this.liveObjectListService.getMarqueesForPage$(diaryId, pageId),
-        ])
-          .pipe(takeUntil(this.destroy$))
-          .subscribe(([config, diary, page, pages, fragment, marquees]) => {
+        console.log(`FragmeComponent.ngOninit: fragmentParam: ${fragmentParam}`)
+        console.log(`FragmeComponent.ngOninit: fragmentId: ${fragmentId}`)
+        console.log(`FragmeComponent.ngOninit: hasValidFragmentId: ${hasValidFragmentId}`)
 
-            const marquee = fragment.toMarquee();
+        const config$ = from(this.configService.getConfig());
+        const diary$ = this.liveObjectService.getDiaryById$(diaryId);
+        const page$ = this.liveObjectService.getPageById$(diaryId, pageId);
+        const pages$ = this.liveObjectListService.getPagesForDiary$(diaryId);
+        const marquees$ = this.liveObjectListService.getMarqueesForPage$(diaryId, pageId);
 
-            const text = `marquee\n${JSON.stringify(marquee, null, 2)}\n\n` +
-              `page\n${JSON.stringify(page, null, 2)}\n\n` +
-              `config\n${JSON.stringify(config, null, 2)}\n\n` +
-              `viewport size: width: ${width}, height ${height}`
-            ;
+        if (hasValidFragmentId) {
 
-            this.fragment = fragment;
-            this.fragment.text = text;
+          console.log(`FragmeComponent.ngOninit: hasValidFragmentId: true`)
 
-            this.width = page.width;
-            this.height = page.height;
-            this.diary = diary;
-            this.page = page;
-            this.pages = pages;
-            this.marquees = marquees;
-            this.updateOtherMarquees();
-            this.imageUrl = `${config.fileServerUrl}/${diary.name}/${page.name}${page.extension}`;
-            this.originalRectangle = { ...this.fragment.rectangle };
-            this.title = `${diary.name} - ${page.name} - ${fragmentId}`;
-          });
+          const fragment$ = this.liveObjectService.getFragmentById$(diaryId, pageId, fragmentId);
+          combineLatest([config$, diary$, page$, pages$, marquees$, fragment$])
+            .pipe(takeUntil(this.destroy$))
+            .subscribe(([config, diary, page, pages, marquees, fragment]) => {
+
+              console.log(`FragmeComponent.ngOninit: fragment: ${JSON.stringify(fragment)}`)
+
+              this.width = page.width;
+              this.height = page.height;
+              this.diary = diary;
+              this.page = page;
+              this.pages = pages;
+              this.marquees = marquees;
+              this.imageUrl = `${config.fileServerUrl}/${diary.name}/${page.name}${page.extension}`;
+              this.title = `${diary.name} - ${page.name} - ${fragmentId}`;
+
+              const marquee = fragment.toMarquee();
+              this.originalRectangle = { ...marquee.rectangle };
+              const text = `marquee\n${JSON.stringify(marquee, null, 2)}\n\n` +
+                `page\n${JSON.stringify(page, null, 2)}\n\n` +
+                `config\n${JSON.stringify(config, null, 2)}\n\n` +
+                `viewport size: width: ${window.innerWidth}, height ${window.innerHeight}`
+                ;
+              this.fragment = fragment;
+              this.fragment.text = text;
+              this.updateOtherMarquees();
+
+            });
+        } else {
+
+          console.log(`FragmeComponent.ngOninit: hasValidFragmentId: false`)
+
+          combineLatest([config$, diary$, page$, pages$, marquees$])
+            .pipe(takeUntil(this.destroy$))
+            .subscribe(([config, diary, page, pages, marquees]) => {
+
+              console.log(`FragmentComponent.ngOninit: have data`)
+
+              this.width = page.width;
+              this.height = page.height;
+              this.diary = diary;
+              this.page = page;
+              this.pages = pages;
+              this.marquees = marquees;
+              this.imageUrl = `${config.fileServerUrl}/${diary.name}/${page.name}${page.extension}`;
+              this.title = `${diary.name} - ${page.name} - ${fragmentId}`;
+
+              this.fragment = undefined as any;
+              this.originalRectangle = undefined as any;
+              this.updateOtherMarquees();
+            });
+        }
       });
   }
 
@@ -176,24 +201,29 @@ export class FragmentComponent implements OnInit, OnDestroy {
   }
 
   onMouseDown(event: MouseEvent) {
+    console.log(`FragmentComponent.onMouseDown`);    
+    if (!this.svgRef?.nativeElement || !this.page) return;
+
     const mousePosition = this.getMousePosition(event);
     const isCtrlKeyDown = event.ctrlKey;
 
-    if (isCtrlKeyDown && this.fragment) {
-      this.resizeEdge = this.detectResizeEdge(mousePosition);
+    if (isCtrlKeyDown) {
+      if (this.fragment) {
+        this.resizeEdge = this.detectResizeEdge(mousePosition);
 
-      this.dragStart = mousePosition;
-      this.originalRectangle = { ...this.fragment.rectangle };
+        this.dragStart = mousePosition;
+        this.originalRectangle = { ...this.fragment.rectangle };
 
-      if (Object.values(this.resizeEdge).every(v => v === false)) {
-        // Ctrl + click inside marquee = move marquee
-        this.isDraggingMarquee = true;
-        this.dragStart = mousePosition;
-        const r = this.fragment.rectangle;
-        this.dragStartMarquee = { x: r.x, y: r.y };
-      } else {
-        // Ctrl + click near edge = resize
-        this.dragStart = mousePosition;
+        if (Object.values(this.resizeEdge).every(v => v === false)) {
+          // Ctrl + click inside marquee = move marquee
+          this.isDraggingMarquee = true;
+          this.dragStart = mousePosition;
+          const r = this.fragment.rectangle;
+          this.dragStartMarquee = { x: r.x, y: r.y };
+        } else {
+          // Ctrl + click near edge = resize
+          this.dragStart = mousePosition;
+        }
       }
     } else {
       // fallback to global pan
@@ -216,18 +246,19 @@ export class FragmentComponent implements OnInit, OnDestroy {
         ? this.marquees[currentIndex + 1]
         : (currentIndex > 0 ? this.marquees[currentIndex - 1] : null);
 
-      this.rpcService.deleteMarquee$(this.fragment.id).subscribe({
-        next: () => {
-          console.log(`FragmentComponent.onKeyDown: delete succeeded`);
+      if (nextFragment) {
+        console.log(`Navigating to next fragment: ${nextFragment.id}`);
+        this.router.navigate([
+          `/diary/${this.diary.id}/${this.page.id}/${nextFragment.id}`
+        ]);
+      } else {
+        console.log('No next fragment to navigate to.');
+      }
 
-          if (nextFragment) {
-            console.log(`Navigating to next fragment: ${nextFragment.id}`);
-            this.router.navigate([
-              `/diary/${this.diary.id}/${this.page.id}/${nextFragment.id}`
-            ]);
-          } else {
-            console.log('No next fragment to navigate to.');
-          }
+      console.log(`FragmentComponent.onKeyDown: deleting fregment id: ${this.fragment.id}`);
+      this.rpcService.deleteMarquee$(this.fragment.id).subscribe({
+        next: (id: number) => {
+          console.log(`FragmentComponent.onKeyDown: delete succeeded: id: ${id}`);
         },
         error: (err) => {
           console.log(`FragmentComponent.onKeyDown: delete error: ${err}`);
@@ -238,6 +269,8 @@ export class FragmentComponent implements OnInit, OnDestroy {
   }
 
   onMouseMove(event: MouseEvent) {
+    if (!this.svgRef?.nativeElement || !this.page) return;
+
     const isCtrlKeyDown = event.ctrlKey;
     let mousePosition = this.getMousePosition(event);
     this.calculateCursorStyle(mousePosition, isCtrlKeyDown)
@@ -291,7 +324,6 @@ export class FragmentComponent implements OnInit, OnDestroy {
   }
 
   onMouseUp() {
-
     if (this.isResizeActive()) {
       this.rpcService.updateMarquee$(this.fragment.toMarquee()).subscribe({
         next: () => {
@@ -394,6 +426,10 @@ export class FragmentComponent implements OnInit, OnDestroy {
 
   // Get the mouse position relative to the SVG element in screen/pixel space.
   getMousePosition(event: MouseEvent): DOMPoint {
+    if (!this.svgRef?.nativeElement) {
+      console.warn('svgRef.nativeElement is not yet available');
+      return new DOMPoint(0, 0);
+    }
 
     const svg = this.svgRef.nativeElement;
     const pt = svg.createSVGPoint();
@@ -444,18 +480,43 @@ export class FragmentComponent implements OnInit, OnDestroy {
     }
   }
 
-  onMarqueeRightClick($event: MouseEvent, marquee: Marquee) {
-    console.log(`FragmentComponent.onMarqueeRightClick: marquee: ${marquee}`);
-  }
   onSelectMarquee(marquee: Marquee) {
-    console.log(`FragmentComponent.onSelectMarquee: marquee: ${marquee}`);
+    console.log(`FragmentComponent.onSelectMarquee: marquee: ${JSON.stringify(marquee)}`);
+    this.router.navigate([`/diary/${this.diary.id}/${this.page.id}/${marquee.id}`]);
   }
 
   private updateOtherMarquees() {
-    if (this.marquees && this.fragment) {
+    if (this.fragment) {
       this.otherMarquees = this.marquees.filter(m => m.id !== this.fragment.id);
     } else {
-      this.otherMarquees = [];
+      this.otherMarquees = this.marquees;
     }
+  }
+
+  onAddButtonClick() {
+    console.log(`FragmentComponent.onAddButtonClick`);
+
+    const x = this.width / 5;
+    const y = this.height / 5;
+    const width = 3 * this.width / 5;
+    const height = 3 * this.height / 5;
+    const rectangle = new Rectangle(x, y, width, height);
+    const sequence = 123
+
+    console.log(`FragmentComponent.onAddButtonClick: id: ${JSON.stringify(rectangle)}`)
+    this.rpcService.addMarquee$(this.page, rectangle, sequence).subscribe({
+      next: (id) => {
+        const marquee = new Marquee(id, rectangle, sequence);
+
+        console.log(`FragmentComponent.onAddButtonClick: fragment: id: ${marquee.id} added`);
+        this.alertService.info(`fragment: id: ${marquee.id} added`);
+
+        this.router.navigate([`/diary/${this.diary.id}/${this.page.id}/${marquee.id}`]);
+      },
+      error: (err) => {
+        console.log(`FragmentComponent.onAddButtonClick: error: ${err}`)
+        this.alertService.error(err);
+      }
+    });
   }
 }

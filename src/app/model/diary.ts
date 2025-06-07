@@ -11,7 +11,7 @@ export class Diary {
   static default = new Diary(0, '', 0);
 }
 
-export class xUpdateDiaryRequest {
+export class xxUpdateDiaryRequest {
   id: number;
   name: string;
   sequence: number;

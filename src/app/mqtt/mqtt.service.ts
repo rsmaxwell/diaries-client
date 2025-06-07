@@ -58,10 +58,12 @@ export class MqttService {
 
           client.on('close', () => {
             console.log(`MqttService.getConnection: connection closed`);
+            reject("Connection closed");
           });
         })
         .catch((error) => {
           console.error(`MqttService.getConnection: configuration error: ${error}`);
+          reject(`MqttService.getConnection: Error: ${error}`);
         });
     })
 

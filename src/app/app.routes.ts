@@ -16,6 +16,6 @@ export const routes: Routes = [
     { path: 'signin', component: SigninComponent },
     { path: 'diaries', component: DiariesComponent, canActivate: [AuthGuard] },
     { path: 'diary/:diaryId', component: DiaryComponent, canActivate: [AuthGuard] },
-    { path: 'diary/:diaryId/:pageId', component: PageComponent, canActivate: [AuthGuard] },
-    { path: 'diary/:diaryId/:pageId/:fragmentId', component: FragmentComponent }
+    { path: 'diary/:diaryId/:pageId', component: FragmentComponent, canActivate: [AuthGuard] },
+    { path: 'diary/:diaryId/:pageId/:fragmentId', component: FragmentComponent, canActivate: [AuthGuard] },
 ];
