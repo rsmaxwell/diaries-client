@@ -4,12 +4,12 @@ import { Subscription } from 'rxjs';
 
 import { Alert, AlertType } from './alert.model';
 import { AlertService } from './alert.service';
-import { CommonModule } from '@angular/common';
+
 
 @Component({
   selector: 'app-alerts',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   templateUrl: './alerts.component.html',
   styleUrl: './alerts.component.scss'
 })

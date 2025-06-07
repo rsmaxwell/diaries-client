@@ -1,5 +1,5 @@
 import { Component, Input, OnDestroy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormControl, FormGroup, FormsModule, Validators, ReactiveFormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -34,9 +34,8 @@ import { Constants } from '../../utilities/constants';
     MatButtonModule,
     PlainfooterComponent,
     PlainheaderComponent,
-    AlertsComponent,
-    CommonModule
-  ],
+    AlertsComponent
+],
   templateUrl: './register.component.html',
   styleUrl: './register.component.scss',
 })

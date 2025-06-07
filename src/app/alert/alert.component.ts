@@ -5,7 +5,7 @@ import { FullheaderComponent } from "../headers/fullheader/fullheader.component"
 import { FullfooterComponent } from "../headers/fullfooter/fullfooter.component";
 import { MatCardModule } from '@angular/material/card';
 import { MatListModule } from '@angular/material/list';
-import { CommonModule } from '@angular/common';
+
 
 import { CdkTextareaAutosize, TextFieldModule } from '@angular/cdk/text-field';
 import { MatInputModule } from '@angular/material/input';
@@ -28,13 +28,12 @@ import { AlertBuilder } from '../alerts/alert.builder';
     FullfooterComponent,
     MatCardModule,
     MatListModule,
-    CommonModule,
     AlertsComponent,
     MatFormFieldModule,
     MatSelectModule,
     MatInputModule,
     TextFieldModule
-  ],
+],
   templateUrl: './alert.component.html',
   styleUrl: './alert.component.scss'
 })

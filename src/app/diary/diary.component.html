@@ -3,13 +3,12 @@
 
 
   <div class="title">
-    <div *ngIf="diary" class="title-content">
-
-      <div class="title-item">{{diary.id}}</div>
-
-      <div class="title-item">{{diary.name}}</div>
-
-    </div>
+    @if (diary) {
+      <div class="title-content">
+        <div class="title-item">{{diary.id}}</div>
+        <div class="title-item">{{diary.name}}</div>
+      </div>
+    }
   </div>
 
 

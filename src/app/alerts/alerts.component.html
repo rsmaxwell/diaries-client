@@ -1,4 +1,6 @@
 
-<div *ngIf="alert" class="alert-container">
+@if (alert) {
+  <div class="alert-container">
     <div class="alert-message {{ cssClass(alert) }}" [innerHTML]="alert.message" (click)="getRecord(alert)"></div>
-</div>
+  </div>
+}

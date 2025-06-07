@@ -1,5 +1,5 @@
 import { Component, Input, OnDestroy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormControl, FormGroup, FormsModule, Validators, ReactiveFormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -33,9 +33,8 @@ import { Constants } from '../../utilities/constants';
     MatIconModule,
     MatButtonModule,
     PlainfooterComponent,
-    PlainheaderComponent,
-    CommonModule
-  ],
+    PlainheaderComponent
+],
   templateUrl: './signin.component.html',
   styleUrl: './signin.component.scss'
 })

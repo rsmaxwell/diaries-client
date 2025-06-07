@@ -1,5 +1,5 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { Diary } from '../model/diary';
 import { Router } from '@angular/router';
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
@@ -18,7 +18,6 @@ import { AlertService } from '../alerts/alert.service';
   selector: 'app-diaries',
   standalone: true,
   imports: [
-    CommonModule,
     MatTableModule,
     ScrollingModule,
     FullheaderComponent,
@@ -26,7 +25,7 @@ import { AlertService } from '../alerts/alert.service';
     MatCardModule,
     MatButtonModule,
     DragDropModule
-  ],
+],
   templateUrl: './diaries.component.html',
   styleUrl: './diaries.component.scss'
 })

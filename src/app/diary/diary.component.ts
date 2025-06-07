@@ -1,6 +1,6 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { Diary } from '../model/diary';
-import { CommonModule, NgIf } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FullheaderComponent } from "../headers/fullheader/fullheader.component";
@@ -25,7 +25,6 @@ import { RpcService } from '../mqtt/rpc.service';
   selector: 'app-diary',
   standalone: true,
   imports: [
-    CommonModule,
     FormsModule,
     FullheaderComponent,
     FullfooterComponent,
@@ -36,7 +35,7 @@ import { RpcService } from '../mqtt/rpc.service';
     MatTableModule,
     ScrollingModule,
     DragDropModule
-  ],
+],
   templateUrl: './diary.component.html',
   styleUrl: './diary.component.scss'
 })
