@@ -52,6 +52,7 @@ export class TokenRequestor {
   }
 
   start(refreshInterval: number): void {
+    console.log(`TokenRequestor.start: ${new Date().toISOString()}`);
     console.log(`TokenRequestor.start: refreshInterval: ${refreshInterval} seconds`);
     this.stop();  // prevent duplicates
 

@@ -24,10 +24,10 @@ export class AppComponent implements OnInit {
   ngOnInit() {
     const token = this.accessToken.getCurrentToken();
     const refreshToken = this.refreshToken.getCurrentToken();
-    if (token && refreshToken) {
-      const defaultRefreshInterval = 10; // or derive this dynamically if needed
-      console.log("AppComponent: starting TokenRequestor");
-      this.tokenRequestor.start(defaultRefreshInterval);
-    }
+    // if (token && refreshToken) {
+    //   const defaultRefreshInterval = 10; // or derive this dynamically if needed
+    //   console.log("AppComponent: starting TokenRequestor");
+    //   this.tokenRequestor.start(defaultRefreshInterval);
+    // }
   }
 }

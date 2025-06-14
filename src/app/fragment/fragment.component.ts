@@ -81,7 +81,7 @@ export class FragmentComponent implements OnInit, OnDestroy {
   onResize(event: UIEvent) {
     this.windowWidth = window.innerWidth;
     this.windowHeight = window.innerHeight;
-    console.log(`Window resized: ${this.windowWidth} x ${this.windowHeight}`);
+    // console.log(`Window resized: ${this.windowWidth} x ${this.windowHeight}`);
   }
 
   ngOnInit() {
@@ -330,11 +330,11 @@ export class FragmentComponent implements OnInit, OnDestroy {
 
     if (this.isResizing() || this.isDragging()) {
 
-      console.log(`FragmentComponent.onMouseUp: updateMarquee: ${JSON.stringify(this.fragment.marquee)}`);
+      // console.log(`FragmentComponent.onMouseUp: updateMarquee: ${JSON.stringify(this.fragment.marquee)}`);
 
       this.rpcService.updateMarquee$(this.fragment.marquee).subscribe({
         next: () => {
-          console.log(`FragmentComponent.onMouseUp: update succeeded`);
+          // console.log(`FragmentComponent.onMouseUp: update succeeded`);
         },
         error: (err) => {
           console.log(`FragmentComponent.onMouseUp: error: ${err}`);
