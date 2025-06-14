@@ -18,7 +18,6 @@ export class LiveObjectService {
   ) { }
 
   getDiaryById$(id: number): Observable<Diary> {
-    console.log(`LiveObjectService: getDiaryById$(${id})`);
     const topic = `diaries/${id}`;
     return this.getObjectById$<Diary>(topic, (buf: Buffer) => {
       return JSON.parse(buf.toString()) as Diary;
@@ -26,30 +25,16 @@ export class LiveObjectService {
   }
 
   getPageById$(diaryId: number, pageId: number): Observable<Page> {
-    console.log(`LiveObjectService: getPageById$(${diaryId}, ${pageId})`);
     const topic = `diaries/${diaryId}/${pageId}`;
     return this.getObjectById$<Page>(topic, (buf: Buffer) => {
       return JSON.parse(buf.toString()) as Page;
     })
   }
 
-  xgetMarqueeById$(diaryId: number, pageId: number, marqueeId: number): Observable<Marquee> {
-    console.log(`LiveObjectService: getMarqueesById$(${diaryId}, ${pageId}, ${marqueeId})`);
-    const topic = `diaries/${diaryId}/${pageId}/${marqueeId}`;
-    return this.getObjectById$<Marquee>(topic, (buf: Buffer) => {
-      const raw = JSON.parse(buf.toString());
-      const rectangle = new Rectangle(raw.x, raw.y, raw.width, raw.height);
-      return new Marquee(raw.id, rectangle, raw.sequence);
-    })
-  }
-
-  getFragmentById$(diaryId: number, pageId: number, fragmentId: number): Observable<Fragment> {
-    console.log(`LiveObjectService: getFragmentById$(${diaryId}, ${pageId}, ${fragmentId})`);
-    const topic = `diaries/${diaryId}/${pageId}/${fragmentId}`;
+  getFragmentById$(fragmentId: number): Observable<Fragment> {
+    const topic = `fragments/${fragmentId}`;
     return this.getObjectById$<Fragment>(topic, (buf: Buffer) => {
-      const raw = JSON.parse(buf.toString());
-      const rectangle = new Rectangle(raw.x, raw.y, raw.width, raw.height);
-      return new Fragment(raw.id, raw.year, raw.month, raw.day, raw.sequence, rectangle, raw.text);
+      return JSON.parse(buf.toString()) as Fragment;
     })
   }
 

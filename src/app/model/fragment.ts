@@ -8,13 +8,9 @@ export class Fragment {
     public month: number,
     public day: number,
     public sequence: number,
-    public rectangle: Rectangle,
+    public marquee: Marquee,
     public text: string
   ) { };
-
-  public toMarquee() {
-    return new Marquee(this.id, this.rectangle, this.sequence);
-  }
 }
 
 export class NormaliseFragmentsRequest {

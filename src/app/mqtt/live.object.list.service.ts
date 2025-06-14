@@ -6,6 +6,7 @@ import { Rectangle } from "../utilities/rectangle";
 import { Diary } from "../model/diary";
 import { Page } from "../model/page";
 import { Marquee } from "../model/marquee";
+import { Fragment } from "../model/fragment";
 
 @Injectable({ providedIn: 'root' })
 export class LiveObjectListService {
@@ -38,14 +39,10 @@ export class LiveObjectListService {
     }
 
     getMarqueesForPage$(diaryId: number, pageId: number): Observable<Marquee[]> {
-        const topicPrefix = `diaries/${diaryId}/${pageId}/`;
-
         return from(this.mqtt.getConnection()).pipe(
             switchMap(client =>
-                this.subscribeToTopicTree$<Marquee>(client, topicPrefix, (buf: Buffer) => {
-                    const obj = JSON.parse(buf.toString());
-                    const rect = new Rectangle(obj.x, obj.y, obj.width, obj.height);
-                    return new Marquee(obj.id, rect, obj.sequence);
+                this.subscribeToTopicTree$<Marquee>(client, `diaries/${diaryId}/${pageId}/`, (buf: Buffer) => {
+                    return JSON.parse(buf.toString()) as Marquee;
                 })
             )
         );
