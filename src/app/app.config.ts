@@ -5,11 +5,9 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { MqttService } from './mqtt/mqtt.service';
 
-
 function initializeMqttService(mqttService: MqttService) {
-  return () => mqttService.initialise();
+  return () => mqttService.initialise(); // Should return void | Promise<void>
 }
-
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -19,11 +17,9 @@ export const appConfig: ApplicationConfig = {
     {
       provide: APP_INITIALIZER,
       useFactory: initializeMqttService,
-      deps: [    MqttService,
-      ],
+      deps: [MqttService],
       multi: true,
-    }, provideAnimationsAsync()
-  ]
+    },
+    provideAnimationsAsync(),
+  ],
 };
-
-

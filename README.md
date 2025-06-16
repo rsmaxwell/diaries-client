@@ -1,6 +1,6 @@
 # DiariesClient
 
-This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 18.1.4.
+This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 20.0.2
 
 ## Development server
 
@@ -33,9 +33,9 @@ npm install uuid
 npm install --save-dev @types/uuid
 npm install mqtt
 npm install buffer
+npm install golden-layout
 
 ng add @angular/material
-
 
 ## Rich text Editor
 

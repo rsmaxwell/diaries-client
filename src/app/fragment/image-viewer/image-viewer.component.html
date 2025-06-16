@@ -1,0 +1,112 @@
+<svg
+  #svgRef
+  id="svg"
+  xmlns="http://www.w3.org/2000/svg"
+  version="1.1"
+  preserveAspectRatio="xMidYMid meet"
+  width="100%"
+  height="100%"
+  [attr.viewBox]="'0 0 ' + width + ' ' + height"
+  [ngClass]="[cursorStyle]"
+  (wheel)="onWheel($event)"
+  (mousedown)="onMouseDown($any($event))"
+  (mousemove)="onMouseMove($any($event))"
+  (mouseup)="onMouseUp()"
+  (mouseleave)="onMouseLeave($any($event))"
+  (contextmenu)="onRightClick($any($event))"
+  (keydown)="onKeyDown($any($event))"
+  tabindex="0"
+>
+  <g [attr.transform]="transformStyle">
+    <defs id="defs1">
+      <mask maskUnits="userSpaceOnUse" id="mask15">
+        <g id="g17" style="display:inline">
+          <rect
+            id="rect-base"
+            x="0"
+            y="0"
+            [attr.width]="width"
+            [attr.height]="height"
+            class="baseMask"
+          />
+          @for (marquee of otherMarquees; track marquee) {
+            <rect
+              [attr.id]="marquee.id"
+              [attr.x]="marquee.rectangle.x"
+              [attr.y]="marquee.rectangle.y"
+              [attr.width]="marquee.rectangle.width"
+              [attr.height]="marquee.rectangle.height"
+              class="otherMask"
+            />
+          }
+          @if (fragment) {
+            <rect
+              id="rect-selected"
+              [attr.x]="fragment.marquee.rectangle.x"
+              [attr.y]="fragment.marquee.rectangle.y"
+              [attr.width]="fragment.marquee.rectangle.width"
+              [attr.height]="fragment.marquee.rectangle.height"
+              class="selectedMask"
+            />
+          }
+        </g>
+      </mask>
+
+      <mask maskUnits="userSpaceOnUse" id="mask16">
+        <g id="g17" style="display:inline">
+          <rect
+            id="rect-base"
+            x="0"
+            y="0"
+            [attr.width]="width"
+            [attr.height]="height"
+            class="baseMask"
+          />
+          @if (fragment) {
+            <rect
+              id="rect-selected"
+              [attr.x]="fragment.marquee.rectangle.x"
+              [attr.y]="fragment.marquee.rectangle.y"
+              [attr.width]="fragment.marquee.rectangle.width"
+              [attr.height]="fragment.marquee.rectangle.height"
+              class="selectedMask"
+            />
+          }
+        </g>
+      </mask>
+    </defs>
+
+    <image
+      id="image1"
+      [attr.href]="imageUrl"
+      x="0"
+      y="0"
+      [attr.width]="width"
+      [attr.height]="height"
+      mask="url(#mask15)"
+    />
+
+    @for (marquee of otherMarquees; track marquee) {
+      <rect
+        [attr.id]="marquee.id"
+        [attr.x]="marquee.rectangle.x"
+        [attr.y]="marquee.rectangle.y"
+        [attr.width]="marquee.rectangle.width"
+        [attr.height]="marquee.rectangle.height"
+        class="other"
+        (click)="onSelectMarquee(marquee)"
+      />
+    }
+
+    <image
+      id="image2"
+      [attr.href]="imageUrl"
+      x="0"
+      y="0"
+      [attr.width]="width"
+      [attr.height]="height"
+      mask="url(#mask16)"
+      style="pointer-events: none"
+    />
+  </g>
+</svg>
