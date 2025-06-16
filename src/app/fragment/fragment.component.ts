@@ -100,7 +100,6 @@ export class FragmentComponent implements OnInit, OnDestroy {
   }
 
   onTitleChanged(title: string) {
-    console.log('Title changed:', title);
     this.title = title;
   }
 
