@@ -17,7 +17,7 @@ import { RpcService } from '../../mqtt/rpc.service';
 import { forkJoin, Observable, switchMap } from 'rxjs';
 import { ConfigService } from '../../config/config.service';
 import { MqttService } from '../../mqtt/mqtt.service';
-import { AccessTokenService } from '../token/AccessTokenService';
+import { AccessTokenService } from '../token/accessTokenService';
 import { ReplyHandler } from '../../utilities/replyHandler';
 import { Constants } from '../../utilities/constants';
 

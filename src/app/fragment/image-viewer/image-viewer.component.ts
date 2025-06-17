@@ -79,11 +79,15 @@ export class ImageViewerComponent implements OnInit {
   pages: Page[] = [];
 
   ngOnInit(): void {
+    console.log(`ImageViewerComponent.ngOnInit`);
+
     this.svgRefReady.emit(this.svgRef);
 
     this.route.paramMap
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
+        console.log(`ImageViewerComponent.ngOnInit: route paramMap changed`);
+
         const diaryId = Number(this.route.snapshot.paramMap.get('diaryId'));
         const pageId = Number(this.route.snapshot.paramMap.get('pageId'));
 
@@ -289,15 +293,18 @@ export class ImageViewerComponent implements OnInit {
     if (!this.fragment) return;
     if (this.isResizing() || this.isDragging()) {
 
-      // console.log(`ImageViewerComponent.onMouseUp: updateMarquee: ${JSON.stringify(this.fragment.marquee)}`);
-
+      console.log(`ImageViewerComponent.onMouseUp: updating marquee`);
       this.rpcService.updateMarquee$(this.fragment.marquee).subscribe({
         next: () => {
-          // console.log(`ImageViewerComponent.onMouseUp: update succeeded`);
+          console.log(`ImageViewerComponent.onMouseUp: marquee updated succeeded`);
         },
         error: (err) => {
-          console.log(`ImageViewerComponent.onMouseUp: error: ${err}`);
-          this.alertService.error(err);
+          console.log(`ImageViewerComponent.onMouseUp: ${err}`);
+          console.log(`ImageViewerComponent.onMouseUp: ${err.status}`);
+          console.log(`ImageViewerComponent.onMouseUp: ${JSON.stringify(err)}`);
+          if (!this.handleAuthError(err)) {
+            this.alertService.error(err);
+          }
         }
       });
     }
@@ -312,6 +319,10 @@ export class ImageViewerComponent implements OnInit {
 
   onSelectMarquee(marquee: Marquee) {
     console.log(`ImageViewerComponent.onSelectMarquee: marquee: ${JSON.stringify(marquee)}`);
+
+    const target = `/diary/${this.diary.id}/${this.page.id}/${marquee.fragmentId}`
+    console.log(`ImageViewerComponent.onSelectMarquee: redirecting to: ${target}`);
+
     this.router.navigate([`/diary/${this.diary.id}/${this.page.id}/${marquee.fragmentId}`]);
   }
 
@@ -463,9 +474,11 @@ export class ImageViewerComponent implements OnInit {
           console.log(`ImageViewerComponent.onKeyDown: delete succeeded: id: ${id}`);
         },
         error: (err) => {
-          console.log(`ImageViewerComponent.onKeyDown: delete error: ${err}`);
-          this.alertService.error(err);
+          if (!this.handleAuthError(err)) {
+            this.alertService.error(err);
+          }
         }
+
       });
     }
   }
@@ -474,8 +487,6 @@ export class ImageViewerComponent implements OnInit {
   }
 
   onAddButtonClick() {
-    console.log(`ImageViewerComponent.onAddButtonClick`);
-
     const x = this.width / 5;
     const y = this.height / 5;
     const width = 3 * this.width / 5;
@@ -487,15 +498,25 @@ export class ImageViewerComponent implements OnInit {
       next: (id) => {
         const marquee = new Marquee(id, rectangle, sequence);
 
-        console.log(`ImageViewerComponent.onAddButtonClick: fragment: id: ${marquee.id} added`);
-        this.alertService.info(`fragment: id: ${marquee.id} added`);
+        console.log(`ImageViewerComponent.onAddButtonClick: marquee: id: ${marquee.id} added`);
+        this.alertService.info(`marquee: id: ${marquee.id} added`);
 
         this.router.navigate([`/diary/${this.diary.id}/${this.page.id}/${marquee.id}`]);
       },
       error: (err) => {
-        console.log(`ImageViewerComponent.onAddButtonClick: error: ${err}`)
-        this.alertService.error(err);
+        if (!this.handleAuthError(err)) {
+          this.alertService.error(err);
+        }
       }
     });
+  }
+
+  private handleAuthError(err: any): boolean {
+    if (err?.status === 401) {
+      const returnUrl = this.router.url;
+      this.router.navigate(['/signin'], { queryParams: { returnUrl } });
+      return true;
+    }
+    return false;
   }
 }

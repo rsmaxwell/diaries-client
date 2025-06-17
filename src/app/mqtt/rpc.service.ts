@@ -13,13 +13,13 @@ import { ReplyHandler } from "../utilities/replyHandler";
 import { Constants } from "../utilities/constants";
 import { AddMarqueeRequest, DeleteMarqueeRequest, Marquee, UpdateMarqueeRequest } from "../model/marquee";
 import { ConfigService } from "../config/config.service";
-import { AccessTokenService } from "../user/token/AccessTokenService";
 import { Signin, SigninReply, SigninRequest } from "../model/signin";
 import { Register, RegisterReply, RegisterRequest } from "../model/register";
 import { Diary, UpdateDiaryRequest } from "../model/diary";
 import { RefreshTokenReply, RefreshTokenRequest } from "../model/refresh.token";
-import { RefreshTokenService } from "../user/token/RefreshTokenService";
 import { NormaliseFragmentsRequest } from "../model/fragment";
+import { AccessTokenService } from "../user/token/accessTokenService";
+import { RefreshTokenService } from "../user/token/refreshTokenService";
 
 
 @Injectable({ providedIn: 'root' })

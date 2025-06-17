@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import { AccessTokenService } from './user/token/AccessTokenService';
-import { RefreshTokenService } from './user/token/RefreshTokenService';
+import { AccessTokenService } from './user/token/accessTokenService';
+import { RefreshTokenService } from './user/token/refreshTokenService';
 import { TokenRequestor } from './user/tokenRequestor';
 
 @Component({

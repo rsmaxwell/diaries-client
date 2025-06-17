@@ -1,10 +1,10 @@
 import { Injectable } from "@angular/core";
 import { catchError, interval, Observable, Subscription, switchMap } from "rxjs";
-import { AccessTokenService } from "./token/AccessTokenService";
+import { AccessTokenService } from "./token/accessTokenService";
 import { Router } from "@angular/router";
 import { RpcService } from "../mqtt/rpc.service";
 import { RefreshTokenReply } from "../model/refresh.token";
-import { RefreshTokenService } from "./token/RefreshTokenService";
+import { RefreshTokenService } from "./token/refreshTokenService";
 
 
 @Injectable({ providedIn: 'root' })

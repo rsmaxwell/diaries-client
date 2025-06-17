@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
-import { AccessTokenService } from '../user/token/AccessTokenService';
+import { AccessTokenService } from '../user/token/accessTokenService';
 
 @Component({
   selector: 'app-startup-redirect',
