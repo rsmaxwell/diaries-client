@@ -5,7 +5,9 @@ import {
   EventEmitter,
   ViewChild,
   ElementRef,
-  OnInit
+  OnInit,
+  OnDestroy,
+  AfterViewInit
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Marquee } from '../../model/marquee';
@@ -17,13 +19,14 @@ import { Page } from '../../model/page';
 import { RpcService } from '../../mqtt/rpc.service';
 import { AlertService } from '../../alerts/alert.service';
 import { ActivatedRoute, Router } from '@angular/router';
-import { combineLatest, from, Subject, takeUntil } from 'rxjs';
+import { combineLatest, from, map, Subject, switchMap, takeUntil } from 'rxjs';
 import { LiveObjectListService } from '../../mqtt/live.object.list.service';
 import { ConfigService } from '../../config/config.service';
 import { LiveObjectService } from '../../mqtt/live.object.service';
+import { FragmentContextService } from '../fragment-context.service';
 
 enum ViewMode {
-  WithFragment,
+  WithMarquee,
   WithoutFragment
 }
 
@@ -34,21 +37,13 @@ enum ViewMode {
   templateUrl: './image-viewer.component.html',
   styleUrls: ['./image-viewer.component.scss']
 })
-export class ImageViewerComponent implements OnInit {
-
-  @Input() width = 1000;
-  @Input() height = 1400;
-  @Input() imageUrl = '';
-  @Input() fragment?: Fragment;
+export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @Output() titleChanged = new EventEmitter<string>();
-  @Output() svgRefReady = new EventEmitter<ElementRef<SVGSVGElement>>();
-
   @Output() marqueeMoved = new EventEmitter<Marquee>();
   @Output() marqueeSelected = new EventEmitter<Marquee>();
-  @Output() fragmentChanged = new EventEmitter<Fragment>();
 
-  @ViewChild('svgRef', { static: true }) svgRef!: ElementRef<SVGSVGElement>;
+  @ViewChild('svgRef') svgRef!: ElementRef<SVGSVGElement>;
 
   constructor(
     private route: ActivatedRoute,
@@ -57,14 +52,19 @@ export class ImageViewerComponent implements OnInit {
     private alertService: AlertService,
     private configService: ConfigService,
     private liveObjectService: LiveObjectService,
-    private liveObjectListService: LiveObjectListService
+    private liveObjectListService: LiveObjectListService,
+    private context: FragmentContextService
   ) { };
 
   private destroy$ = new Subject<void>();
   scale = 1;
   offsetX = 0;
   offsetY = 0;
+  width: number = 0;
+  height: number = 0;
+  imageUrl: string = '';
   resizeEdge?: { left: boolean; right: boolean; top: boolean; bottom: boolean; };
+  marquee: Marquee | null = null;
   marquees: Marquee[] = [];
   otherMarquees: Marquee[] = [];
   mode: ViewMode = ViewMode.WithoutFragment;
@@ -81,85 +81,91 @@ export class ImageViewerComponent implements OnInit {
   ngOnInit(): void {
     console.log(`ImageViewerComponent.ngOnInit`);
 
-    this.svgRefReady.emit(this.svgRef);
+    this.context.setSvgRef(this.svgRef);
+    this.context.setImageViewerComponent(this);
+
+    let diaryId = 0;
+    let pageId = 0;
+    let marqueeId: number | null = null;
 
     this.route.paramMap
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(() => {
-        console.log(`ImageViewerComponent.ngOnInit: route paramMap changed`);
+      .pipe(
+        takeUntil(this.destroy$),
+        switchMap(paramMap => {
+          diaryId = Number(paramMap.get('diaryId'));
+          pageId = Number(paramMap.get('pageId'));
 
-        const diaryId = Number(this.route.snapshot.paramMap.get('diaryId'));
-        const pageId = Number(this.route.snapshot.paramMap.get('pageId'));
+          const marqueeParam = paramMap.get('marqueeId');
+          marqueeId = marqueeParam !== null ? Number(marqueeParam) : null;
 
-        const fragmentParam = this.route.snapshot.paramMap.get('fragmentId');
-        const fragmentId = fragmentParam !== null ? Number(fragmentParam) : null;
-        const hasValidFragmentId = fragmentId !== null && !isNaN(fragmentId);
+          const config$ = from(this.configService.getConfig());
+          const diary$ = this.liveObjectService.getDiaryById$(diaryId).pipe(takeUntil(this.destroy$));
+          const page$ = this.liveObjectService.getPageById$(diaryId, pageId).pipe(takeUntil(this.destroy$));
+          const pages$ = this.liveObjectListService.getPagesForDiary$(diaryId).pipe(takeUntil(this.destroy$));
+          const marquees$ = this.liveObjectListService.getMarqueesForPage$(diaryId, pageId).pipe(takeUntil(this.destroy$));
 
-        const config$ = from(this.configService.getConfig());
-        const diary$ = this.liveObjectService.getDiaryById$(diaryId);
-        const page$ = this.liveObjectService.getPageById$(diaryId, pageId);
-        const pages$ = this.liveObjectListService.getPagesForDiary$(diaryId);
-        const marquees$ = this.liveObjectListService.getMarqueesForPage$(diaryId, pageId);
+          if (marqueeId != null) {
+            console.log(`ImageViewerComponentng.OnInit: marquee: ${marqueeId}`);
+            const marquee$ = this.liveObjectService.getMarqueeById$(diaryId, pageId, marqueeId).pipe(takeUntil(this.destroy$));
+            return combineLatest([config$, diary$, page$, pages$, marquees$, marquee$]).pipe(
+              map(([config, diary, page, pages, marquees, marquee]) => ({
+                config, diary, page, pages, marquees, marquee, marqueeId
+              }))
+            );
+          } else {
+            console.log('ImageViewerComponent.OnInit: marquee parameter NOT present');
+            return combineLatest([config$, diary$, page$, pages$, marquees$]).pipe(
+              map(([config, diary, page, pages, marquees]) => ({
+                config, diary, page, pages, marquees, marquee: null, marqueeId: null
+              }))
+            );
+          }
+        })
+      )
+      .subscribe(({ config, diary, page, pages, marquees, marquee, marqueeId }) => {
 
-        if (hasValidFragmentId) {
+        console.log(`ImageViewerComponent.OnInit: subscribe: marqueeId: ${marqueeId}, marquee: ${JSON.stringify(marquee)}`);
 
-          const fragment$ = this.liveObjectService.getFragmentById$(fragmentId);
-          combineLatest([config$, diary$, page$, pages$, fragment$, marquees$])
-            .pipe(takeUntil(this.destroy$))
-            .subscribe(([config, diary, page, pages, fragment, marquees]) => {
+        this.diary = diary;
+        this.page = page;
+        this.width = page.width;
+        this.height = page.height;
+        this.pages = pages;
+        this.marquees = marquees;
+        this.imageUrl = `${config.fileServerUrl}/${diary.name}/${page.name}${page.extension}`;
 
-              this.mode = ViewMode.WithFragment;
-              this.width = page.width;
-              this.height = page.height;
-              this.diary = diary;
-              this.page = page;
-              this.pages = pages;
-              this.marquees = marquees;
-              this.imageUrl = `${config.fileServerUrl}/${diary.name}/${page.name}${page.extension}`;
+        const title = marqueeId ? `${diary.name} - ${page.name} - ${marqueeId}` : `${diary.name} - ${page.name}`;
+        this.titleChanged.emit(title);
 
-              const title = `${diary.name} - ${page.name} - ${fragmentId}`;
-              this.titleChanged.emit(title);
-
-              this.originalRectangle = { ...fragment.marquee.rectangle };
-              const text = `marquee\n${JSON.stringify(fragment.marquee, null, 2)}\n\n` +
-                `page\n${JSON.stringify(page, null, 2)}\n\n` +
-                `config\n${JSON.stringify(config, null, 2)}\n\n` +
-                `viewport size: width: ${window.innerWidth}, height ${window.innerHeight}`
-                ;
-
-              this.fragment = fragment;
-              this.fragment.text = text;
-              this.updateOtherMarquees();
-              this.fragmentChanged.emit(fragment);
-            });
-        } else {
-
-          combineLatest([config$, diary$, page$, pages$, marquees$])
-            .pipe(takeUntil(this.destroy$))
-            .subscribe(([config, diary, page, pages, marquees]) => {
-
-              this.width = page.width;
-              this.height = page.height;
-              this.diary = diary;
-              this.page = page;
-              this.pages = pages;
-              this.marquees = marquees;
-              this.imageUrl = `${config.fileServerUrl}/${diary.name}/${page.name}${page.extension}`;
-
-              const title = `${diary.name} - ${page.name}`;
-              this.titleChanged.emit(title);
-
-              this.fragment = undefined as any;
-              this.originalRectangle = undefined as any;
-              this.updateOtherMarquees();
-
-              console.log('otherMarquees:');
-              this.otherMarquees.forEach((m, index) => {
-                console.log(`  [${index}] ${JSON.stringify(m)}`);
-              });
-            });
+        if (marqueeId !== null && marquee === null) {
+          // console.log(`ImageViewerComponent.OnInit: subscribe: marquee: ${marqueeId}. no valid marquee, or marquee was deleted`);
+          this.marquee = undefined!;
+          this.originalRectangle = undefined;
+          this.mode = ViewMode.WithoutFragment;
+          this.updateOtherMarquees();
+          this.router.navigate([`/diary/${diaryId}/${pageId}`]);
+          return;
         }
+
+        if (marquee) {
+          // console.log(`ImageViewerComponent.OnInit: subscribe: marquee: ${JSON.stringify(marquee)}`);
+          this.marquee = marquee;
+          this.mode = ViewMode.WithMarquee;
+          this.context.setFragmentId(marquee.fragmentId);
+        }
+
+        this.updateOtherMarquees();
+        // this.otherMarquees.forEach((m, index) => {
+        //   console.log(`  [${index}] ${JSON.stringify(m)}`);
+        // });
       });
+  }
+
+  ngAfterViewInit(): void {
+    if (this.svgRef?.nativeElement) {
+      this.svgRef.nativeElement.focus();
+      console.log('ImageViewerComponent: svg focused');
+    }
   }
 
   ngOnDestroy(): void {
@@ -209,7 +215,11 @@ export class ImageViewerComponent implements OnInit {
   }
 
   onMouseDown(event: MouseEvent) {
-    if (this.mode !== ViewMode.WithFragment || !this.fragment || !this.svgRef) return;
+    if (this.mode !== ViewMode.WithMarquee || !this.marquee || !this.svgRef) return;
+
+    console.log(`ImageViewerComponent.onMouseDown: this.marquee: ${JSON.stringify(this.marquee)}`);
+
+    this.updateOtherMarquees();
 
     const mousePosition = this.getMousePosition(event);
 
@@ -218,13 +228,13 @@ export class ImageViewerComponent implements OnInit {
       this.resizeEdge = this.detectResizeEdge(mousePosition);
 
       this.dragStart = mousePosition;
-      this.originalRectangle = { ...this.fragment.marquee.rectangle };
+      this.originalRectangle = { ...this.marquee.rectangle };
 
       if (Object.values(this.resizeEdge).every(v => v === false)) {
         // Ctrl + click inside marquee = move marquee
         this.isDraggingMarquee = true;
         this.dragStart = mousePosition;
-        const r = this.fragment.marquee.rectangle;
+        const r = this.marquee.rectangle;
         this.dragStartMarquee = { x: r.x, y: r.y };
       } else {
         // Ctrl + click near edge = resize
@@ -239,7 +249,7 @@ export class ImageViewerComponent implements OnInit {
 
 
   onMouseMove(event: MouseEvent) {
-    if (this.mode !== ViewMode.WithFragment || !this.fragment || !this.svgRef) return;
+    if (this.mode !== ViewMode.WithMarquee || !this.marquee || !this.svgRef) return;
 
     const isCtrlKeyDown = event.ctrlKey;
     let mousePosition = this.getMousePosition(event);
@@ -249,7 +259,7 @@ export class ImageViewerComponent implements OnInit {
     const dx = mousePosition.x - this.dragStart.x;
     const dy = mousePosition.y - this.dragStart.y;
 
-    const r = this.fragment.marquee.rectangle;
+    const r = this.marquee.rectangle;
 
     if (this.isDraggingGlobal) {
       this.offsetX += dx;
@@ -257,7 +267,7 @@ export class ImageViewerComponent implements OnInit {
       this.dragStart = mousePosition;
     }
 
-    if (this.isDraggingMarquee && this.fragment && this.dragStartMarquee) {
+    if (this.isDraggingMarquee && this.marquee && this.dragStartMarquee) {
       const dxSvg = dx / this.scale;
       const dySvg = dy / this.scale;
 
@@ -289,25 +299,25 @@ export class ImageViewerComponent implements OnInit {
   }
 
   onMouseUp() {
-    if (this.mode !== ViewMode.WithFragment) return;
-    if (!this.fragment) return;
+    if (this.mode !== ViewMode.WithMarquee) return;
+    if (!this.marquee) return;
     if (this.isResizing() || this.isDragging()) {
 
       console.log(`ImageViewerComponent.onMouseUp: updating marquee`);
-      this.rpcService.updateMarquee$(this.fragment.marquee).subscribe({
-        next: () => {
-          console.log(`ImageViewerComponent.onMouseUp: marquee updated succeeded`);
+      this.rpcService.updateMarquee$(this.marquee).subscribe({
+        next: (id) => {
+          console.log(`ImageViewerComponent.onMouseUp: marquee updated succeeded: id: ${id}`);
         },
         error: (err) => {
           console.log(`ImageViewerComponent.onMouseUp: ${err}`);
-          console.log(`ImageViewerComponent.onMouseUp: ${err.status}`);
-          console.log(`ImageViewerComponent.onMouseUp: ${JSON.stringify(err)}`);
           if (!this.handleAuthError(err)) {
             this.alertService.error(err);
           }
         }
       });
     }
+
+    this.updateOtherMarquees();
 
     this.isDraggingGlobal = false;
     this.isDraggingMarquee = false;
@@ -320,25 +330,25 @@ export class ImageViewerComponent implements OnInit {
   onSelectMarquee(marquee: Marquee) {
     console.log(`ImageViewerComponent.onSelectMarquee: marquee: ${JSON.stringify(marquee)}`);
 
-    const target = `/diary/${this.diary.id}/${this.page.id}/${marquee.fragmentId}`
+    const target = `/diary/${this.diary.id}/${this.page.id}/${marquee.id}`
     console.log(`ImageViewerComponent.onSelectMarquee: redirecting to: ${target}`);
 
-    this.router.navigate([`/diary/${this.diary.id}/${this.page.id}/${marquee.fragmentId}`]);
+    this.router.navigate([`/diary/${this.diary.id}/${this.page.id}/${marquee.id}`]);
   }
 
   private updateOtherMarquees() {
-    if (this.fragment) {
-      this.otherMarquees = this.marquees.filter(m => m.id != this.fragment?.id);
+    if (this.marquee != undefined) {
+      this.otherMarquees = this.marquees.filter(m => m.id != this.marquee?.id);
     } else {
       this.otherMarquees = this.marquees;
     }
   }
 
   calculateCursorStyle(mousePosition: DOMPoint, isCtrlKeyDown: boolean) {
-    if (this.mode != ViewMode.WithFragment) return;
-    if (!this.fragment) return;
+    if (this.mode != ViewMode.WithMarquee) return;
+    if (!this.marquee) return;
 
-    const m = this.fragment.marquee.rectangle;
+    const m = this.marquee.rectangle;
 
     // Apply the <g> transform to get the position of the marquee in SVG logical space
     const rectX = m.x * this.scale + this.offsetX;
@@ -385,10 +395,10 @@ export class ImageViewerComponent implements OnInit {
 
   detectResizeEdge(mousePosition: DOMPoint): { left: boolean, right: boolean, top: boolean, bottom: boolean } {
     const edges = { left: false, right: false, top: false, bottom: false };
-    if (this.mode !== ViewMode.WithFragment) return edges;
-    if (!this.fragment) return edges;
+    if (this.mode !== ViewMode.WithMarquee) return edges;
+    if (!this.marquee) return edges;
 
-    const m = this.fragment.marquee.rectangle;
+    const m = this.marquee.rectangle;
     const margin = 40;
 
     // Apply the <g> transform to get the position of the marquee in SVG logical space
@@ -445,31 +455,14 @@ export class ImageViewerComponent implements OnInit {
 
 
   onKeyDown(event: KeyboardEvent) {
-    if (this.mode !== ViewMode.WithFragment) return;
-    if (!this.fragment) return;
+    if (this.mode !== ViewMode.WithMarquee) return;
+    if (!this.marquee) return;
 
     if (event.key === 'Delete' && event.ctrlKey) {
       console.log('ImageViewerComponent.onKeyDown: Control + Delete pressed');
 
-      // Find index of current fragment
-      const currentIndex = this.marquees.findIndex(m => m.id === this.fragment?.id);
-
-      // Compute next fragment (wrap around or pick previous if at end)
-      const nextFragment = (currentIndex >= 0 && currentIndex < this.marquees.length - 1)
-        ? this.marquees[currentIndex + 1]
-        : (currentIndex > 0 ? this.marquees[currentIndex - 1] : null);
-
-      if (nextFragment) {
-        console.log(`Navigating to next fragment: ${nextFragment.id}`);
-        this.router.navigate([
-          `/diary/${this.diary.id}/${this.page.id}/${nextFragment.id}`
-        ]);
-      } else {
-        console.log('No next fragment to navigate to.');
-      }
-
-      console.log(`ImageViewerComponent.onKeyDown: deleting fregment id: ${this.fragment.id}`);
-      this.rpcService.deleteMarquee$(this.fragment.id).subscribe({
+      console.log(`ImageViewerComponent.onKeyDown: deleting marquee id: ${this.marquee.id}`);
+      this.rpcService.deleteMarquee$(this.marquee.id).subscribe({
         next: (id: number) => {
           console.log(`ImageViewerComponent.onKeyDown: delete succeeded: id: ${id}`);
         },
@@ -480,6 +473,8 @@ export class ImageViewerComponent implements OnInit {
         }
 
       });
+
+      this.router.navigate([`/diary/${this.diary.id}/${this.page.id}`]);
     }
   }
 

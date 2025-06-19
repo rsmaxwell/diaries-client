@@ -39,13 +39,13 @@
               class="otherMask"
             />
           }
-          @if (fragment) {
+          @if (marquee) {
             <rect
               id="rect-selected"
-              [attr.x]="fragment.marquee.rectangle.x"
-              [attr.y]="fragment.marquee.rectangle.y"
-              [attr.width]="fragment.marquee.rectangle.width"
-              [attr.height]="fragment.marquee.rectangle.height"
+              [attr.x]="marquee.rectangle.x"
+              [attr.y]="marquee.rectangle.y"
+              [attr.width]="marquee.rectangle.width"
+              [attr.height]="marquee.rectangle.height"
               class="selectedMask"
             />
           }
@@ -62,13 +62,13 @@
             [attr.height]="height"
             class="baseMask"
           />
-          @if (fragment) {
+          @if (marquee) {
             <rect
               id="rect-selected"
-              [attr.x]="fragment.marquee.rectangle.x"
-              [attr.y]="fragment.marquee.rectangle.y"
-              [attr.width]="fragment.marquee.rectangle.width"
-              [attr.height]="fragment.marquee.rectangle.height"
+              [attr.x]="marquee.rectangle.x"
+              [attr.y]="marquee.rectangle.y"
+              [attr.width]="marquee.rectangle.width"
+              [attr.height]="marquee.rectangle.height"
               class="selectedMask"
             />
           }

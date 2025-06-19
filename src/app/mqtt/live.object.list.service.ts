@@ -86,6 +86,7 @@ export class LiveObjectListService {
                 const parts = messageTopic.split('/');
                 const id = Number(parts.at(-1));
                 if (!isNaN(id)) {
+                    console.log(`LiveObjectListService.subscribeToTopicTree: Handle delete for: ${messageTopic}`);
                     subject.next(current.filter(item => item.id !== id));
                 }
                 return;

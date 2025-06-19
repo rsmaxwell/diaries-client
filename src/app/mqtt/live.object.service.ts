@@ -31,13 +31,19 @@ export class LiveObjectService {
     })
   }
 
+  getMarqueeById$(diaryId: number, pageId: number, marqueeId: number): Observable<Marquee> {
+    const topic = `diaries/${diaryId}/${pageId}/${marqueeId}`;
+    return this.getObjectById$<Marquee>(topic, (buf: Buffer) => {
+      return JSON.parse(buf.toString()) as Marquee;
+    })
+  }
+
   getFragmentById$(fragmentId: number): Observable<Fragment> {
     const topic = `fragments/${fragmentId}`;
     return this.getObjectById$<Fragment>(topic, (buf: Buffer) => {
       return JSON.parse(buf.toString()) as Fragment;
     })
   }
-
   private subjects = new Map<string, { subject: ReplaySubject<any>, refCount: number, handler: (topic: string, payload: Buffer) => void }>();
 
   /**

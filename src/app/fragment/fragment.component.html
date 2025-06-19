@@ -2,15 +2,9 @@
 
 <div class="container">
   <app-image-viewer
-    [width]="width"
-    [height]="height"
-    [imageUrl]="imageUrl"
-    [fragment]="fragment"
-    (svgRefReady)="svgRef = $event"
     (titleChanged)="onTitleChanged($event)"
-    (fragmentChanged)="onFragmentChanged($event)"
   ></app-image-viewer>
-  <app-text-panel [fragment]="fragment"></app-text-panel>
+  <app-text-panel></app-text-panel>
 </div>
 
 <app-pagefooter (back)="onBackPressed()" (up)="onUpPressed()" (forward)="onForwardPressed()"></app-pagefooter>

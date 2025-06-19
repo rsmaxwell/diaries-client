@@ -87,8 +87,14 @@ export class RpcService {
             }
         }
 
+        console.log(`rpcDispatcher: received status:`, status);
+//      console.log(`rpcDispatcher: raw userProperties.status:`, props?.userProperties?.["status"]);
+
         if (!status || status.code !== HttpStatusCode.Ok) {
-            handler.observer.error(new Error(`Status ${status?.code}: ${status?.message}`));
+            // handler.observer.error(new Error(`Status ${status?.code}: ${status?.message}`));
+            const err: any = new Error(`Status ${status?.code}: ${status?.message}`);
+            err.status = status?.code;
+            handler.observer.error(err);
             return;
         }
 
@@ -149,8 +155,10 @@ export class RpcService {
                     properties
                 };
 
-                // console.log(`rpcRequest: topic: '${requestTopic}', payload: '${publishPayload}'`);
-                // console.log(`rpcRequest: corr: '${corr}', replyTopic: '${replyTopic}'`);                
+//              console.log(`RpcService.rpcRequest: sending to topic '${requestTopic}'`);
+                console.log(`RpcService.rpcRequest: ${publishPayload}`);
+//              console.log(`RpcService.rpcRequest: correlationId: '${corr}', replyTopic: '${replyTopic}'`);
+
                 client.publish(requestTopic, publishPayload, publishOptions, err => {
                     if (err) {
                         this.responseHandlers.delete(corr);
@@ -158,7 +166,7 @@ export class RpcService {
                         console.error(`[rpcRequest] Publish failed: ${err.message}`);
                         obs.error(err);
                     } else {
-                        console.log(`[rpcRequest] Publish succeeded`);
+//                      console.log(`[rpcRequest] Publish succeeded`);
                     }
                 });
             };
@@ -328,8 +336,8 @@ export class RpcService {
             token: this.accessTokenService.getToken()
         }).pipe(
             switchMap(({ cfg, client, token }) => {
-                const replyTopic = `reply/${cfg.clientId}/deleteFragment`;
-                const payload = { function: 'deleteFragment', args: new DeleteMarqueeRequest(id) };
+                const replyTopic = `reply/${cfg.clientId}/deleteMarquee`;
+                const payload = { function: 'deleteMarquee', args: new DeleteMarqueeRequest(id) };
                 const deserialize = ReplyHandler.getBufferAsNumber
                 return this.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
             })
