@@ -46,7 +46,7 @@ export class FragmentComponent implements OnInit, OnDestroy {
 
 
   constructor(
-    private contextService: FragmentContextService
+    private context: FragmentContextService
   ) { }
 
   ngOnInit(): void {
@@ -71,13 +71,7 @@ export class FragmentComponent implements OnInit, OnDestroy {
 
   onAddButtonClick() {
     console.log(`FragmentComponent.onAddButtonClick`);
-
-    const viewer = this.contextService.getImageViewerComponent();
-    if (viewer) {
-      viewer.onAddButtonClick();
-    } else {
-      console.warn('ImageViewerComponent not yet registered in context');
-    }
+    this.context.fireAddButtonClick();
   }
 
   onTitleChanged(title: string) {

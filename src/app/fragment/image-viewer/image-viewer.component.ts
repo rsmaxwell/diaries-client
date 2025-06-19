@@ -19,7 +19,7 @@ import { Page } from '../../model/page';
 import { RpcService } from '../../mqtt/rpc.service';
 import { AlertService } from '../../alerts/alert.service';
 import { ActivatedRoute, Router } from '@angular/router';
-import { combineLatest, from, map, Subject, switchMap, takeUntil } from 'rxjs';
+import { BehaviorSubject, combineLatest, distinctUntilChanged, filter, from, map, Subject, switchMap, takeUntil } from 'rxjs';
 import { LiveObjectListService } from '../../mqtt/live.object.list.service';
 import { ConfigService } from '../../config/config.service';
 import { LiveObjectService } from '../../mqtt/live.object.service';
@@ -77,35 +77,44 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   diary: Diary = Diary.default;
   page: Page = Page.default;
   pages: Page[] = [];
+  private params$ = new BehaviorSubject<{ diaryId: number, pageId: number, marqueeId: number | null } | null>(null);
+
 
   ngOnInit(): void {
     console.log(`ImageViewerComponent.ngOnInit`);
 
-    this.context.setSvgRef(this.svgRef);
-    this.context.setImageViewerComponent(this);
-
-    let diaryId = 0;
-    let pageId = 0;
-    let marqueeId: number | null = null;
+    this.context.addButtonClicked$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        this.onAddButtonClick();
+      });
 
     this.route.paramMap
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(paramMap => {
+        const diaryId = Number(paramMap.get('diaryId'));
+        const pageId = Number(paramMap.get('pageId'));
+        const marqueeId = paramMap.has('marqueeId') ? Number(paramMap.get('marqueeId')) : null;
+
+        this.params$.next({ diaryId, pageId, marqueeId });
+      });
+
+    this.params$
       .pipe(
-        takeUntil(this.destroy$),
-        switchMap(paramMap => {
-          diaryId = Number(paramMap.get('diaryId'));
-          pageId = Number(paramMap.get('pageId'));
-
-          const marqueeParam = paramMap.get('marqueeId');
-          marqueeId = marqueeParam !== null ? Number(marqueeParam) : null;
-
+        filter((p): p is { diaryId: number; pageId: number; marqueeId: number | null } => p !== null),
+        distinctUntilChanged((a, b) =>
+          a.diaryId === b.diaryId &&
+          a.pageId === b.pageId &&
+          a.marqueeId === b.marqueeId
+        ),
+        switchMap(({ diaryId, pageId, marqueeId }) => {
           const config$ = from(this.configService.getConfig());
           const diary$ = this.liveObjectService.getDiaryById$(diaryId).pipe(takeUntil(this.destroy$));
           const page$ = this.liveObjectService.getPageById$(diaryId, pageId).pipe(takeUntil(this.destroy$));
           const pages$ = this.liveObjectListService.getPagesForDiary$(diaryId).pipe(takeUntil(this.destroy$));
           const marquees$ = this.liveObjectListService.getMarqueesForPage$(diaryId, pageId).pipe(takeUntil(this.destroy$));
 
-          if (marqueeId != null) {
-            console.log(`ImageViewerComponentng.OnInit: marquee: ${marqueeId}`);
+          if (marqueeId !== null) {
             const marquee$ = this.liveObjectService.getMarqueeById$(diaryId, pageId, marqueeId).pipe(takeUntil(this.destroy$));
             return combineLatest([config$, diary$, page$, pages$, marquees$, marquee$]).pipe(
               map(([config, diary, page, pages, marquees, marquee]) => ({
@@ -113,16 +122,17 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
               }))
             );
           } else {
-            console.log('ImageViewerComponent.OnInit: marquee parameter NOT present');
             return combineLatest([config$, diary$, page$, pages$, marquees$]).pipe(
               map(([config, diary, page, pages, marquees]) => ({
                 config, diary, page, pages, marquees, marquee: null, marqueeId: null
               }))
             );
           }
-        })
+        }),
+        takeUntil(this.destroy$)
       )
       .subscribe(({ config, diary, page, pages, marquees, marquee, marqueeId }) => {
+
 
         console.log(`ImageViewerComponent.OnInit: subscribe: marqueeId: ${marqueeId}, marquee: ${JSON.stringify(marquee)}`);
 
@@ -143,7 +153,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
           this.originalRectangle = undefined;
           this.mode = ViewMode.WithoutFragment;
           this.updateOtherMarquees();
-          this.router.navigate([`/diary/${diaryId}/${pageId}`]);
+          this.router.navigate([`/diary/${this.diary.id}/${this.page.id}`]);
           return;
         }
 
@@ -337,11 +347,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private updateOtherMarquees() {
-    if (this.marquee != undefined) {
-      this.otherMarquees = this.marquees.filter(m => m.id != this.marquee?.id);
-    } else {
-      this.otherMarquees = this.marquees;
-    }
+    this.otherMarquees = this.marquees.filter(m => m.id !== this.marquee?.id);
   }
 
   calculateCursorStyle(mousePosition: DOMPoint, isCtrlKeyDown: boolean) {
