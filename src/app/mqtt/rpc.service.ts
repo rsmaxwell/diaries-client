@@ -269,6 +269,21 @@ export class RpcService {
         );
     }
 
+    normalisePages$(): Observable<number> {
+        return forkJoin({
+            cfg: this.configService.getConfig(),
+            client: this.mqtt.getConnection(),
+            token: this.accessTokenService.getToken()
+        }).pipe(
+            switchMap(({ cfg, client, token }) => {
+                const replyTopic = `reply/${cfg.clientId}/normalisePages`;
+                const payload = { function: 'normalisePages' };
+                const deserialize = ReplyHandler.getBufferAsNumber
+                return this.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
+            })
+        );
+    }
+
     normaliseFragments$(year: number, month: number, day: number): Observable<number> {
         return forkJoin({
             cfg: this.configService.getConfig(),

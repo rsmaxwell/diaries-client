@@ -1,17 +1,14 @@
 
 import { Injectable } from "@angular/core";
-import { from, Observable, ReplaySubject, switchMap } from "rxjs";
+import { Observable, ReplaySubject } from "rxjs";
 import { MqttService } from "./mqtt.service";
 import { Diary } from "../model/diary";
 import { Page } from "../model/page";
 import { Marquee } from "../model/marquee";
-import { Rectangle } from "../utilities/rectangle";
 import { Fragment } from "../model/fragment";
 
 @Injectable({ providedIn: 'root' })
 export class LiveObjectService {
-
-
 
   constructor(
     private mqtt: MqttService
@@ -24,26 +21,27 @@ export class LiveObjectService {
     });
   }
 
-  getPageById$(diaryId: number, pageId: number): Observable<Page> {
-    const topic = `diaries/${diaryId}/${pageId}`;
+  getPageById$(id: number): Observable<Page> {
+    const topic = `pages/${id}`;
     return this.getObjectById$<Page>(topic, (buf: Buffer) => {
       return JSON.parse(buf.toString()) as Page;
     })
   }
 
-  getMarqueeById$(diaryId: number, pageId: number, marqueeId: number): Observable<Marquee> {
-    const topic = `diaries/${diaryId}/${pageId}/${marqueeId}`;
+  getMarqueeById$(id: number): Observable<Marquee> {
+    const topic = `marquees/${id}`;
     return this.getObjectById$<Marquee>(topic, (buf: Buffer) => {
       return JSON.parse(buf.toString()) as Marquee;
     })
   }
 
-  getFragmentById$(fragmentId: number): Observable<Fragment> {
-    const topic = `fragments/${fragmentId}`;
+  getFragmentById$(id: number): Observable<Fragment> {
+    const topic = `fragments/${id}`;
     return this.getObjectById$<Fragment>(topic, (buf: Buffer) => {
       return JSON.parse(buf.toString()) as Fragment;
     })
   }
+
   private subjects = new Map<string, { subject: ReplaySubject<any>, refCount: number, handler: (topic: string, payload: Buffer) => void }>();
 
   /**

@@ -1,7 +1,16 @@
-<div class="text">
-  @if (fragment) {
-    <pre>{{ fragment.text }}</pre>
-  } @else {
-    <p>No fragment selected. Please click on a marquee to view details.</p>
-  }
+<div class="text-panel-container" *ngIf="fragment; else noFragment">
+  <div class="header">
+    <div class="date-part">Year: {{ fragment.year }}</div>
+    <div class="date-part">Month: {{ fragment.month }}</div>
+    <div class="date-part">Day: {{ fragment.day }}</div>
+    <div class="formatted-date">Formatted: {{ formattedDate }}</div>
+  </div>
+
+  <div class="body">
+    <textarea readonly>{{ fragment.text }}</textarea>
+  </div>
 </div>
+
+<ng-template #noFragment>
+  <p>No fragment selected. Please click on a marquee to view details.</p>
+</ng-template>

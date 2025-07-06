@@ -19,7 +19,7 @@ import { Page } from '../../model/page';
 import { RpcService } from '../../mqtt/rpc.service';
 import { AlertService } from '../../alerts/alert.service';
 import { ActivatedRoute, Router } from '@angular/router';
-import { BehaviorSubject, combineLatest, distinctUntilChanged, filter, from, map, Subject, switchMap, takeUntil } from 'rxjs';
+import { BehaviorSubject, combineLatest, distinctUntilChanged, filter, from, map, of, Subject, Subscription, switchMap, takeUntil } from 'rxjs';
 import { LiveObjectListService } from '../../mqtt/live.object.list.service';
 import { ConfigService } from '../../config/config.service';
 import { LiveObjectService } from '../../mqtt/live.object.service';
@@ -53,7 +53,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     private configService: ConfigService,
     private liveObjectService: LiveObjectService,
     private liveObjectListService: LiveObjectListService,
-    private context: FragmentContextService
+    private fragmentContext: FragmentContextService
   ) { };
 
   private destroy$ = new Subject<void>();
@@ -62,7 +62,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   offsetY = 0;
   width: number = 0;
   height: number = 0;
-  imageUrl: string = '';
+  imageURL: string = '';
   resizeEdge?: { left: boolean; right: boolean; top: boolean; bottom: boolean; };
   marquee: Marquee | null = null;
   marquees: Marquee[] = [];
@@ -77,114 +77,117 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   diary: Diary = Diary.default;
   page: Page = Page.default;
   pages: Page[] = [];
+  diaryId: number | undefined;
+  pageId: number | undefined;
+  marqueeId: number | undefined | null;
+
   private params$ = new BehaviorSubject<{ diaryId: number, pageId: number, marqueeId: number | null } | null>(null);
 
 
   ngOnInit(): void {
-    console.log(`ImageViewerComponent.ngOnInit`);
+    console.log('ImageViewerComponent.ngOnInit');
 
-    this.context.addButtonClicked$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(() => {
-        this.onAddButtonClick();
-      });
-
+    // 1️⃣ React to URL param changes (diaryId, pageId, marqueeId)
     this.route.paramMap
       .pipe(takeUntil(this.destroy$))
       .subscribe(paramMap => {
-        const diaryId = Number(paramMap.get('diaryId'));
-        const pageId = Number(paramMap.get('pageId'));
-        const marqueeId = paramMap.has('marqueeId') ? Number(paramMap.get('marqueeId')) : null;
+        const diaryIdParam = paramMap.get('diaryId');
+        const pageIdParam = paramMap.get('pageId');
 
-        this.params$.next({ diaryId, pageId, marqueeId });
+        const diaryId = diaryIdParam ? +diaryIdParam : null;
+        const pageId = pageIdParam ? +pageIdParam : null;
+
+        if (diaryId != null && pageId != null) {
+          this.fragmentContext.setDiaryId(diaryId);
+          this.fragmentContext.setPageId(pageId);
+        }
       });
 
-    this.params$
+    // 2️⃣ React to marqueeId using switchMap to guarantee no leak
+    this.route.paramMap
       .pipe(
-        filter((p): p is { diaryId: number; pageId: number; marqueeId: number | null } => p !== null),
-        distinctUntilChanged((a, b) =>
-          a.diaryId === b.diaryId &&
-          a.pageId === b.pageId &&
-          a.marqueeId === b.marqueeId
-        ),
-        switchMap(({ diaryId, pageId, marqueeId }) => {
-          const config$ = from(this.configService.getConfig());
-          const diary$ = this.liveObjectService.getDiaryById$(diaryId).pipe(takeUntil(this.destroy$));
-          const page$ = this.liveObjectService.getPageById$(diaryId, pageId).pipe(takeUntil(this.destroy$));
-          const pages$ = this.liveObjectListService.getPagesForDiary$(diaryId).pipe(takeUntil(this.destroy$));
-          const marquees$ = this.liveObjectListService.getMarqueesForPage$(diaryId, pageId).pipe(takeUntil(this.destroy$));
+        takeUntil(this.destroy$),
+        switchMap(paramMap => {
+          const marqueeIdParam = paramMap.get('marqueeId');
+          const marqueeId = marqueeIdParam ? +marqueeIdParam : null;
 
-          if (marqueeId !== null) {
-            const marquee$ = this.liveObjectService.getMarqueeById$(diaryId, pageId, marqueeId).pipe(takeUntil(this.destroy$));
-            return combineLatest([config$, diary$, page$, pages$, marquees$, marquee$]).pipe(
-              map(([config, diary, page, pages, marquees, marquee]) => ({
-                config, diary, page, pages, marquees, marquee, marqueeId
-              }))
-            );
+          if (marqueeId != null && !isNaN(marqueeId)) {
+            console.log(`ImageViewerComponent: subscribing to marquee ${marqueeId}`);
+            return this.liveObjectService.getMarqueeById$(marqueeId);
           } else {
-            return combineLatest([config$, diary$, page$, pages$, marquees$]).pipe(
-              map(([config, diary, page, pages, marquees]) => ({
-                config, diary, page, pages, marquees, marquee: null, marqueeId: null
-              }))
-            );
+            return of(null);
           }
-        }),
-        takeUntil(this.destroy$)
+        })
       )
-      .subscribe(({ config, diary, page, pages, marquees, marquee, marqueeId }) => {
+      .subscribe(marquee => {
+        if (marquee) {
+          console.log('ImageViewerComponent: setting marquee', marquee);
+          this.setMarquee(marquee);
+          this.fragmentContext.setFragmentId(marquee.fragmentId);
+        } else {
+          console.log('ImageViewerComponent: clearing marquee');
+          this.setMarquee(null);
+          this.fragmentContext.setFragmentId(null);
+        }
+      });
 
+    // 3️⃣ Reactively get pages for the diary
+    this.fragmentContext.pages$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(pages => {
+        // console.log('ImageViewerComponent: pages$', pages);
+        this.pages = pages;
+      });
 
-        console.log(`ImageViewerComponent.OnInit: subscribe: marqueeId: ${marqueeId}, marquee: ${JSON.stringify(marquee)}`);
+    // 4️⃣ Reactively get marquees for the page
+    this.fragmentContext.marquees$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(marquees => {
+        console.log('ImageViewerComponent: marquees$', marquees);
+        this.marquees = marquees;
+        this.updateOtherMarquees();
+      });
 
+    // 5️⃣ React when the header add button is clicked
+    this.fragmentContext.addButtonClicked$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        console.log('ImageViewerComponent: add button clicked');
+        this.onAddButtonClick();
+      });
+
+    // 6️⃣ Combine config + diary + page to calculate imageURL + dimensions
+    combineLatest([
+      from(this.configService.getConfig()),
+      this.fragmentContext.diary$,
+      this.fragmentContext.page$
+    ])
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(([config, diary, page]) => {
         this.diary = diary;
         this.page = page;
-        this.width = page.width;
-        this.height = page.height;
-        this.pages = pages;
-        this.marquees = marquees;
-        this.imageUrl = `${config.fileServerUrl}/${diary.name}/${page.name}${page.extension}`;
 
-        const title = marqueeId ? `${diary.name} - ${page.name} - ${marqueeId}` : `${diary.name} - ${page.name}`;
-        this.titleChanged.emit(title);
+        this.width = page.width ?? 1000;
+        this.height = page.height ?? 1400;
 
-        if (marqueeId !== null && marquee === null) {
-          // console.log(`ImageViewerComponent.OnInit: subscribe: marquee: ${marqueeId}. no valid marquee, or marquee was deleted`);
-          this.marquee = undefined!;
-          this.originalRectangle = undefined;
-          this.mode = ViewMode.WithoutFragment;
-          this.updateOtherMarquees();
-          this.router.navigate([`/diary/${this.diary.id}/${this.page.id}`]);
-          return;
-        }
-
-        if (marquee) {
-          // console.log(`ImageViewerComponent.OnInit: subscribe: marquee: ${JSON.stringify(marquee)}`);
-          this.marquee = marquee;
-          this.mode = ViewMode.WithMarquee;
-          this.context.setFragmentId(marquee.fragmentId);
-        }
-
-        this.updateOtherMarquees();
-        // this.otherMarquees.forEach((m, index) => {
-        //   console.log(`  [${index}] ${JSON.stringify(m)}`);
-        // });
+        this.imageURL = `${config.fileServerUrl}/${diary.name}/${page.name}${page.extension}`;
+        console.log(`ImageViewerComponent: imageURL=${this.imageURL}, width=${this.width}, height=${this.height}`);
       });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  setMarquee(marquee: Marquee | null) {
+    this.marquee = marquee;
   }
 
   ngAfterViewInit(): void {
     if (this.svgRef?.nativeElement) {
       this.svgRef.nativeElement.focus();
       console.log('ImageViewerComponent: svg focused');
-    }
-  }
-
-  ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
-
-    if (this.diary && this.page) {
-      this.liveObjectListService.unsubscribeFromPagesForDiary$(this.diary.id);
-      this.liveObjectListService.unsubscribeFromMarqueesForPage$(this.diary.id, this.page.id);
     }
   }
 

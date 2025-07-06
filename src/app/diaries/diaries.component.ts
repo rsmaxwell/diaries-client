@@ -8,7 +8,7 @@ import { FullheaderComponent } from '../headers/fullheader/fullheader.component'
 import { FullfooterComponent } from '../headers/fullfooter/fullfooter.component';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, Subscription, takeUntil } from 'rxjs';
 import { LiveObjectListService } from '../mqtt/live.object.list.service';
 import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { RpcService } from '../mqtt/rpc.service';
@@ -25,7 +25,7 @@ import { AlertService } from '../alerts/alert.service';
     MatCardModule,
     MatButtonModule,
     DragDropModule
-],
+  ],
   templateUrl: './diaries.component.html',
   styleUrl: './diaries.component.scss'
 })
@@ -62,7 +62,7 @@ export class DiariesComponent implements OnInit, OnDestroy {
     this.destroy$.next();       // Emit destroy signal
     this.destroy$.complete();   // Complete the subject
 
-    this.liveObjectListService.unsubscribeFromDiaries$(); // Still useful if explicitly needed
+    this.liveObjectListService.unsubscribeFromDiaries$(); 
   }
 
   selectItem(id: number): void {
@@ -71,41 +71,40 @@ export class DiariesComponent implements OnInit, OnDestroy {
   }
 
   drop(event: CdkDragDrop<Diary[]>) {
-    const data = this.dataSource.data;
-
-    // Move the item in the array
-    moveItemInArray(data, event.previousIndex, event.currentIndex);
+    const updated = [...this.dataSource.data];
+    moveItemInArray(updated, event.previousIndex, event.currentIndex);
+    this.dataSource.data = updated;
 
     // Get the moved item
-    const movedDiary = data[event.currentIndex];
+    const movedItem = updated[event.currentIndex];
 
     // Determine surrounding sequence values
-    const prevDiary = data[event.currentIndex - 1] ?? null;
-    const nextDiary = data[event.currentIndex + 1] ?? null;
+    const prevItem = updated[event.currentIndex - 1] ?? null;
+    const nextItem = updated[event.currentIndex + 1] ?? null;
 
-    if (prevDiary && nextDiary) {
+    if (prevItem && nextItem) {
       // Middle of the list --> set sequence to average
-      movedDiary.sequence = (prevDiary.sequence + nextDiary.sequence) / 2;
-    } else if (!prevDiary && nextDiary) {
+      movedItem.sequence = (prevItem.sequence + nextItem.sequence) / 2;
+    } else if (!prevItem && nextItem) {
       // Moved to the beginning --> less than next
-      movedDiary.sequence = nextDiary.sequence - 1000;
-    } else if (prevDiary && !nextDiary) {
+      movedItem.sequence = nextItem.sequence - 1000;
+    } else if (prevItem && !nextItem) {
       // Moved to the end --> more than previous
-      movedDiary.sequence = prevDiary.sequence + 1000;
+      movedItem.sequence = prevItem.sequence + 1000;
     } else {
       // Only item in the list
-      movedDiary.sequence = 1000;
+      movedItem.sequence = 1000;
     }
 
     // Trigger table update
-    this.dataSource.data = data;
+    this.dataSource.data = updated;
 
-    // Update the diary 
-    this.rpcService.updateDiary$(movedDiary).subscribe({
+    // Update the item
+    this.rpcService.updateDiary$(movedItem).subscribe({
       next: (n) => {
         console.log(`UpdateDiary succeeded: n: ${n}`);
 
-        // Normalise the diaries
+        // Normalise 
         this.rpcService.normaliseDiaries$().subscribe({
           next: (n) => {
             console.log(`NormaliseDiaries succeeded: n: ${n}`);
@@ -122,7 +121,5 @@ export class DiariesComponent implements OnInit, OnDestroy {
         this.alertService.error(err);
       }
     });
-
-
   }
 }

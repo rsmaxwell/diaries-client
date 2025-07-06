@@ -1,8 +1,8 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Fragment } from '../../model/fragment';
 import { FragmentContextService } from '../fragment-context.service';
 import { LiveObjectService } from '../../mqtt/live.object.service';
+import { Fragment } from '../../model/fragment';
 import { of, Subject, switchMap, takeUntil } from 'rxjs';
 
 @Component({
@@ -13,17 +13,16 @@ import { of, Subject, switchMap, takeUntil } from 'rxjs';
   styleUrls: ['./text-panel.component.scss']
 })
 export class TextPanelComponent implements OnInit, OnDestroy {
-
   fragment: Fragment | null = null;
+
+  private destroy$ = new Subject<void>();
 
   constructor(
     private context: FragmentContextService,
     private liveObjectService: LiveObjectService
-  ) { }
+  ) {}
 
-  private destroy$ = new Subject<void>();
-
-  ngOnInit() {
+  ngOnInit(): void {
     console.log(`TextPanelComponent.ngOnInit`);
     this.context.fragmentId$
       .pipe(
@@ -32,8 +31,16 @@ export class TextPanelComponent implements OnInit, OnDestroy {
       )
       .subscribe(fragment => {
         this.fragment = fragment;
-        console.log(`TextPanelComponent.ngOnInit: fragment: ${JSON.stringify(this.fragment)}`);
+        console.log(`TextPanelComponent: fragment:`, fragment);
       });
+  }
+
+  get formattedDate(): string {
+    if (!this.fragment) return '';
+    const y = this.fragment.year || 0;
+    const m = this.fragment.month || 0;
+    const d = this.fragment.day || 0;
+    return `${y.toString().padStart(4, '0')}-${m.toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`;
   }
 
   ngOnDestroy(): void {

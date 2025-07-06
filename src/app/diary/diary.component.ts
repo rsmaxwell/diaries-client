@@ -11,7 +11,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatSelectModule } from '@angular/material/select';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
-import { Subject, switchMap, takeUntil } from 'rxjs';
+import { Subject, Subscription, switchMap, takeUntil } from 'rxjs';
 import { AlertService } from '../alerts/alert.service';
 import { Page } from '../model/page';
 import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
@@ -35,7 +35,7 @@ import { RpcService } from '../mqtt/rpc.service';
     MatTableModule,
     ScrollingModule,
     DragDropModule
-],
+  ],
   templateUrl: './diary.component.html',
   styleUrl: './diary.component.scss'
 })
@@ -44,6 +44,7 @@ export class DiaryComponent implements OnInit, OnDestroy {
   title = 'Diaries';
   displayedColumns: string[] = ['id', 'sequence', 'name'];
   dataSource = new MatTableDataSource<Page>();
+  diaryId: number | undefined;
   diary: Diary | undefined;
   private destroy$ = new Subject<void>();
 
@@ -54,37 +55,40 @@ export class DiaryComponent implements OnInit, OnDestroy {
     private router: Router,
     private route: ActivatedRoute,
     private alertService: AlertService
-  ) {
-    console.log(`DiaryComponent.constructor`);
-  }
+  ) { }
 
   ngOnInit(): void {
     console.log(`DiaryComponent.ngOnInit`);
 
-    this.route.params
-      .pipe(
-        takeUntil(this.destroy$),
-        switchMap(params => {
-          const id = +params['diaryId'];
-          return this.liveObjectService.getDiaryById$(id);
-        })
-      )
+    this.diaryId = +this.route.snapshot.params['diaryId'];
+    if (isNaN(this.diaryId)) {
+      this.alertService.error("Invalid diaryId in route");
+      return;
+    }
+
+    // Begin fetching pages immediately
+    this.liveObjectListService.getPagesForDiary$(this.diaryId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(pages => {
+        this.dataSource.data = pages;
+      });
+
+    // Fetch full Diary object separately
+    this.liveObjectService.getDiaryById$(this.diaryId)
+      .pipe(takeUntil(this.destroy$))
       .subscribe(diary => {
         this.diary = diary;
-
-        console.log(`PageComponent.ngOnInit: diary.id: ${diary.id}`);
-
-        // Only now get the pages
-        this.liveObjectListService.getPagesForDiary$(diary.id)
-          .pipe(takeUntil(this.destroy$))
-          .subscribe(pages => {
-            this.dataSource.data = pages;
-          });
+        console.log(`DiaryComponent.ngOnInit: diary.id: ${diary.id}`);
       });
   }
 
   ngOnDestroy(): void {
     console.log('DiaryComponent.ngOnDestroy');
+
+    if (this.diaryId) {
+      this.liveObjectListService.unsubscribeFromPagesForDiary$(this.diaryId);
+    }
+
     this.destroy$.next();
     this.destroy$.complete();
   }
@@ -100,33 +104,56 @@ export class DiaryComponent implements OnInit, OnDestroy {
     this.router.navigate([`/diary/${this.diary?.id}/${id}`]);
   }
 
-  drop(event: CdkDragDrop<Diary[]>) {
-    const data = this.dataSource.data;
-    moveItemInArray(data, event.previousIndex, event.currentIndex);
-    this.dataSource.data = data;
+  drop(event: CdkDragDrop<Page[]>) {
+    const updated = [...this.dataSource.data];
+    moveItemInArray(updated, event.previousIndex, event.currentIndex);
+    this.dataSource.data = updated;
 
-    let seq = 1;
-    data.map(p => {
-      console.log(`drop: id: ${p.id}, sequence: ${p.sequence}, name: ${p.name}`);
+    // Get the moved item
+    const movedItem = updated[event.currentIndex];
 
-      if (seq != p.sequence) {
-        console.log(`          id: ${p.id}, sequence: ${p.sequence} --> ${seq}`);
-        p.sequence = seq;
+    // Determine surrounding sequence values
+    const prevItem = updated[event.currentIndex - 1] ?? null;
+    const nextItem = updated[event.currentIndex + 1] ?? null;
 
-        this.rpcService.updatePage$(p)
-          .pipe(takeUntil(this.destroy$))
-          .subscribe({
-            next: (id) => {
-              console.log(`diary: ${p.id}, ${p.sequence}, ${p.name} updated`);
-            },
-            error: (err) => {
-              console.log(`DiaryComponent.drop: error: ${err}`);
-              this.alertService.error(err);
-            }
-          });
+    if (prevItem && nextItem) {
+      // Middle of the list --> set sequence to average
+      movedItem.sequence = (prevItem.sequence + nextItem.sequence) / 2;
+    } else if (!prevItem && nextItem) {
+      // Moved to the beginning --> less than next
+      movedItem.sequence = nextItem.sequence - 1000;
+    } else if (prevItem && !nextItem) {
+      // Moved to the end --> more than previous
+      movedItem.sequence = prevItem.sequence + 1000;
+    } else {
+      // Only item in the list
+      movedItem.sequence = 1000;
+    }
+
+    // Trigger table update
+    this.dataSource.data = updated;
+
+    // Update the Item 
+    this.rpcService.updatePage$(movedItem).subscribe({
+      next: (n) => {
+        console.log(`UpdatePage succeeded: n: ${n}`);
+
+        // Normalise
+        this.rpcService.normalisePages$().subscribe({
+          next: (n) => {
+            console.log(`NormalisePages succeeded: n: ${n}`);
+          },
+          error: (err) => {
+            console.log(`NormalisePages failed: ${err}`)
+            this.alertService.error(err);
+          }
+        });
+
+      },
+      error: (err) => {
+        console.log(`UpdatePage failed: ${err}`)
+        this.alertService.error(err);
       }
-
-      seq++;
     });
   }
 }
