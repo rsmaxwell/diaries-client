@@ -10,6 +10,7 @@ export class FragmentContextService {
     private addButtonClickedSubject = new Subject<void>();
     private diaryIdSubject = new BehaviorSubject<number | null>(null);
     private pageIdSubject = new BehaviorSubject<number | null>(null);
+    private marqueeIdSubject = new BehaviorSubject<number | null>(null);
     private fragmentIdSubject = new BehaviorSubject<number | null>(null);
 
     // Exposed observables for IDs
@@ -17,6 +18,7 @@ export class FragmentContextService {
     readonly title$ = new BehaviorSubject<string>('Fragment'); 
     readonly diaryId$ = this.diaryIdSubject.asObservable();
     readonly pageId$ = this.pageIdSubject.asObservable();
+    readonly marqueeId$ = this.marqueeIdSubject.asObservable();
     readonly fragmentId$ = this.fragmentIdSubject.asObservable();
 
     // Live single objects
@@ -26,6 +28,10 @@ export class FragmentContextService {
 
     readonly page$ = this.pageId$.pipe(
         switchMap(id => (id != null ? this.liveObjectService.getPageById$(id) : EMPTY))
+    );
+
+    readonly marquee$ = this.marqueeId$.pipe(
+        switchMap(id => (id != null ? this.liveObjectService.getMarqueeById$(id) : EMPTY))
     );
 
     readonly fragment$ = this.fragmentId$.pipe(
@@ -62,6 +68,10 @@ export class FragmentContextService {
 
     setPageId(id: number) {
         this.pageIdSubject.next(id);
+    }
+
+    setMarqueeId(id: number | null) {
+        this.marqueeIdSubject.next(id);
     }
 
     setFragmentId(id: number | null) {

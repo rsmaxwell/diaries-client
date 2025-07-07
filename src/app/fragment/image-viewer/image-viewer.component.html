@@ -10,8 +10,7 @@
   [ngClass]="[cursorStyle]"
   (wheel)="onWheel($event)"
   (mousedown)="onMouseDown($any($event))"
-  (mousemove)="onMouseMove($any($event))"
-  (mouseup)="onMouseUp()"
+  (mousemove)="onMouseMove($event)"
   (mouseleave)="onMouseLeave($any($event))"
   (contextmenu)="onRightClick($any($event))"
   (keydown)="onKeyDown($any($event))"
@@ -29,7 +28,7 @@
             [attr.height]="height"
             class="baseMask"
           />
-          @for (marquee of otherMarquees; track marquee) {
+          @for (marquee of otherMarquees; track marquee.id) {
             <rect
               [attr.id]="marquee.id"
               [attr.x]="marquee.rectangle.x"

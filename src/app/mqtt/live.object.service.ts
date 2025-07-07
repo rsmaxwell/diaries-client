@@ -30,6 +30,9 @@ export class LiveObjectService {
 
   getMarqueeById$(id: number): Observable<Marquee> {
     const topic = `marquees/${id}`;
+
+    console.log(`LiveObjectService.getMarqueeById$: topic: ${topic}`);
+
     return this.getObjectById$<Marquee>(topic, (buf: Buffer) => {
       return JSON.parse(buf.toString()) as Marquee;
     })
