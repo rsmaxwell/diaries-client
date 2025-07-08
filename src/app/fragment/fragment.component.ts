@@ -3,7 +3,6 @@ import { Component, OnInit, ViewChild, OnDestroy, ElementRef, AfterViewInit, App
 import { CommonModule } from '@angular/common';
 import { PageheaderComponent } from '../headers/pageheader/pageheader.component';
 import { PagefooterComponent } from '../headers/pagefooter/pagefooter.component';
-import { Fragment } from '../model/fragment';
 import { GoldenLayout, RowOrColumnItemConfig } from 'golden-layout';
 import { ImageViewerComponent } from './image-viewer/image-viewer.component';
 import { TextPanelComponent } from './text-panel/text-panel.component';

@@ -8,8 +8,7 @@ import { FullheaderComponent } from '../headers/fullheader/fullheader.component'
 import { FullfooterComponent } from '../headers/fullfooter/fullfooter.component';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
-import { Subject, Subscription, takeUntil } from 'rxjs';
-import { LiveObjectListService } from '../mqtt/live.object.list.service';
+import { Subject, takeUntil } from 'rxjs';
 import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { RpcService } from '../mqtt/rpc.service';
 import { AlertService } from '../alerts/alert.service';

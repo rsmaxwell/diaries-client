@@ -1,4 +1,3 @@
-// domain-repository.ts
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { LiveObjectService } from "../mqtt/live.object.service";

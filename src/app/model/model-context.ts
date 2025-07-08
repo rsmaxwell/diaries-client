@@ -1,5 +1,5 @@
 import { Injectable } from "@angular/core";
-import { BehaviorSubject, combineLatest, EMPTY, from, Observable, of, ReplaySubject, Subject, switchMap } from "rxjs";
+import { BehaviorSubject, combineLatest, from, Observable, of, ReplaySubject, Subject, switchMap } from "rxjs";
 import { LiveObjectListService } from "../mqtt/live.object.list.service";
 import { LiveObjectService } from "../mqtt/live.object.service";
 import { Marquee } from "./marquee";

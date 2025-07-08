@@ -17,7 +17,7 @@ import { Diary } from '../../model/diary';
 import { Page } from '../../model/page';
 import { RpcService } from '../../mqtt/rpc.service';
 import { AlertService } from '../../alerts/alert.service';
-import { ActivatedRoute, Router } from '@angular/router';
+import { Router } from '@angular/router';
 import { combineLatest, from, Subject, takeUntil } from 'rxjs';
 import { ConfigService } from '../../config/config.service';
 import { ModelContext } from '../../model/model-context';
