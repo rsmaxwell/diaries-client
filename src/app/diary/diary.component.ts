@@ -18,6 +18,7 @@ import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-
 import { LiveObjectListService } from '../mqtt/live.object.list.service';
 import { LiveObjectService } from '../mqtt/live.object.service';
 import { RpcService } from '../mqtt/rpc.service';
+import { FragmentContextService } from '../fragment/fragment-context.service';
 
 
 
@@ -50,8 +51,8 @@ export class DiaryComponent implements OnInit, OnDestroy {
 
   constructor(
     private rpcService: RpcService,
-    private liveObjectListService: LiveObjectListService,
     private liveObjectService: LiveObjectService,
+    private fragmentContext: FragmentContextService,
     private router: Router,
     private route: ActivatedRoute,
     private alertService: AlertService
@@ -67,7 +68,7 @@ export class DiaryComponent implements OnInit, OnDestroy {
     }
 
     // Begin fetching pages immediately
-    this.liveObjectListService.getPagesForDiary$(this.diaryId)
+    this.fragmentContext.getPagesForDiary$(this.diaryId)
       .pipe(takeUntil(this.destroy$))
       .subscribe(pages => {
         this.dataSource.data = pages;
@@ -85,16 +86,14 @@ export class DiaryComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     console.log('DiaryComponent.ngOnDestroy');
 
-    if (this.diaryId) {
-      this.liveObjectListService.unsubscribeFromPagesForDiary$(this.diaryId);
-    }
-
     this.destroy$.next();
     this.destroy$.complete();
+
+    this.fragmentContext.cleanupTopicTree();
   }
 
   selectItem(id: number) {
-    console.log(`PageComponent.selectItem: id: ${id}`);
+    console.log(`DiaryComponent.selectItem: id: ${id}`);
 
     if (typeof id !== 'number') {
       console.error('Expected numeric page ID, got:', id);

@@ -13,6 +13,7 @@ import { LiveObjectListService } from '../mqtt/live.object.list.service';
 import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { RpcService } from '../mqtt/rpc.service';
 import { AlertService } from '../alerts/alert.service';
+import { FragmentContextService } from '../fragment/fragment-context.service';
 
 @Component({
   selector: 'app-diaries',
@@ -39,7 +40,7 @@ export class DiariesComponent implements OnInit, OnDestroy {
 
   constructor(
     private rpcService: RpcService,
-    private liveObjectListService: LiveObjectListService,
+    private fragmentContext: FragmentContextService,
     private router: Router,
     private alertService: AlertService
   ) {
@@ -49,7 +50,7 @@ export class DiariesComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     console.log(`DiariesComponent.ngOnInit`);
 
-    this.liveObjectListService.getDiaries$()
+    this.fragmentContext.getDiaries$()
       .pipe(takeUntil(this.destroy$))
       .subscribe(diaries => {
         this.dataSource.data = diaries;
@@ -59,10 +60,10 @@ export class DiariesComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     console.log('DiariesComponent.ngOnDestroy');
 
-    this.destroy$.next();       // Emit destroy signal
-    this.destroy$.complete();   // Complete the subject
+    this.destroy$.next();
+    this.destroy$.complete();
 
-    this.liveObjectListService.unsubscribeFromDiaries$(); 
+    this.fragmentContext.cleanupTopicTree();
   }
 
   selectItem(id: number): void {

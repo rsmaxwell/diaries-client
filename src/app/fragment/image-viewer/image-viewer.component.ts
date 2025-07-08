@@ -11,7 +11,6 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Marquee } from '../../model/marquee';
-import { Fragment } from '../../model/fragment';
 import { Point } from '@angular/cdk/drag-drop';
 import { Rectangle } from '../../utilities/rectangle';
 import { Diary } from '../../model/diary';
@@ -19,10 +18,8 @@ import { Page } from '../../model/page';
 import { RpcService } from '../../mqtt/rpc.service';
 import { AlertService } from '../../alerts/alert.service';
 import { ActivatedRoute, Router } from '@angular/router';
-import { BehaviorSubject, combineLatest, distinctUntilChanged, filter, from, map, of, Subject, Subscription, switchMap, takeUntil } from 'rxjs';
-import { LiveObjectListService } from '../../mqtt/live.object.list.service';
+import { combineLatest, from, Subject, takeUntil } from 'rxjs';
 import { ConfigService } from '../../config/config.service';
-import { LiveObjectService } from '../../mqtt/live.object.service';
 import { FragmentContextService } from '../fragment-context.service';
 
 enum ViewMode {
@@ -46,13 +43,10 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('svgRef') svgRef!: ElementRef<SVGSVGElement>;
 
   constructor(
-    private route: ActivatedRoute,
     private router: Router,
     private rpcService: RpcService,
     private alertService: AlertService,
     private configService: ConfigService,
-    private liveObjectService: LiveObjectService,
-    private liveObjectListService: LiveObjectListService,
     private fragmentContext: FragmentContextService
   ) {
   };
@@ -82,30 +76,10 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   page: Page = Page.default;
   pages: Page[] = [];
 
-  private params$ = new BehaviorSubject<{ diaryId: number, pageId: number, marqueeId: number | null } | null>(null);
-
-
   ngOnInit(): void {
     console.log('ImageViewerComponent.ngOnInit');
 
-    // 1️⃣ Reactively get pages for the diary
-    this.fragmentContext.pages$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(pages => {
-        // console.log('ImageViewerComponent.ngOnInit: pages$', pages);
-        this.pages = pages;
-      });
-
-    // 2️⃣ Reactively get marquees for the page
-    this.fragmentContext.marquees$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(marquees => {
-        console.log('ImageViewerComponent.ngOnInit: marquees$', marquees);
-        this.marquees = marquees;
-        this.updateOtherMarquees();
-      });
-
-    // 3️⃣ React when the header add button is clicked
+    // 1️⃣ React when the header add button is clicked
     this.fragmentContext.addButtonClicked$
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
@@ -113,18 +87,24 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
         this.onAddButtonClick();
       });
 
-    // 4️⃣ Combine config + diary + page to calculate imageURL + dimensions
+    // 2️⃣ Combine the mqtt subscriptions and to calculate imageURL + dimensions
     combineLatest([
       from(this.configService.getConfig()),
       this.fragmentContext.diary$,
       this.fragmentContext.page$,
-      this.fragmentContext.marquee$
+      this.fragmentContext.marquee$,
+      this.fragmentContext.pages$,
+      this.fragmentContext.marquees$          
     ])
       .pipe(takeUntil(this.destroy$))
-      .subscribe(([config, diary, page, marquee]) => {
+      .subscribe(([config, diary, page, marquee, pages, marquees]) => {
         this.diary = diary;
         this.page = page;
         this.marquee = marquee;
+        this.pages = pages;
+        this.marquees = marquees;
+
+        this.updateOtherMarquees();
 
         if (marquee) {
           this.mode = ViewMode.WithMarquee;
@@ -146,6 +126,8 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+
+    this.fragmentContext.cleanupTopicTree();
   }
 
   ngAfterViewInit(): void {

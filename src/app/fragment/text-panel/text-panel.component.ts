@@ -31,7 +31,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
       )
       .subscribe(fragment => {
         this.fragment = fragment;
-        console.log(`TextPanelComponent: fragment:`, fragment);
+        // console.log(`TextPanelComponent: fragment:`, fragment);
       });
   }
 

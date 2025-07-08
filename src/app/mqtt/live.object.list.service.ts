@@ -11,161 +11,144 @@ import { Fragment } from "../model/fragment";
 @Injectable({ providedIn: 'root' })
 export class LiveObjectListService {
 
-    private topicSubscriptionMap = new Map<string, BehaviorSubject<any[]>>();
-    private topicHandlerMap = new Map<string, (topic: string, payload: Buffer) => void>();
+  private topicSubscriptionMap = new Map<string, BehaviorSubject<any[]>>();
+  private topicHandlerMap = new Map<string, (topic: string, payload: Buffer) => void>();
 
-    constructor(
-        private mqtt: MqttService
-    ) { }
+  constructor(
+    private mqtt: MqttService
+  ) { }
 
-    getDiaries$(): Observable<Diary[]> {
-        return from(this.mqtt.getConnection()).pipe(
-            switchMap(client =>
-                this.subscribeToTopicTree$<Diary>(client, `diaries/`, (buf: Buffer) => {
-                    return JSON.parse(buf.toString()) as Diary;
-                })
-            )
-        );
+  subscribeToTopicTree$<R extends { id: number; sequence: number }>(
+    client: mqtt.MqttClient,
+    topicFilters: string[],
+    deserialize: (buf: Buffer) => R
+  ): Observable<R[]> {
+
+    const mapKey = topicFilters.join(',');
+  
+    if (this.topicSubscriptionMap.has(mapKey)) {
+      return this.topicSubscriptionMap.get(mapKey)!.asObservable();
     }
 
-    getPagesForDiary$(diaryId: number): Observable<Page[]> {
-        return from(this.mqtt.getConnection()).pipe(
-            switchMap(client =>
-                this.subscribeToTopicTree$<Page>(client, `diaries/${diaryId}/`, (buf: Buffer) => {
-                    return JSON.parse(buf.toString()) as Page;
-                })
-            )
-        );
-    }
+    const subject = new BehaviorSubject<R[]>([]);
+    this.topicSubscriptionMap.set(mapKey, subject);
+  
+    const handler = (messageTopic: string, payload: Buffer) => {
+      if (!this.topicMatchesFilters(messageTopic, topicFilters)) {
+        return;
+      }
 
-    getMarqueesForPage$(diaryId: number, pageId: number): Observable<Marquee[]> {
-        return from(this.mqtt.getConnection()).pipe(
-            switchMap(client =>
-                this.subscribeToTopicTree$<Marquee>(client, `diaries/${diaryId}/${pageId}/`, (buf: Buffer) => {
-                    return JSON.parse(buf.toString()) as Marquee;
-                })
-            )
-        );
-    }
+      const current = subject.getValue();
 
-    async unsubscribeFromDiaries$(): Promise<void> {
-        await this.unsubscribeTopicTree(`diaries/`);
-    }
+      // Handle delete (0-byte payload)
+      if (payload.byteLength === 0) {
+        const parts = messageTopic.split('/');
+        const id = Number(parts.at(-1));
+        if (!isNaN(id)) {
+          console.log(`LiveObjectListService.subscribeToTopicTree: Handle delete for: ${messageTopic}`);
+          subject.next(current.filter(item => item.id !== id));
+        }
+        return;
+      }
 
-    async unsubscribeFromPagesForDiary$(id: number): Promise<void> {
-        await this.unsubscribeTopicTree(`diaries/${id}/`);
-    }
+      try {
+        const value = deserialize(payload);
+        const index = current.findIndex(item => item.id === value.id);
+        const updated = [...current];
 
-    async unsubscribeFromMarqueesForPage$(diaryId: number, pageId: number): Promise<void> {
-        const topicPrefix = `diaries/${diaryId}/${pageId}/`;
-        await this.unsubscribeTopicTree(topicPrefix);
-    }
-
-
-    private subscribeToTopicTree$<R extends { id: number, sequence: number }>(
-        client: mqtt.MqttClient,
-        topicPrefix: string,
-        deserialize: (buf: Buffer) => R
-    ): Observable<R[]> {
-        const topic = `${topicPrefix}+`;
-
-        if (this.topicSubscriptionMap.has(topicPrefix)) {
-            return this.topicSubscriptionMap.get(topicPrefix)!.asObservable();
+        if (index !== -1) {
+          updated[index] = value;
+        } else {
+          updated.push(value);
         }
 
-        const subject = new BehaviorSubject<R[]>([]);
-        this.topicSubscriptionMap.set(topicPrefix, subject);
+        updated.sort((a, b) => a.sequence - b.sequence);
+        subject.next(updated);
 
-        const handler = (messageTopic: string, payload: Buffer) => {
-            if (!messageTopic.startsWith(topicPrefix)) return;
+      } catch (err) {
+        console.error(`LiveObjectListService: failed to parse message on ${messageTopic}`, err);
+      }
+    };
 
-            const current = subject.getValue();
+    topicFilters.forEach(topicFilter => {
+      client.subscribe(topicFilter, { qos: 1 }, err => {
+        if (err) {
+          console.error(`LiveObjectListService: failed to subscribe to ${topicFilter}`, err);
+          subject.error(err);
+          this.topicSubscriptionMap.delete(mapKey);
+        } else {
+          if (!this.topicHandlerMap.has(mapKey)) {
+            client.on('message', handler);
+            this.topicHandlerMap.set(mapKey, handler);
+          }
+        }
+      });
+    });
+  
+    subject.subscribe({
+      complete: () => {
+        client.removeListener('message', handler);
+        topicFilters.forEach(filter => client.unsubscribe(filter));
+        this.topicHandlerMap.delete(mapKey);
+        this.topicSubscriptionMap.delete(mapKey);
+      },
+      error: err => {
+        console.error(`LiveObjectListService: error in stream for ${mapKey}`, err);
+        client.removeListener('message', handler);
+        topicFilters.forEach(filter => client.unsubscribe(filter));
+        this.topicHandlerMap.delete(mapKey);
+        this.topicSubscriptionMap.delete(mapKey);
+      }
+    });
 
-            // Handle delete (0-byte payload)
-            if (payload.byteLength === 0) {
-                const parts = messageTopic.split('/');
-                const id = Number(parts.at(-1));
-                if (!isNaN(id)) {
-                    console.log(`LiveObjectListService.subscribeToTopicTree: Handle delete for: ${messageTopic}`);
-                    subject.next(current.filter(item => item.id !== id));
-                }
-                return;
-            }
+    return subject.asObservable();
+  }
 
-            try {
-                const value = deserialize(payload);
-                const id = value.id;
+  private topicMatchesFilters(topic: string, filters: string[]): boolean {
+    return filters.some(filter => this.topicMatchesFilter(topic, filter));
+  }
 
-                const index = current.findIndex(item => item.id === id);
-                const updated = [...current];
+  /** Robust MQTT topic filter matching **/
+  private topicMatchesFilter(topic: string, filter: string): boolean {
+    const topicLevels = topic.split('/');
+    const filterLevels = filter.split('/');
 
-                if (index !== -1) {
-                    updated[index] = value;
-                } else {
-                    updated.push(value);
-                }
+    for (let i = 0; i < filterLevels.length; i++) {
+      const f = filterLevels[i];
+      const t = topicLevels[i];
 
-                updated.sort((a, b) => a.sequence - b.sequence);
-                subject.next(updated);
-
-            } catch (err) {
-                console.error(`LiveObjectListService: failed to parse message on ${messageTopic}`, err);
-            }
-        };
-
-        client.subscribe(topic, { qos: 1 }, err => {
-            if (err) {
-                console.error(`LiveObjectListService: failed to subscribe to ${topic}`, err);
-                subject.error(err);
-                this.topicSubscriptionMap.delete(topicPrefix);
-                return;
-            }
-
-            if (!this.topicHandlerMap.has(topicPrefix)) {
-                client.on('message', handler);
-                this.topicHandlerMap.set(topicPrefix, handler);
-            }
-
-            subject.subscribe({
-                complete: () => {
-                    client.removeListener('message', handler);
-                    client.unsubscribe(topic);
-                    this.topicHandlerMap.delete(topicPrefix);
-                    this.topicSubscriptionMap.delete(topicPrefix);
-                },
-                error: (err) => {
-                    console.error(`LiveObjectListService: error in stream for ${topic}`, err);
-                    client.removeListener('message', handler);
-                    client.unsubscribe(topic);
-                    this.topicHandlerMap.delete(topicPrefix);
-                    this.topicSubscriptionMap.delete(topicPrefix);
-                }
-            });
-        });
-
-        return subject.asObservable();
+      if (f === '#') {
+        return true; // Multi-level wildcard
+      }
+      if (f === '+') {
+        continue; // Single-level wildcard
+      }
+      if (t === undefined || f !== t) {
+        return false;
+      }
     }
 
-    private unsubscribeTopicTree(topicPrefix: string): void {
-        const subject = this.topicSubscriptionMap.get(topicPrefix);
+    // Handles edge case: topic is longer than filter without trailing '#'
+    return topicLevels.length === filterLevels.length;
+  }
 
-        if (subject) {
-            // This triggers the cleanup logic already attached in subscribeToTopicTree$.
-            subject.complete();
-            return;
-        }
+unsubscribeTopicTree(topicFilters: string[]): void {
+  const mapKey = topicFilters.join(',');
 
-        const handler = this.topicHandlerMap.get(topicPrefix);
-        const topic = `${topicPrefix}+`;
-
-        if (handler) {
-            this.mqtt.getConnection().then(client => {
-                client.removeListener('message', handler);
-                client.unsubscribe(topic);
-                console.log(`LiveObjectListService: unsubscribed from ${topic}`);
-            });
-        }
-
-        this.topicHandlerMap.delete(topicPrefix);
+  this.mqtt.getConnection().then(client => {
+  
+    const handler = this.topicHandlerMap.get(mapKey);
+    if (handler) {
+      client.removeListener('message', handler);
+      topicFilters.forEach(filter => client.unsubscribe(filter));
+      this.topicHandlerMap.delete(mapKey);
     }
+    
+    const subject = this.topicSubscriptionMap.get(mapKey);
+    if (subject) {
+      subject.complete(); // ✅ downstream consumers will clean up
+      this.topicSubscriptionMap.delete(mapKey);
+    }
+  });
+}
 }
