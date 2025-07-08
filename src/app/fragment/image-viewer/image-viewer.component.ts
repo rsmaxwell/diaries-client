@@ -20,7 +20,7 @@ import { AlertService } from '../../alerts/alert.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { combineLatest, from, Subject, takeUntil } from 'rxjs';
 import { ConfigService } from '../../config/config.service';
-import { FragmentContextService } from '../fragment-context.service';
+import { ModelContext } from '../../model/model-context';
 
 enum ViewMode {
   WithMarquee,
@@ -47,7 +47,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     private rpcService: RpcService,
     private alertService: AlertService,
     private configService: ConfigService,
-    private fragmentContext: FragmentContextService
+    private fragmentContext: ModelContext
   ) {
   };
 

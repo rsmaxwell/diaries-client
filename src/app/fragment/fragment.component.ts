@@ -7,7 +7,7 @@ import { Fragment } from '../model/fragment';
 import { GoldenLayout, RowOrColumnItemConfig } from 'golden-layout';
 import { ImageViewerComponent } from './image-viewer/image-viewer.component';
 import { TextPanelComponent } from './text-panel/text-panel.component';
-import { FragmentContextService } from './fragment-context.service';
+import { ModelContext } from '../model/model-context';
 import { map, Subject, takeUntil } from 'rxjs';
 import { ActivatedRoute } from '@angular/router';
 
@@ -35,7 +35,7 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
     private route: ActivatedRoute,
     private appRef: ApplicationRef,
     private environmentInjector: EnvironmentInjector,
-    private fragmentContext: FragmentContextService
+    private fragmentContext: ModelContext
   ) { }
 
   ngOnInit(): void {

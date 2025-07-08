@@ -11,14 +11,13 @@ import { MatCardModule } from '@angular/material/card';
 import { MatSelectModule } from '@angular/material/select';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
-import { Subject, Subscription, switchMap, takeUntil } from 'rxjs';
+import { Subject, takeUntil } from 'rxjs';
 import { AlertService } from '../alerts/alert.service';
 import { Page } from '../model/page';
 import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
-import { LiveObjectListService } from '../mqtt/live.object.list.service';
-import { LiveObjectService } from '../mqtt/live.object.service';
 import { RpcService } from '../mqtt/rpc.service';
-import { FragmentContextService } from '../fragment/fragment-context.service';
+import { ModelContext } from '../model/model-context';
+import { DomainRepository } from '../repository/domain-repository';
 
 
 
@@ -51,11 +50,11 @@ export class DiaryComponent implements OnInit, OnDestroy {
 
   constructor(
     private rpcService: RpcService,
-    private liveObjectService: LiveObjectService,
-    private fragmentContext: FragmentContextService,
+    private fragmentContext: ModelContext,
     private router: Router,
     private route: ActivatedRoute,
-    private alertService: AlertService
+    private alertService: AlertService,
+    private domainRepository: DomainRepository
   ) { }
 
   ngOnInit(): void {
@@ -75,7 +74,7 @@ export class DiaryComponent implements OnInit, OnDestroy {
       });
 
     // Fetch full Diary object separately
-    this.liveObjectService.getDiaryById$(this.diaryId)
+    this.domainRepository.getDiaryById$(this.diaryId)
       .pipe(takeUntil(this.destroy$))
       .subscribe(diary => {
         this.diary = diary;

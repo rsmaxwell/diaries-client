@@ -14,37 +14,6 @@ export class LiveObjectService {
     private mqtt: MqttService
   ) { }
 
-  getDiaryById$(id: number): Observable<Diary> {
-    const topic = `diaries/${id}`;
-    return this.getObjectById$<Diary>(topic, (buf: Buffer) => {
-      return JSON.parse(buf.toString()) as Diary;
-    });
-  }
-
-  getPageById$(id: number): Observable<Page> {
-    const topic = `pages/${id}`;
-    return this.getObjectById$<Page>(topic, (buf: Buffer) => {
-      return JSON.parse(buf.toString()) as Page;
-    })
-  }
-
-  getMarqueeById$(id: number): Observable<Marquee> {
-    const topic = `marquees/${id}`;
-
-    console.log(`LiveObjectService.getMarqueeById$: topic: ${topic}`);
-
-    return this.getObjectById$<Marquee>(topic, (buf: Buffer) => {
-      return JSON.parse(buf.toString()) as Marquee;
-    })
-  }
-
-  getFragmentById$(id: number): Observable<Fragment> {
-    const topic = `fragments/${id}`;
-    return this.getObjectById$<Fragment>(topic, (buf: Buffer) => {
-      return JSON.parse(buf.toString()) as Fragment;
-    })
-  }
-
   private subjects = new Map<string, { subject: ReplaySubject<any>, refCount: number, handler: (topic: string, payload: Buffer) => void }>();
 
   /**
@@ -61,7 +30,7 @@ export class LiveObjectService {
    * @param deserialize - A function to convert the MQTT payload (Buffer) into a typed object.
    * @returns An observable stream of deserialized objects for the given topic.
    */
-  private getObjectById$<T>(topic: string, deserialize: (buf: Buffer) => T): Observable<T> {
+  getObjectById$<T>(topic: string, deserialize: (buf: Buffer) => T): Observable<T> {
     console.log(`LiveObjectService.getObjectById: topic: ${topic}`);
 
     if (this.subjects.has(topic)) {

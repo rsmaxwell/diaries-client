@@ -2,13 +2,14 @@ import { Injectable } from "@angular/core";
 import { BehaviorSubject, combineLatest, EMPTY, from, Observable, of, ReplaySubject, Subject, switchMap } from "rxjs";
 import { LiveObjectListService } from "../mqtt/live.object.list.service";
 import { LiveObjectService } from "../mqtt/live.object.service";
-import { Marquee } from "../model/marquee";
+import { Marquee } from "./marquee";
 import { MqttService } from "../mqtt/mqtt.service";
-import { Diary } from "../model/diary";
-import { Page } from "../model/page";
+import { Diary } from "./diary";
+import { Page } from "./page";
+import { DomainRepository } from "../repository/domain-repository";
 
 @Injectable({ providedIn: 'root' })
-export class FragmentContextService {
+export class ModelContext {
 
   private activeTopicFilters = new Set<string>();
 
@@ -29,19 +30,19 @@ export class FragmentContextService {
 
   // Live single objects
   readonly diary$ = this.diaryId$.pipe(
-    switchMap(id => this.liveObjectService.getDiaryById$(id))
+    switchMap(id => this.domainRepository.getDiaryById$(id))
   );
 
   readonly page$ = this.pageId$.pipe(
-    switchMap(id => this.liveObjectService.getPageById$(id))
+    switchMap(id => this.domainRepository.getPageById$(id))
   );
 
   readonly marquee$ = this.marqueeId$.pipe(
-    switchMap(id => (id != null ? this.liveObjectService.getMarqueeById$(id) : of(null))) // Can be null
+    switchMap(id => (id != null ? this.domainRepository.getMarqueeById$(id) : of(null))) // Can be null
   );
 
   readonly fragment$ = this.fragmentId$.pipe(
-    switchMap(id => (id != null ? this.liveObjectService.getFragmentById$(id) : of(null))) // Can be null
+    switchMap(id => (id != null ? this.domainRepository.getFragmentById$(id) : of(null))) // Can be null
   );
 
   // Live collections
@@ -57,7 +58,8 @@ export class FragmentContextService {
   constructor(
     private mqtt: MqttService,
     private liveObjectService: LiveObjectService,
-    private liveObjectListService: LiveObjectListService
+    private liveObjectListService: LiveObjectListService,
+    private domainRepository: DomainRepository
   ) { }
 
   getDiaries$(): Observable<Diary[]> {

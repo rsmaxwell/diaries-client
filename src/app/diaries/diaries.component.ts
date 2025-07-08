@@ -13,7 +13,7 @@ import { LiveObjectListService } from '../mqtt/live.object.list.service';
 import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { RpcService } from '../mqtt/rpc.service';
 import { AlertService } from '../alerts/alert.service';
-import { FragmentContextService } from '../fragment/fragment-context.service';
+import { ModelContext } from '../model/model-context';
 
 @Component({
   selector: 'app-diaries',
@@ -40,7 +40,7 @@ export class DiariesComponent implements OnInit, OnDestroy {
 
   constructor(
     private rpcService: RpcService,
-    private fragmentContext: FragmentContextService,
+    private fragmentContext: ModelContext,
     private router: Router,
     private alertService: AlertService
   ) {

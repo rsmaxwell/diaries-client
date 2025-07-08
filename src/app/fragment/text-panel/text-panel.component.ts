@@ -1,9 +1,9 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FragmentContextService } from '../fragment-context.service';
-import { LiveObjectService } from '../../mqtt/live.object.service';
+import { ModelContext } from '../../model/model-context';
 import { Fragment } from '../../model/fragment';
 import { of, Subject, switchMap, takeUntil } from 'rxjs';
+import { DomainRepository } from '../../repository/domain-repository';
 
 @Component({
   selector: 'app-text-panel',
@@ -18,15 +18,15 @@ export class TextPanelComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   constructor(
-    private context: FragmentContextService,
-    private liveObjectService: LiveObjectService
+    private context: ModelContext,
+    private domainRepository: DomainRepository
   ) {}
 
   ngOnInit(): void {
     console.log(`TextPanelComponent.ngOnInit`);
     this.context.fragmentId$
       .pipe(
-        switchMap(id => id ? this.liveObjectService.getFragmentById$(id) : of(null)),
+        switchMap(id => id ? this.domainRepository.getFragmentById$(id) : of(null)),
         takeUntil(this.destroy$)
       )
       .subscribe(fragment => {
