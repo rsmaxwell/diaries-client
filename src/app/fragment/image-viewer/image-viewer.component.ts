@@ -47,7 +47,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     private rpcService: RpcService,
     private alertService: AlertService,
     private configService: ConfigService,
-    private fragmentContext: ModelContext
+    private modelContext: ModelContext
   ) {
   };
 
@@ -80,7 +80,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     console.log('ImageViewerComponent.ngOnInit');
 
     // 1️⃣ React when the header add button is clicked
-    this.fragmentContext.addButtonClicked$
+    this.modelContext.addButtonClicked$
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
         console.log('ImageViewerComponent.ngOnInit: add button clicked');
@@ -90,11 +90,11 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     // 2️⃣ Combine the mqtt subscriptions and to calculate imageURL + dimensions
     combineLatest([
       from(this.configService.getConfig()),
-      this.fragmentContext.diary$,
-      this.fragmentContext.page$,
-      this.fragmentContext.marquee$,
-      this.fragmentContext.pages$,
-      this.fragmentContext.marquees$          
+      this.modelContext.diary$,
+      this.modelContext.page$,
+      this.modelContext.marquee$,
+      this.modelContext.pages$,
+      this.modelContext.marquees$
     ])
       .pipe(takeUntil(this.destroy$))
       .subscribe(([config, diary, page, marquee, pages, marquees]) => {
@@ -108,26 +108,31 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
 
         if (marquee) {
           this.mode = ViewMode.WithMarquee;
-          this.fragmentContext.setFragmentId(marquee.fragmentId);
+          this.modelContext.setFragmentId(marquee.fragmentId);
         }
         else {
           this.mode = ViewMode.WithoutFragment;
-          this.fragmentContext.setFragmentId(null);
+          this.modelContext.setFragmentId(null);
         }
 
         this.width = page.width ?? 1000;
         this.height = page.height ?? 1400;
 
-        this.imageURL = `${config.fileServerUrl}/${diary.name}/${page.name}${page.extension}`;
-        console.log(`ImageViewerComponent.ngOnInit: imageURL=${this.imageURL}, width=${this.width}, height=${this.height}`);
+        const newURL = `${config.fileServerUrl}/${diary.name}/${page.name}${page.extension}`;
+        if (newURL !== this.imageURL) {
+          this.imageURL = newURL;
+          console.log(`ImageViewerComponent.ngOnInit: imageURL=${this.imageURL}, width=${this.width}, height=${this.height}`);
+        }
       });
   }
 
   ngOnDestroy(): void {
+    console.log(`ImageViewerComponent.ngOnDestroy`);
+
     this.destroy$.next();
     this.destroy$.complete();
 
-    this.fragmentContext.cleanupTopicTree();
+    this.modelContext.cleanupTopicTree();
   }
 
   ngAfterViewInit(): void {
@@ -341,7 +346,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   onSelectMarquee(marquee: Marquee) {
     console.log(`ImageViewerComponent.onSelectMarquee: marquee: ${JSON.stringify(marquee)}`);
 
-    this.fragmentContext.setFragmentId(marquee.fragmentId);
+    this.modelContext.setFragmentId(marquee.fragmentId);
 
     const target = `/diary/${this.diary.id}/${this.page.id}/${marquee.id}`
     console.log(`ImageViewerComponent.onSelectMarquee: redirecting to: ${target}`);

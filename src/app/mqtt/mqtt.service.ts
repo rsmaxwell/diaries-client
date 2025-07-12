@@ -20,7 +20,7 @@ export class MqttService {
   }
 
   async getConnection(): Promise<mqtt.MqttClient> {
-    console.log(`MqttService.getConnection`);
+    // console.log(`MqttService.getConnection`);
 
     if (this.connectionPromise) {
       return this.connectionPromise

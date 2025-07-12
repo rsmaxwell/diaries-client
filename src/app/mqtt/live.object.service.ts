@@ -31,7 +31,7 @@ export class LiveObjectService {
    * @returns An observable stream of deserialized objects for the given topic.
    */
   getObjectById$<T>(topic: string, deserialize: (buf: Buffer) => T): Observable<T> {
-    console.log(`LiveObjectService.getObjectById: topic: ${topic}`);
+    // console.log(`LiveObjectService.getObjectById: topic: ${topic}`);
 
     if (this.subjects.has(topic)) {
       const entry = this.subjects.get(topic)!;
@@ -69,6 +69,9 @@ export class LiveObjectService {
           subject.error(err);
           return;
         }
+
+        console.log(`LiveObjectService.getObjectById$: ********** client.on 'message' - '${topic}'`);
+        
         client.on('message', entry.handler);
       });
     });
@@ -82,6 +85,9 @@ export class LiveObjectService {
         if (entry.refCount === 0) {
           this.mqtt.getConnection().then(client => {
             client.unsubscribe(topic);
+
+            console.log(`LiveObjectService.getObjectById$: ********** client.removeListener 'message' - '${topic}'`);
+
             client.removeListener('message', entry.handler);
           });
           this.subjects.delete(topic);

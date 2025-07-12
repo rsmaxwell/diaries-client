@@ -1,7 +1,6 @@
 import { Injectable } from "@angular/core";
 import { BehaviorSubject, combineLatest, from, Observable, of, ReplaySubject, Subject, switchMap } from "rxjs";
 import { LiveObjectListService } from "../mqtt/live.object.list.service";
-import { LiveObjectService } from "../mqtt/live.object.service";
 import { Marquee } from "./marquee";
 import { MqttService } from "../mqtt/mqtt.service";
 import { Diary } from "./diary";
@@ -41,7 +40,7 @@ export class ModelContext {
     switchMap(id => (id != null ? this.domainRepository.getMarqueeById$(id) : of(null))) // Can be null
   );
 
-  readonly fragment$ = this.fragmentId$.pipe(
+  readonly xfragment$ = this.fragmentId$.pipe(
     switchMap(id => (id != null ? this.domainRepository.getFragmentById$(id) : of(null))) // Can be null
   );
 
@@ -57,7 +56,6 @@ export class ModelContext {
 
   constructor(
     private mqtt: MqttService,
-    private liveObjectService: LiveObjectService,
     private liveObjectListService: LiveObjectListService,
     private domainRepository: DomainRepository
   ) { }
@@ -102,6 +100,7 @@ export class ModelContext {
   }
 
   cleanupTopicTree(): void {
+    console.log(`ModelContext.cleanupTopicTree`);
     this.activeTopicFilters.forEach(filter => {
       this.liveObjectListService.unsubscribeTopicTree([filter]);
     });

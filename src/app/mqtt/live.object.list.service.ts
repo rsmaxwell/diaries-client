@@ -20,14 +20,14 @@ export class LiveObjectListService {
   ): Observable<R[]> {
 
     const mapKey = topicFilters.join(',');
-  
+
     if (this.topicSubscriptionMap.has(mapKey)) {
       return this.topicSubscriptionMap.get(mapKey)!.asObservable();
     }
 
     const subject = new BehaviorSubject<R[]>([]);
     this.topicSubscriptionMap.set(mapKey, subject);
-  
+
     const handler = (messageTopic: string, payload: Buffer) => {
       if (!this.topicMatchesFilters(messageTopic, topicFilters)) {
         return;
@@ -73,15 +73,21 @@ export class LiveObjectListService {
           this.topicSubscriptionMap.delete(mapKey);
         } else {
           if (!this.topicHandlerMap.has(mapKey)) {
+
+            console.log(`LiveObjectListService.subscribeToTopicTree: ********** client.on 'message'`);
+
             client.on('message', handler);
             this.topicHandlerMap.set(mapKey, handler);
           }
         }
       });
     });
-  
+
     subject.subscribe({
       complete: () => {
+
+        console.log(`LiveObjectListService.subscribeToTopicTree - complete: ********** removeListener 'message'`);
+
         client.removeListener('message', handler);
         topicFilters.forEach(filter => client.unsubscribe(filter));
         this.topicHandlerMap.delete(mapKey);
@@ -89,6 +95,9 @@ export class LiveObjectListService {
       },
       error: err => {
         console.error(`LiveObjectListService: error in stream for ${mapKey}`, err);
+
+        console.log(`LiveObjectListService.subscribeToTopicTree - error: ********** removeListener 'message'`);
+
         client.removeListener('message', handler);
         topicFilters.forEach(filter => client.unsubscribe(filter));
         this.topicHandlerMap.delete(mapKey);
@@ -127,23 +136,18 @@ export class LiveObjectListService {
     return topicLevels.length === filterLevels.length;
   }
 
-unsubscribeTopicTree(topicFilters: string[]): void {
-  const mapKey = topicFilters.join(',');
+  unsubscribeTopicTree(topicFilters: string[]): void {
 
-  this.mqtt.getConnection().then(client => {
-  
-    const handler = this.topicHandlerMap.get(mapKey);
-    if (handler) {
-      client.removeListener('message', handler);
-      topicFilters.forEach(filter => client.unsubscribe(filter));
-      this.topicHandlerMap.delete(mapKey);
-    }
-    
-    const subject = this.topicSubscriptionMap.get(mapKey);
-    if (subject) {
-      subject.complete(); // ✅ downstream consumers will clean up
-      this.topicSubscriptionMap.delete(mapKey);
-    }
-  });
-}
+    console.log(`LiveObjectListService.unsubscribeTopicTree: topicFilters: ${topicFilters}`);    
+
+    const mapKey = topicFilters.join(',');
+
+    this.mqtt.getConnection().then(client => {
+      const subject = this.topicSubscriptionMap.get(mapKey);
+      if (subject) {
+        subject.complete(); // downstream handles cleanup in `complete` handler
+        this.topicSubscriptionMap.delete(mapKey);
+      }
+    });
+  }
 }

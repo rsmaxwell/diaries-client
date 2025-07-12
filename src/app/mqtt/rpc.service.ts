@@ -50,6 +50,9 @@ export class RpcService {
         observable$.subscribe({
             next: client => {
                 if (!client.listeners('message').some(fn => fn.name === 'rpcDispatcher')) {
+
+                    console.log(`RpcService.ensureListener: ********** client.on 'message'`);
+
                     client.on('message', this.rpcDispatcher.bind(this));
                 }
             },

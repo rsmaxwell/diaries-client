@@ -2,7 +2,7 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ModelContext } from '../../model/model-context';
 import { Fragment } from '../../model/fragment';
-import { of, Subject, switchMap, takeUntil } from 'rxjs';
+import { distinctUntilChanged, of, Subject, switchMap, takeUntil } from 'rxjs';
 import { DomainRepository } from '../../repository/domain-repository';
 
 @Component({
@@ -26,6 +26,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
     console.log(`TextPanelComponent.ngOnInit`);
     this.context.fragmentId$
       .pipe(
+        distinctUntilChanged(),   // ✅ Ignore duplicate ID values        
         switchMap(id => id ? this.domainRepository.getFragmentById$(id) : of(null)),
         takeUntil(this.destroy$)
       )
