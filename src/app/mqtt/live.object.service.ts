@@ -36,6 +36,7 @@ export class LiveObjectService {
     if (this.subjects.has(topic)) {
       const entry = this.subjects.get(topic)!;
       entry.refCount++;
+      console.log(`LiveObjectService.getObjectById$: refCount for '${topic}' is now ${entry.refCount}`);      
       return entry.subject.asObservable();
     }
 
@@ -47,15 +48,15 @@ export class LiveObjectService {
         if (messageTopic === topic) {
           const payloadStr = payload.toString();
           if (!payloadStr.trim()) {
-            console.log(`LiveObjectService.getObjectById: Empty payload received: Object at topic: ${topic} has been deleted`);
+            console.log(`LiveObjectService.getObjectById$: Empty payload received: Object at topic: ${topic} has been deleted`);
             subject.complete(); // Object has been deleted
             return;
           }
           try {
             subject.next(deserialize(payload));
           } catch (err) {
-            console.log(`LiveObjectService.getObjectById: ${payloadStr}`);
-            subject.error(new Error(`LiveObjectService.getObjectById: Error: ${err}`));
+            console.log(`LiveObjectService.getObjectById$: ${payloadStr}`);
+            subject.error(new Error(`LiveObjectService.getObjectById$: Error: ${err}`));
           }
         }
       }

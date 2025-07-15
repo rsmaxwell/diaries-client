@@ -1,5 +1,5 @@
 // fragment.component.ts
-import { Component, OnInit, ViewChild, OnDestroy, ElementRef, AfterViewInit, ApplicationRef, EnvironmentInjector, createComponent } from '@angular/core';
+import { Component, OnInit, ViewChild, OnDestroy, ElementRef, AfterViewInit, ApplicationRef, EnvironmentInjector, createComponent, ComponentRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PageheaderComponent } from '../headers/pageheader/pageheader.component';
 import { PagefooterComponent } from '../headers/pagefooter/pagefooter.component';
@@ -7,8 +7,10 @@ import { GoldenLayout, RowOrColumnItemConfig } from 'golden-layout';
 import { ImageViewerComponent } from './image-viewer/image-viewer.component';
 import { TextPanelComponent } from './text-panel/text-panel.component';
 import { ModelContext } from '../model/model-context';
-import { map, Subject, takeUntil } from 'rxjs';
+import { map, of, Subject, switchMap, takeUntil } from 'rxjs';
 import { ActivatedRoute } from '@angular/router';
+import { Page } from '../model/page';
+import { Fragment } from '../model/fragment';
 
 
 @Component({
@@ -51,13 +53,15 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
         }))
       )
       .subscribe(({ diaryId, pageId, marqueeId }) => {
-        console.log('🔄 Route changed: diaryId', diaryId, 'pageId', pageId, 'marqueeId', marqueeId);
+        console.log('FragmentComponent.ngOnInit: Route changed: diaryId', diaryId, 'pageId', pageId, 'marqueeId', marqueeId);
 
         if (diaryId) {
+          console.log(`FragmentComponent.ngOnInit: modelContext.setDiaryId: ${diaryId}`);          
           this.modelContext.setDiaryId(diaryId);
         }
 
         if (pageId) {
+          console.log(`FragmentComponent.ngOnInit: modelContext.setPageId: ${pageId}`);           
           this.modelContext.setPageId(pageId);
         }
 
@@ -66,8 +70,47 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
         } else {
           this.modelContext.setMarqueeId(null); // Clear if not present
         }
-      });
+      })
+  }
 
+  // Generic bindComponent: strongly typed and reusable
+  private bindComponent<T>(container: any, component: any): void {
+    const componentRef: ComponentRef<T> = createComponent<T>(component, {
+      environmentInjector: this.environmentInjector,
+    });
+
+    // Store for later cleanup:
+    container.componentRef = componentRef;
+
+    this.appRef.attachView(componentRef.hostView);
+    container.element!.append(componentRef.location.nativeElement);
+
+    // Hook up destroy
+    container.on('destroy', () => {
+      console.log('GoldenLayout: destroying Angular component');
+      this.appRef.detachView(componentRef.hostView);
+      componentRef.destroy();
+    });
+
+    // ✅ Hook up the dynamic titles
+    if (component === ImageViewerComponent) {
+      this.modelContext.page$
+        .pipe(takeUntil(this.destroy$))
+        .subscribe(page => {
+          const title = page ? `page.name = ${page.name}` : 'No Page';
+          container.setTitle(title);
+        });
+    }
+
+    // ✅ Instead of switchMap(... getFragmentById$ ...)
+    if (component === TextPanelComponent) {
+      this.modelContext.fragment$
+        .pipe(takeUntil(this.destroy$))
+        .subscribe(fragment => {
+          const title = fragment ? `fragment.id = ${fragment.id}` : 'No Fragment';
+          container.setTitle(title);
+        });
+    }
   }
 
   ngAfterViewInit(): void {
@@ -96,33 +139,14 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Register your Angular components
     this.layout.registerComponentFactoryFunction('ImageViewer', (container) => {
-      this.bindComponent(container, ImageViewerComponent);
+      this.bindComponent<ImageViewerComponent>(container, ImageViewerComponent);
     });
 
     this.layout.registerComponentFactoryFunction('TextPanel', (container) => {
-      this.bindComponent(container, TextPanelComponent);
+      this.bindComponent<TextPanelComponent>(container, TextPanelComponent);
     });
 
     this.layout.loadLayout(layoutConfig);
-  }
-
-  private bindComponent(container: any, component: any): void {
-    const componentRef = createComponent(component, {
-      environmentInjector: this.environmentInjector,
-    });
-
-    // Store for later cleanup:
-    container.componentRef = componentRef;
-
-    this.appRef.attachView(componentRef.hostView);
-    container.element!.append(componentRef.location.nativeElement);
-
-    // Hook up destroy
-    container.on('destroy', () => {
-      console.log('GoldenLayout: destroying Angular component');
-      this.appRef.detachView(componentRef.hostView);
-      componentRef.destroy();
-    });
   }
 
   ngOnDestroy(): void {
@@ -130,9 +154,9 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
     this.destroy$.complete();
 
     if (this.layout) {
-      this.layout.destroy(); // 🗑️ Clean up panels & event handlers
+      this.layout.destroy();
       console.log('FragmentComponent: destroyed GoldenLayout');
-    }    
+    }
   }
 
   onBackPressed() {

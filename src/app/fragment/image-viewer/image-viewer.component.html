@@ -28,7 +28,7 @@
             [attr.height]="height"
             class="baseMask"
           />
-          @for (marquee of otherMarquees; track marquee.id) {
+          @for (marquee of marquees; track marquee.id) {
             <rect
               [attr.id]="marquee.id"
               [attr.x]="marquee.rectangle.x"
@@ -85,7 +85,7 @@
       mask="url(#mask15)"
     />
 
-    @for (marquee of otherMarquees; track marquee) {
+    @for (marquee of marquees; track marquee) {
       <rect
         [attr.id]="marquee.id"
         [attr.x]="marquee.rectangle.x"

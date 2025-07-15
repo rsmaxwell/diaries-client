@@ -18,8 +18,8 @@ import { Page } from '../../model/page';
 import { RpcService } from '../../mqtt/rpc.service';
 import { AlertService } from '../../alerts/alert.service';
 import { Router } from '@angular/router';
-import { combineLatest, from, Subject, takeUntil } from 'rxjs';
-import { ConfigService } from '../../config/config.service';
+import { combineLatest, distinctUntilChanged, filter, from, map, Subject, take, takeUntil } from 'rxjs';
+import { Config, ConfigService } from '../../config/config.service';
 import { ModelContext } from '../../model/model-context';
 
 enum ViewMode {
@@ -64,7 +64,6 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   resizeEdge?: { left: boolean; right: boolean; top: boolean; bottom: boolean; };
   marquee: Marquee | null = null;
   marquees: Marquee[] = [];
-  otherMarquees: Marquee[] = [];
   mode: ViewMode = ViewMode.WithoutFragment;
   cursorStyle = '';
   isDraggingGlobal = false;
@@ -75,6 +74,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   diary: Diary = Diary.default;
   page: Page = Page.default;
   pages: Page[] = [];
+  config: Config | null = null;
 
   ngOnInit(): void {
     console.log('ImageViewerComponent.ngOnInit');
@@ -87,43 +87,79 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
         this.onAddButtonClick();
       });
 
-    // 2️⃣ Combine the mqtt subscriptions and to calculate imageURL + dimensions
-    combineLatest([
-      from(this.configService.getConfig()),
-      this.modelContext.diary$,
-      this.modelContext.page$,
-      this.modelContext.marquee$,
-      this.modelContext.pages$,
-      this.modelContext.marquees$
-    ])
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(([config, diary, page, marquee, pages, marquees]) => {
-        this.diary = diary;
-        this.page = page;
-        this.marquee = marquee;
-        this.pages = pages;
-        this.marquees = marquees;
+    // fetch config exactly once
+    from(this.configService.getConfig())
+      .pipe(
+        takeUntil(this.destroy$),
+        take(1)
+      )
+      .subscribe(config => this.config = config);
 
-        this.updateOtherMarquees();
-
-        if (marquee) {
-          this.mode = ViewMode.WithMarquee;
-          this.modelContext.setFragmentId(marquee.fragmentId);
-        }
-        else {
-          this.mode = ViewMode.WithoutFragment;
-          this.modelContext.setFragmentId(null);
-        }
-
-        this.width = page.width ?? 1000;
-        this.height = page.height ?? 1400;
-
-        const newURL = `${config.fileServerUrl}/${diary.name}/${page.name}${page.extension}`;
-        if (newURL !== this.imageURL) {
-          this.imageURL = newURL;
-          console.log(`ImageViewerComponent.ngOnInit: imageURL=${this.imageURL}, width=${this.width}, height=${this.height}`);
-        }
+    // 3️⃣ Diary
+    this.modelContext.diary$
+      .pipe(
+        takeUntil(this.destroy$),
+        distinctUntilChanged((a, b) => a?.id === b?.id)
+      )
+      .subscribe(diary => {
+        this.diary = diary!;
+        this.updateImageUrl();
       });
+
+    // 4️⃣ Page
+    this.modelContext.page$
+      .pipe(
+        takeUntil(this.destroy$),
+        distinctUntilChanged((a, b) => a?.id === b?.id)
+      )
+      .subscribe(page => {
+        this.page = page!;
+        this.width = page?.width ?? this.width;
+        this.height = page?.height ?? this.height;
+        this.updateImageUrl();
+      });
+
+    // 5️⃣ Selected marquee
+    this.modelContext.marquee$
+      .pipe(
+        takeUntil(this.destroy$),
+        distinctUntilChanged((a, b) => a?.id === b?.id)
+      )
+      .subscribe(marquee => {
+        this.marquee = marquee;
+        this.mode = marquee ? ViewMode.WithMarquee : ViewMode.WithoutFragment;
+        this.modelContext.setFragmentId(marquee?.fragmentId ?? null);
+      });
+
+    // 6️⃣ Pages list
+    this.modelContext.pages$
+      .pipe(
+        map(pages => pages ?? []),
+        distinctUntilChanged((a, b) => a.length === b.length && a.every((x, i) => x.id === b[i].id)),
+        takeUntil(this.destroy$)
+      )
+      .subscribe(pages => {
+        this.pages = pages;
+      });
+
+    // 7️⃣ Marquees list
+    this.modelContext.marquees$
+      .pipe(
+        takeUntil(this.destroy$),
+        distinctUntilChanged((a, b) => a.length === b.length && a.every((x, i) => x.id === b[i].id))
+      )
+      .subscribe(marquees => {
+        this.marquees = marquees;
+      });
+  }
+
+  private updateImageUrl() {
+    if (!this.config || !this.diary || !this.page) return;
+    const newURL = `${this.config.fileServerUrl}/${this.diary.name}/${this.page.name}${this.page.extension}`;
+    if (newURL !== this.imageURL) {
+      this.imageURL = newURL;
+      console.log(`ImageViewer: imageURL updated to ${this.imageURL}`);
+    }
   }
 
   ngOnDestroy(): void {
@@ -138,7 +174,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   ngAfterViewInit(): void {
     if (this.svgRef?.nativeElement) {
       this.svgRef.nativeElement.focus();
-      console.log('ImageViewerComponent: svg focused');
+      console.log('ImageViewerComponent.ngAfterViewInit: svg focused');
     }
   }
 
@@ -198,8 +234,6 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     const mousePosition = this.getMousePosition(event);
 
     const isCtrlKeyDown = event.ctrlKey;
-
-    this.updateOtherMarquees();
 
     if (this.mode === ViewMode.WithMarquee && this.marquee && isCtrlKeyDown) {
       console.log(`ImageViewerComponent.onMouseDown: with marquee`);
@@ -333,8 +367,6 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       });
     }
 
-    this.updateOtherMarquees();
-
     this.isDraggingGlobal = false;
     this.isDraggingMarquee = false;
     this.resizeEdge = undefined;
@@ -352,13 +384,6 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     console.log(`ImageViewerComponent.onSelectMarquee: redirecting to: ${target}`);
 
     this.router.navigate([`/diary/${this.diary.id}/${this.page.id}/${marquee.id}`]);
-  }
-
-  private updateOtherMarquees() {
-    const newOtherMarquees = this.marquees.filter(m => m.id !== this.marquee?.id);
-    if (!this.arraysEqual(newOtherMarquees, this.otherMarquees)) {
-      this.otherMarquees = newOtherMarquees;
-    }
   }
 
   arraysEqual(a: Marquee[], b: Marquee[]): boolean {

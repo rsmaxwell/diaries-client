@@ -1,23 +1,26 @@
 import { Injectable } from "@angular/core";
-import { BehaviorSubject, combineLatest, from, Observable, of, ReplaySubject, Subject, switchMap } from "rxjs";
+import { BehaviorSubject, combineLatest, filter, from, Observable, of, shareReplay, Subject, switchMap } from "rxjs";
 import { LiveObjectListService } from "../mqtt/live.object.list.service";
 import { Marquee } from "./marquee";
 import { MqttService } from "../mqtt/mqtt.service";
 import { Diary } from "./diary";
 import { Page } from "./page";
-import { DomainRepository } from "../repository/domain-repository";
+import { Fragment } from "./fragment";
+import { LiveObjectService } from "../mqtt/live.object.service";
 
 @Injectable({ providedIn: 'root' })
 export class ModelContext {
 
   private activeTopicFilters = new Set<string>();
 
+
+
   // Context state   
-  private addButtonClickedSubject = new Subject<void>();
-  private diaryIdSubject = new ReplaySubject<number>();
-  private pageIdSubject = new ReplaySubject<number>();
-  private marqueeIdSubject = new BehaviorSubject<number | null>(null);
-  private fragmentIdSubject = new BehaviorSubject<number | null>(null);
+  addButtonClickedSubject = new Subject<void>();
+  diaryIdSubject = new BehaviorSubject<number | null>(null);
+  pageIdSubject = new BehaviorSubject<number | null>(null);
+  marqueeIdSubject = new BehaviorSubject<number | null>(null);
+  fragmentIdSubject = new BehaviorSubject<number | null>(null);
 
   // Exposed observables for IDs
   readonly addButtonClicked$ = this.addButtonClickedSubject.asObservable();
@@ -27,38 +30,72 @@ export class ModelContext {
   readonly marqueeId$ = this.marqueeIdSubject.asObservable();
   readonly fragmentId$ = this.fragmentIdSubject.asObservable();
 
-  // Live single objects
-  readonly diary$ = this.diaryId$.pipe(
-    switchMap(id => this.domainRepository.getDiaryById$(id))
-  );
 
-  readonly page$ = this.pageId$.pipe(
-    switchMap(id => this.domainRepository.getPageById$(id))
-  );
 
-  readonly marquee$ = this.marqueeId$.pipe(
-    switchMap(id => (id != null ? this.domainRepository.getMarqueeById$(id) : of(null))) // Can be null
-  );
 
-  readonly xfragment$ = this.fragmentId$.pipe(
-    switchMap(id => (id != null ? this.domainRepository.getFragmentById$(id) : of(null))) // Can be null
-  );
-
-  // Live collections
-  readonly pages$ = this.diaryId$.pipe(
-    switchMap(id => this.getPagesForDiary$(id))
-  );
-
-  readonly marquees$ = combineLatest([this.diaryId$, this.pageId$]).pipe(
-    switchMap(([diaryId, pageId]) => this.getMarqueesForPage$(diaryId, pageId)
-    )
-  );
 
   constructor(
     private mqtt: MqttService,
     private liveObjectListService: LiveObjectListService,
-    private domainRepository: DomainRepository
+    private liveObjectService: LiveObjectService
   ) { }
+
+  // Live single objects
+
+  // A single shareReplay per stream. No other caching layer.
+  readonly diary$ = this.diaryId$.pipe(
+    filter(id => id != null),
+    switchMap(id =>
+      this.liveObjectService.getObjectById$<Diary>(
+        `diaries/${id}`, buf => JSON.parse(buf.toString()) as Diary
+      )
+    ),
+    shareReplay({ bufferSize: 1, refCount: true })
+  );
+
+  readonly page$ = this.pageId$.pipe(
+    filter(id => id != null),
+    switchMap(id =>
+      this.liveObjectService.getObjectById$<Page>(
+        `pages/${id}`, buf => JSON.parse(buf.toString()) as Page
+      )
+    ),
+    shareReplay({ bufferSize: 1, refCount: true })
+  );
+
+
+  readonly marquee$ = this.marqueeId$.pipe(
+    filter(id => id != null),
+    switchMap(id =>
+      this.liveObjectService.getObjectById$<Marquee>(
+        `marquees/${id}`, buf => JSON.parse(buf.toString()) as Marquee
+      )
+    ),
+    shareReplay({ bufferSize: 1, refCount: true })
+  );
+
+
+  readonly fragment$ = this.fragmentId$.pipe(
+    switchMap(id =>
+      id != null
+        ? this.liveObjectService.getObjectById$<Fragment>(
+          `fragments/${id}`, buf => JSON.parse(buf.toString()) as Fragment
+        )
+        : of(null)
+    ),
+    shareReplay({ bufferSize: 1, refCount: true })
+  );
+
+  // Live collections
+  readonly pages$ = this.diaryId$.pipe(
+    switchMap(id => (id == null) ? of(null) : this.getPagesForDiary$(id))
+  );
+
+  readonly marquees$ = combineLatest([this.diaryId$, this.pageId$]).pipe(
+    filter(([diaryId, pageId]) => diaryId != null && pageId != null),
+    switchMap(([diaryId, pageId]) => this.getMarqueesForPage$(diaryId, pageId)
+    )
+  );
 
   getDiaries$(): Observable<Diary[]> {
     const topicFilters = [`diaries/+`];
@@ -86,7 +123,7 @@ export class ModelContext {
     );
   }
 
-  getMarqueesForPage$(diaryId: number, pageId: number): Observable<Marquee[]> {
+  getMarqueesForPage$(diaryId: number | null, pageId: number | null): Observable<Marquee[]> {
     const topicFilters = [`diaries/${diaryId}/${pageId}/+`];
     topicFilters.forEach(filter => this.activeTopicFilters.add(filter));
 
@@ -125,7 +162,12 @@ export class ModelContext {
   }
 
   setFragmentId(id: number | null) {
-    this.fragmentIdSubject.next(id);
+    if (this.fragmentIdSubject.value !== id) {
+      console.log(`ModelContext.setFragmentId: changed from ${this.fragmentIdSubject.value} to ${id}`);
+      this.fragmentIdSubject.next(id);
+    } else {
+      // console.log(`ModelContext.setFragmentId: ignored duplicate ${id}`);
+    }
   }
 
   fireAddButtonClick(): void {

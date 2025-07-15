@@ -17,7 +17,6 @@ import { Page } from '../model/page';
 import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { RpcService } from '../mqtt/rpc.service';
 import { ModelContext } from '../model/model-context';
-import { DomainRepository } from '../repository/domain-repository';
 
 
 
@@ -50,11 +49,10 @@ export class DiaryComponent implements OnInit, OnDestroy {
 
   constructor(
     private rpcService: RpcService,
-    private fragmentContext: ModelContext,
     private router: Router,
     private route: ActivatedRoute,
     private alertService: AlertService,
-    private domainRepository: DomainRepository
+    private modelContext: ModelContext
   ) { }
 
   ngOnInit(): void {
@@ -66,15 +64,18 @@ export class DiaryComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // Set the active Diary ID for the ModelContext state
+    this.modelContext.setDiaryId(this.diaryId);
+
     // Begin fetching pages immediately
-    this.fragmentContext.getPagesForDiary$(this.diaryId)
+    this.modelContext.getPagesForDiary$(this.diaryId)
       .pipe(takeUntil(this.destroy$))
       .subscribe(pages => {
         this.dataSource.data = pages;
       });
 
-    // Fetch full Diary object separately
-    this.domainRepository.getDiaryById$(this.diaryId)
+    // Subscribe to the reactive Diary stream instead of the old getDiaryById$
+    this.modelContext.diary$
       .pipe(takeUntil(this.destroy$))
       .subscribe(diary => {
         this.diary = diary;
@@ -88,7 +89,7 @@ export class DiaryComponent implements OnInit, OnDestroy {
     this.destroy$.next();
     this.destroy$.complete();
 
-    this.fragmentContext.cleanupTopicTree();
+    this.modelContext.cleanupTopicTree();
   }
 
   selectItem(id: number) {

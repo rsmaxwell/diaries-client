@@ -2,8 +2,7 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ModelContext } from '../../model/model-context';
 import { Fragment } from '../../model/fragment';
-import { distinctUntilChanged, of, Subject, switchMap, takeUntil } from 'rxjs';
-import { DomainRepository } from '../../repository/domain-repository';
+import { distinctUntilChanged, Subject, takeUntil } from 'rxjs';
 
 @Component({
   selector: 'app-text-panel',
@@ -18,23 +17,22 @@ export class TextPanelComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   constructor(
-    private context: ModelContext,
-    private domainRepository: DomainRepository
+    private modelContext: ModelContext
   ) {}
 
-  ngOnInit(): void {
-    console.log(`TextPanelComponent.ngOnInit`);
-    this.context.fragmentId$
-      .pipe(
-        distinctUntilChanged(),   // ✅ Ignore duplicate ID values        
-        switchMap(id => id ? this.domainRepository.getFragmentById$(id) : of(null)),
-        takeUntil(this.destroy$)
-      )
-      .subscribe(fragment => {
-        this.fragment = fragment;
-        // console.log(`TextPanelComponent: fragment:`, fragment);
-      });
-  }
+ngOnInit(): void {
+  console.log(`TextPanelComponent.ngOnInit`);
+
+  this.modelContext.fragment$
+    .pipe(
+      distinctUntilChanged(),   // Optional: ensures it only updates if the fragment object actually changes
+      takeUntil(this.destroy$)
+    )
+    .subscribe(fragment => {
+      this.fragment = fragment;
+      console.log(`TextPanelComponent: fragment: ${JSON.stringify(fragment)}`);
+    });
+}
 
   get formattedDate(): string {
     if (!this.fragment) return '';
