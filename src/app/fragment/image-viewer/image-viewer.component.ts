@@ -162,6 +162,14 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  get otherMarquees(): Marquee[] {
+    return this.marquees.filter(m => m.id !== this.marquee?.id);
+  }
+
+  trackById(index: number, m: Marquee) {
+    return m.id;
+  }
+
   ngOnDestroy(): void {
     console.log(`ImageViewerComponent.ngOnDestroy`);
 
