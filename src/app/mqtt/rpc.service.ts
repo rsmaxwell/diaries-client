@@ -17,7 +17,7 @@ import { Signin, SigninReply, SigninRequest } from "../model/signin";
 import { Register, RegisterReply, RegisterRequest } from "../model/register";
 import { Diary, UpdateDiaryRequest } from "../model/diary";
 import { RefreshTokenReply, RefreshTokenRequest } from "../model/refresh.token";
-import { NormaliseFragmentsRequest } from "../model/fragment";
+import { Fragment, NormaliseFragmentsRequest, UpdateFragmentRequest } from "../model/fragment";
 import { AccessTokenService } from "../user/token/accessTokenService";
 import { RefreshTokenService } from "../user/token/refreshTokenService";
 
@@ -119,6 +119,9 @@ export class RpcService {
         deserialize: (buf: Buffer) => R,
         timeout = 5000
     ): Observable<R> {
+
+        console.log(`RpcService.rpcRequest`)
+
         return new Observable<R>(obs => {
             const corr = uuidv4();
 
@@ -158,9 +161,9 @@ export class RpcService {
                     properties
                 };
 
-//              console.log(`RpcService.rpcRequest: sending to topic '${requestTopic}'`);
+                console.log(`RpcService.rpcRequest: sending to topic '${requestTopic}'`);
                 console.log(`RpcService.rpcRequest: ${publishPayload}`);
-//              console.log(`RpcService.rpcRequest: correlationId: '${corr}', replyTopic: '${replyTopic}'`);
+                console.log(`RpcService.rpcRequest: correlationId: '${corr}', replyTopic: '${replyTopic}'`);
 
                 client.publish(requestTopic, publishPayload, publishOptions, err => {
                     if (err) {
@@ -169,7 +172,7 @@ export class RpcService {
                         console.error(`[rpcRequest] Publish failed: ${err.message}`);
                         obs.error(err);
                     } else {
-//                      console.log(`[rpcRequest] Publish succeeded`);
+                        console.log(`[rpcRequest] Publish succeeded`);
                     }
                 });
             };
@@ -327,6 +330,48 @@ export class RpcService {
                 const replyTopic = `reply/${cfg.clientId}/addMarquee`;
                 const payload = { function: 'addMarquee', args: new AddMarqueeRequest(page.id, rect, sequence) };
                 const deserialize = ReplyHandler.getBufferAsNumber
+                return this.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
+            })
+        );
+    }
+
+    updateFragment$(fragment: Fragment): Observable<number> {
+
+        console.log(`RpcService.updateFragment$: ${JSON.stringify(fragment)}`)
+
+        return forkJoin({
+            cfg: this.configService.getConfig(),
+            client: this.mqtt.getConnection(),
+            token: this.accessTokenService.getToken()
+        }).pipe(
+            switchMap(({ cfg, client, token }) => {
+                const replyTopic = `reply/${cfg.clientId}/updateFragment`;
+
+                console.log(`RpcService.updateFragment$: replyTopic: ${replyTopic}`)
+
+
+                let marqueeId = -1;
+                if (fragment.marquee) {
+                    marqueeId = fragment.marquee.id;
+                }
+
+                let x = new UpdateFragmentRequest(
+                    fragment.id,
+                    fragment.year,
+                    fragment.month,
+                    fragment.day,
+                    fragment.sequence,
+                    marqueeId,
+                    fragment.text
+                );
+
+                const payload = { function: 'updateFragment', args: x };
+
+                console.log(`RpcService.updateFragment$: payload = `, payload)
+                console.log(`RpcService.updateFragment$: payload = ${JSON.stringify(payload)}`)
+
+                const deserialize = ReplyHandler.getBufferAsNumber
+
                 return this.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
             })
         );

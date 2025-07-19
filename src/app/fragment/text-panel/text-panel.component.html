@@ -4,10 +4,27 @@
     <div class="date-part">Month: {{ fragment.month }}</div>
     <div class="date-part">Day: {{ fragment.day }}</div>
     <div class="formatted-date">Formatted: {{ formattedDate }}</div>
+
+    <!-- save button -->
+    <button
+      class="save-button"
+      type="button"
+      [disabled]="!hasEdits"
+      [ngClass]="{ 'active': hasEdits }"
+      (click)="onSave()"
+    >
+      Save
+    </button>
   </div>
 
   <div class="body">
-    <textarea readonly>{{ fragment.text }}</textarea>
+    <form [formGroup]="form">    
+      <quill-editor
+        formControlName="body"
+        [modules]="editorModules"
+        placeholder="Write something…">
+      </quill-editor>
+      </form>
   </div>
 </div>
 

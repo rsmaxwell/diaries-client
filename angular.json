@@ -35,6 +35,8 @@
               "@angular/material/prebuilt-themes/azure-blue.css",
               "node_modules/golden-layout/dist/css/goldenlayout-base.css",
               "node_modules/golden-layout/dist/css/themes/goldenlayout-dark-theme.css",
+              "node_modules/quill/dist/quill.core.css",
+              "node_modules/quill/dist/quill.snow.css",
               "src/styles.scss"
             ],
             "scripts": []
@@ -103,6 +105,8 @@
               "@angular/material/prebuilt-themes/azure-blue.css",
               "node_modules/golden-layout/dist/css/goldenlayout-base.css",
               "node_modules/golden-layout/dist/css/themes/goldenlayout-dark-theme.css",
+              "node_modules/quill/dist/quill.core.css",
+              "node_modules/quill/dist/quill.snow.css",
               "src/styles.scss"
             ],
             "scripts": []

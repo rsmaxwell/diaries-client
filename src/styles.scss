@@ -1,5 +1,8 @@
 @import '@angular/material/prebuilt-themes/azure-blue.css';
 
+@import "quill/dist/quill.core.css";
+@import "quill/dist/quill.snow.css";
+
 html, body {
     margin: 0;
     padding: 0;

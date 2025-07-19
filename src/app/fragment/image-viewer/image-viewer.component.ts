@@ -58,8 +58,6 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   scale = 1;
   offsetX = 0;
   offsetY = 0;
-  width: number = 0;
-  height: number = 0;
   imageURL: string = '';
   resizeEdge?: { left: boolean; right: boolean; top: boolean; bottom: boolean; };
   marquee: Marquee | null = null;
@@ -114,8 +112,6 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       )
       .subscribe(page => {
         this.page = page!;
-        this.width = page?.width ?? this.width;
-        this.height = page?.height ?? this.height;
         this.updateImageUrl();
       });
 
@@ -160,6 +156,14 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       this.imageURL = newURL;
       console.log(`ImageViewer: imageURL updated to ${this.imageURL}`);
     }
+  }
+
+  get width(): number {
+    return this.page?.width ?? this.width;
+  }
+
+  get height(): number {
+    return this.page?.height ?? this.height;
   }
 
   get otherMarquees(): Marquee[] {

@@ -3,36 +3,69 @@ import { CommonModule } from '@angular/common';
 import { ModelContext } from '../../model/model-context';
 import { Fragment } from '../../model/fragment';
 import { distinctUntilChanged, Subject, takeUntil } from 'rxjs';
+import { QuillModule } from 'ngx-quill';
+import { FormControl, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { RpcService } from '../../mqtt/rpc.service';
+import { AccessTokenService } from '../../user/token/accessTokenService';
+import { RefreshTokenService } from '../../user/token/refreshTokenService';
+import { TokenRequestor } from '../../user/tokenRequestor';
+import { AlertService } from '../../alerts/alert.service';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-text-panel',
   standalone: true,
-  imports: [CommonModule],
+  imports: [
+    CommonModule,
+    QuillModule,
+    ReactiveFormsModule,
+    FormsModule,
+  ],
   templateUrl: './text-panel.component.html',
   styleUrls: ['./text-panel.component.scss']
 })
 export class TextPanelComponent implements OnInit, OnDestroy {
   fragment: Fragment | null = null;
+  htmlContent = '';  // two‑way bound HTML
+
+  form: FormGroup = new FormGroup({
+    body: new FormControl('<p>Hello, Quill!</p>')
+  });
+
+  editorModules = {
+    toolbar: [
+      ['bold', 'italic', 'underline'],
+      [{ header: [1, 2, 3, false] }],
+      [{ list: 'bullet' }, { list: 'ordered' }],
+      ['link', 'image']
+    ]
+  };
 
   private destroy$ = new Subject<void>();
 
   constructor(
-    private modelContext: ModelContext
-  ) {}
+    private modelContext: ModelContext,
+    private rpcService: RpcService
+  ) { }
 
-ngOnInit(): void {
-  console.log(`TextPanelComponent.ngOnInit`);
+  ngOnInit(): void {
+    console.log(`TextPanelComponent.ngOnInit`);
 
-  this.modelContext.fragment$
-    .pipe(
-      distinctUntilChanged(),   // Optional: ensures it only updates if the fragment object actually changes
-      takeUntil(this.destroy$)
-    )
-    .subscribe(fragment => {
-      this.fragment = fragment;
-      console.log(`TextPanelComponent: fragment: ${JSON.stringify(fragment)}`);
-    });
-}
+    this.modelContext.fragment$
+      .pipe(
+        distinctUntilChanged((a, b) => a?.id === b?.id),
+        takeUntil(this.destroy$)
+      )
+      .subscribe(fragment => {
+        this.fragment = fragment;
+        const html = fragment?.text ?? '';   // default to empty
+        console.log(`TextPanelComponent: fragment: ${JSON.stringify(fragment)}`);
+        this.form.get('body')!.setValue(html, {
+          emitEvent: false,              // don’t re‑trigger value‑change handlers
+          emitModelToViewChange: true    // update the editor UI        
+        });
+      });
+  }
 
   get formattedDate(): string {
     if (!this.fragment) return '';
@@ -45,5 +78,31 @@ ngOnInit(): void {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  /** true if there are unsaved edits */
+  get hasEdits(): boolean {
+    const current = this.form.get('body')!.value as string;
+    const original = this.fragment?.text ?? '';
+    return current !== original;
+  }
+
+  onSave(): void {
+    console.log(`Save clicked! Current fragment id: ${this.fragment?.id}`);
+    const current = this.form.get('body')!.value as string;
+
+    if (this.fragment) {
+      this.fragment.text = current;
+
+      console.log(`TextPanelComponent.onSave`)
+      this.rpcService.updateFragment$(this.fragment).subscribe({
+        next: (reply) => {
+          console.log(`TextPanelComponent.onSave: success: reply: ${reply}`)
+        },
+        error: (err) => {
+          console.log(`TextPanelComponent.onSave: error: ${err}`)
+        }
+      });
+    }
   }
 }

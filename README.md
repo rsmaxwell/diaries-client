@@ -34,9 +34,11 @@ npm install --save-dev @types/uuid
 npm install mqtt
 npm install buffer
 npm install golden-layout
+npm install quill ngx-quill --save
 
 ng add @angular/material
 
 ## Rich text Editor
 
-https://ej2.syncfusion.com/angular/documentation/rich-text-editor/getting-started
+https://quilljs.com/docs/quickstart
+
