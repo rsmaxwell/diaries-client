@@ -6,11 +6,7 @@ import { distinctUntilChanged, Subject, takeUntil } from 'rxjs';
 import { QuillModule } from 'ngx-quill';
 import { FormControl, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { RpcService } from '../../mqtt/rpc.service';
-import { AccessTokenService } from '../../user/token/accessTokenService';
-import { RefreshTokenService } from '../../user/token/refreshTokenService';
-import { TokenRequestor } from '../../user/tokenRequestor';
-import { AlertService } from '../../alerts/alert.service';
-import { Router } from '@angular/router';
+import { Marquee } from '../../model/marquee';
 
 @Component({
   selector: 'app-text-panel',
@@ -25,7 +21,8 @@ import { Router } from '@angular/router';
   styleUrls: ['./text-panel.component.scss']
 })
 export class TextPanelComponent implements OnInit, OnDestroy {
-  fragment: Fragment | null = null;
+  marquee: Marquee | null = null;
+  fragment: Fragment | null = null;  
   htmlContent = '';  // two‑way bound HTML
 
   form: FormGroup = new FormGroup({
@@ -65,6 +62,16 @@ export class TextPanelComponent implements OnInit, OnDestroy {
           emitModelToViewChange: true    // update the editor UI        
         });
       });
+
+    this.modelContext.marquee$
+      .pipe(
+        distinctUntilChanged((a, b) => a?.id === b?.id),
+        takeUntil(this.destroy$)
+      )
+      .subscribe(marquee => {
+        this.marquee = marquee;
+        console.log(`TextPanelComponent: marquee: ${JSON.stringify(marquee)}`);
+      });
   }
 
   get formattedDate(): string {
@@ -93,6 +100,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
 
     if (this.fragment) {
       this.fragment.text = current;
+      this.fragment.marquee = this.marquee;
 
       console.log(`TextPanelComponent.onSave`)
       this.rpcService.updateFragment$(this.fragment).subscribe({

@@ -125,6 +125,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
         this.marquee = marquee;
         this.mode = marquee ? ViewMode.WithMarquee : ViewMode.WithoutFragment;
         this.modelContext.setFragmentId(marquee?.fragmentId ?? null);
+        this.modelContext.setMarqueeId(marquee?.id ?? null);
       });
 
     // 6️⃣ Pages list
@@ -568,7 +569,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     console.log(`ImageViewerComponent.onAddButtonClick: id: ${JSON.stringify(rectangle)}`)
     this.rpcService.addMarquee$(this.page, rectangle, sequence).subscribe({
       next: (id) => {
-        const marquee = new Marquee(id, rectangle, sequence);
+        const marquee = new Marquee(id, 0, this.page.id, rectangle, sequence);
 
         console.log(`ImageViewerComponent.onAddButtonClick: marquee: id: ${marquee.id} added`);
         this.alertService.info(`marquee: id: ${marquee.id} added`);
