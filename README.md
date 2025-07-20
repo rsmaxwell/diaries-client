@@ -37,8 +37,7 @@ npm install golden-layout
 npm install quill ngx-quill --save
 
 ng add @angular/material
-
-## Rich text Editor
+npm install @angular/material @angular/cdk
 
 https://quilljs.com/docs/quickstart
 

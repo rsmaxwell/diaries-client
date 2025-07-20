@@ -1,9 +1,23 @@
 <div class="text-panel-container" *ngIf="fragment; else noFragment">
   <div class="header">
-    <div class="date-part">Year: {{ fragment.year }}</div>
-    <div class="date-part">Month: {{ fragment.month }}</div>
-    <div class="date-part">Day: {{ fragment.day }}</div>
-    <div class="formatted-date">Formatted: {{ formattedDate }}</div>
+
+    <span
+      (click)="editDate()"
+      [ngStyle]="{
+        'background-color': isDateValid ? null : 'red',
+        'padding': '2px',
+        'border-radius': '2px'
+       }"
+    >
+      {{ formattedDate }}
+    </span>
+
+    <!-- hidden field + picker -->
+    <mat-form-field style="width:0; height:0; overflow:hidden; margin:0; padding:0;">
+      <input matInput [matDatepicker]="picker" [value]="date"
+             (dateChange)="onDateSelected($event)">
+      <mat-datepicker #picker></mat-datepicker>
+    </mat-form-field>
 
     <!-- save button -->
     <button
