@@ -2,7 +2,7 @@ import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ModelContext } from '../../model/model-context';
 import { Fragment } from '../../model/fragment';
-import { distinctUntilChanged, Subject, takeUntil } from 'rxjs';
+import { combineLatest, distinctUntilChanged, Subject, takeUntil } from 'rxjs';
 import { QuillModule } from 'ngx-quill';
 import { FormControl, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { RpcService } from '../../mqtt/rpc.service';
@@ -35,7 +35,6 @@ export class TextPanelComponent implements OnInit, OnDestroy {
 
   @ViewChild('picker') picker!: MatDatepicker<Date>;
 
-  marquee: Marquee | null = null;
   fragment: Fragment | null = null;
   htmlContent = '';  // two‑way bound HTML
 
@@ -71,10 +70,10 @@ export class TextPanelComponent implements OnInit, OnDestroy {
 
     this.modelContext.fragment$
       .pipe(
-        distinctUntilChanged((a, b) => a?.id === b?.id),
         takeUntil(this.destroy$)
       )
-      .subscribe(fragment => {
+    .subscribe(fragment => {
+        console.log(`TextPanelComponent.ngOnInit: fragment: ${JSON.stringify(fragment)}`);
         this.fragment = fragment;
 
         // store the “initial” date
@@ -82,23 +81,12 @@ export class TextPanelComponent implements OnInit, OnDestroy {
         this.originalMonth = fragment?.month || 0;
         this.originalDay = fragment?.day || 0;
 
-
         const html = fragment?.text ?? '';   // default to empty
         console.log(`TextPanelComponent: fragment: ${JSON.stringify(fragment)}`);
         this.form.get('body')!.setValue(html, {
           emitEvent: false,              // don’t re‑trigger value‑change handlers
           emitModelToViewChange: true    // update the editor UI        
         });
-      });
-
-    this.modelContext.marquee$
-      .pipe(
-        distinctUntilChanged((a, b) => a?.id === b?.id),
-        takeUntil(this.destroy$)
-      )
-      .subscribe(marquee => {
-        this.marquee = marquee;
-        console.log(`TextPanelComponent: marquee: ${JSON.stringify(marquee)}`);
       });
   }
 
@@ -195,12 +183,11 @@ export class TextPanelComponent implements OnInit, OnDestroy {
 
 
   onSave(): void {
-    console.log(`Save clicked! Current fragment id: ${this.fragment?.id}`);
+    console.log(`Save clicked! Current fragment: ${JSON.stringify(this.fragment)}`);
     const current = this.form.get('body')!.value as string;
 
     if (this.fragment) {
       this.fragment.text = current;
-      this.fragment.marquee = this.marquee;
 
       console.log(`TextPanelComponent.onSave`)
       this.rpcService.updateFragment$(this.fragment).subscribe({

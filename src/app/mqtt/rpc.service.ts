@@ -336,9 +336,6 @@ export class RpcService {
     }
 
     updateFragment$(fragment: Fragment): Observable<number> {
-
-        console.log(`RpcService.updateFragment$: ${JSON.stringify(fragment)}`)
-
         return forkJoin({
             cfg: this.configService.getConfig(),
             client: this.mqtt.getConnection(),
@@ -346,32 +343,8 @@ export class RpcService {
         }).pipe(
             switchMap(({ cfg, client, token }) => {
                 const replyTopic = `reply/${cfg.clientId}/updateFragment`;
-
-                console.log(`RpcService.updateFragment$: replyTopic: ${replyTopic}`)
-
-
-                let marqueeId = -1;
-                if (fragment.marquee) {
-                    marqueeId = fragment.marquee.id;
-                }
-
-                let x = new UpdateFragmentRequest(
-                    fragment.id,
-                    fragment.year,
-                    fragment.month,
-                    fragment.day,
-                    fragment.sequence,
-                    marqueeId,
-                    fragment.text
-                );
-
-                const payload = { function: 'updateFragment', args: x };
-
-                console.log(`RpcService.updateFragment$: payload = `, payload)
-                console.log(`RpcService.updateFragment$: payload = ${JSON.stringify(payload)}`)
-
+                const payload = { function: 'updateFragment', args: UpdateFragmentRequest.fromFragment(fragment) };
                 const deserialize = ReplyHandler.getBufferAsNumber
-
                 return this.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
             })
         );

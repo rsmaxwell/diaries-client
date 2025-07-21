@@ -31,8 +31,6 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
   private destroy$ = new Subject<void>();
   private layout: GoldenLayout | undefined;
 
-  title = 'Fragment';
-
   constructor(
     private route: ActivatedRoute,
     private appRef: ApplicationRef,
@@ -174,9 +172,5 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
   onAddButtonClick() {
     console.log(`FragmentComponent.onAddButtonClick`);
     this.modelContext.fireAddButtonClick();
-  }
-
-  onTitleChanged(title: string) {
-    this.title = title;
   }
 }

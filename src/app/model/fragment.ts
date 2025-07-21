@@ -3,11 +3,12 @@ import { Marquee } from "./marquee";
 export class Fragment {
   constructor(
     public id: number,
+    public marqueeId: number | null,
     public year: number,
     public month: number,
     public day: number,
     public sequence: number,
-    public marquee: Marquee | null,
+    public version: number,
     public text: string
   ) { };
 }
@@ -23,11 +24,12 @@ export class NormaliseFragmentsRequest {
 export class UpdateFragmentRequest {
   constructor(
     public id: number,
+    public marqueeId: number | null,
     public year: number,
     public month: number,
     public day: number,
     public sequence: number,
-    public marqueeId: number | null,
+    public version: number,
     public text: string
   ) { };
 
@@ -37,11 +39,12 @@ export class UpdateFragmentRequest {
 
     return new UpdateFragmentRequest(
       fragment.id,
+      fragment.marqueeId,
       fragment.year,
       fragment.month,
       fragment.day,
       fragment.sequence,
-      fragment.marquee!.id,
+      fragment.version,
       fragment.text,
     );
   }
