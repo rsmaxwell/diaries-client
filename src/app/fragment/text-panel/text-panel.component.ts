@@ -14,6 +14,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatDatepickerModule, MatDatepicker } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { MatDatepickerInputEvent } from '@angular/material/datepicker';
+import { DateFormatter } from '../../utilities/DateFormatter';
 
 @Component({
   selector: 'app-text-panel',
@@ -58,6 +59,8 @@ export class TextPanelComponent implements OnInit, OnDestroy {
     ]
   };
 
+  formattedDate = '';
+  isDateValid = false;
   private destroy$ = new Subject<void>();
 
   constructor(
@@ -72,17 +75,33 @@ export class TextPanelComponent implements OnInit, OnDestroy {
       .pipe(
         takeUntil(this.destroy$)
       )
-    .subscribe(fragment => {
+      .subscribe(fragment => {
         console.log(`TextPanelComponent.ngOnInit: fragment: ${JSON.stringify(fragment)}`);
         this.fragment = fragment;
 
-        // store the “initial” date
-        this.originalYear = fragment?.year || 0;
-        this.originalMonth = fragment?.month || 0;
-        this.originalDay = fragment?.day || 0;
+        if (fragment.marqueeId) {
+          this.modelContext.setMarqueeId(fragment.marqueeId);
+        }
 
-        const html = fragment?.text ?? '';   // default to empty
-        console.log(`TextPanelComponent: fragment: ${JSON.stringify(fragment)}`);
+        let html = '';
+        let dateFormatter = new DateFormatter(0, 0, 0);
+        if (!fragment) {
+          this.originalYear = 0;
+          this.originalMonth = 0;
+          this.originalDay = 0;
+        }
+        else {
+          console.log(`TextPanelComponent: fragment: ${JSON.stringify(fragment)}`);
+          // store the “initial” date
+          this.originalYear = fragment.year;
+          this.originalMonth = fragment.month;
+          this.originalDay = fragment.day;
+          html = fragment.text;
+          dateFormatter = new DateFormatter(fragment.year, fragment.month, fragment.day);
+        }
+
+        this.formattedDate = dateFormatter.formattedDate;
+        this.isDateValid = dateFormatter.isDateValid;
         this.form.get('body')!.setValue(html, {
           emitEvent: false,              // don’t re‑trigger value‑change handlers
           emitModelToViewChange: true    // update the editor UI        
@@ -93,40 +112,6 @@ export class TextPanelComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
-  }
-
-  /** display either verbose (“Y Month D”) or numeric (“YYYY‑MM‑DD”) */
-  get formattedDate(): string {
-    if (!this.fragment) { return ''; }
-
-    const { year: y = 0, month: m = 0, day: d = 0 } = this.fragment;
-
-    // Month names lookup
-    const monthNames = [
-      'January','February','March','April',
-      'May','June','July','August',
-      'September','October','November','December'
-    ];
-    const monthStr = monthNames[m - 1] || '';
-
-    if (this.isDateValid) {
-      // verbose form
-      return `${y} ${monthStr} ${d}`;
-    } else {
-      // numeric fallback
-      const numY = y.toString().padStart(4, '0');
-      const numM = m.toString().padStart(2, '0');
-      const numD = d.toString().padStart(2, '0');
-      return `${numY}-${numM}-${numD}`;
-    }
-  }
-
-  /** true iff all three parts of the date are set */
-  get isDateValid(): boolean {
-    return !!this.fragment
-      && this.fragment.year  > 0
-      && this.fragment.month > 0
-      && this.fragment.day   > 0;
   }
 
   /**  
@@ -155,11 +140,19 @@ export class TextPanelComponent implements OnInit, OnDestroy {
   onDateSelected(event: MatDatepickerInputEvent<Date>) {
     const newDate = event.value;
     if (this.fragment && newDate) {
+      // 1) write back into the model
       this.fragment.year = newDate.getFullYear();
       this.fragment.month = newDate.getMonth() + 1;
       this.fragment.day = newDate.getDate();
-      // optionally push straight to the server:
-      // this.rpcService.updateFragment$(this.fragment).subscribe();
+
+      // 2) recalculate what’s shown in the header
+      const df = new DateFormatter(
+        this.fragment.year,
+        this.fragment.month,
+        this.fragment.day
+      );
+      this.formattedDate = df.formattedDate;
+      this.isDateValid = df.isDateValid;
     }
   }
 

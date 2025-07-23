@@ -42,9 +42,7 @@ export class DiariesComponent implements OnInit, OnDestroy {
     private fragmentContext: ModelContext,
     private router: Router,
     private alertService: AlertService
-  ) {
-    console.log(`DiariesComponent.constructor`);
-  }
+  ) { }
 
   ngOnInit(): void {
     console.log(`DiariesComponent.ngOnInit`);

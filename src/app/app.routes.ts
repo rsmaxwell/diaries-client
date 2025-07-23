@@ -16,5 +16,5 @@ export const routes: Routes = [
     { path: 'diaries', component: DiariesComponent, canActivate: [AuthGuard] },
     { path: 'diary/:diaryId', component: DiaryComponent, canActivate: [AuthGuard] },
     { path: 'diary/:diaryId/:pageId', component: FragmentComponent, canActivate: [AuthGuard] },
-    { path: 'diary/:diaryId/:pageId/:marqueeId', component: FragmentComponent, canActivate: [AuthGuard] },
+    { path: 'diary/:diaryId/:pageId/:fragmentId', component: FragmentComponent, canActivate: [AuthGuard] },
 ];

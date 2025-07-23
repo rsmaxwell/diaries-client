@@ -11,7 +11,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatSelectModule } from '@angular/material/select';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
-import { Subject, takeUntil } from 'rxjs';
+import { map, Subject, takeUntil } from 'rxjs';
 import { AlertService } from '../alerts/alert.service';
 import { Page } from '../model/page';
 import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
@@ -58,28 +58,36 @@ export class DiaryComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     console.log(`DiaryComponent.ngOnInit`);
 
-    this.diaryId = +this.route.snapshot.params['diaryId'];
-    if (isNaN(this.diaryId)) {
-      this.alertService.error("Invalid diaryId in route");
-      return;
-    }
+    // 🚦 Listen reactively for param changes
+    this.route.paramMap
+      .pipe(
+        takeUntil(this.destroy$),
+        map(paramMap => ({
+          diaryId: paramMap.get('diaryId') ? +paramMap.get('diaryId')! : null
+        }))
+      )
+      .subscribe(({ diaryId }) => {
+        console.log(`DiaryComponent.ngOnInit: Route changed: diaryId: ${diaryId}`);
 
-    // Set the active Diary ID for the ModelContext state
-    this.modelContext.setDiaryId(this.diaryId);
+        if (diaryId) {
+          this.modelContext.setDiaryId(diaryId);
+        }
+      })
 
-    // Begin fetching pages immediately
-    this.modelContext.getPagesForDiary$(this.diaryId)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(pages => {
-        this.dataSource.data = pages;
-      });
-
-    // Subscribe to the reactive Diary stream instead of the old getDiaryById$
+    // Subscribe to the reactive Diary stream 
     this.modelContext.diary$
       .pipe(takeUntil(this.destroy$))
       .subscribe(diary => {
-        this.diary = diary;
         console.log(`DiaryComponent.ngOnInit: diary.id: ${diary.id}`);
+        this.diary = diary;
+      });
+
+    // Begin fetching pages immediately
+    this.modelContext.pages$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(pages => {
+        // console.log(`DiaryComponent.ngOnInit: pages.length: ${pages.length}`);
+        this.dataSource.data = pages;
       });
   }
 
@@ -99,6 +107,8 @@ export class DiaryComponent implements OnInit, OnDestroy {
       console.error('Expected numeric page ID, got:', id);
       return;
     }
+
+    console.log(`DiaryComponent.selectItem: this.diary: ${JSON.stringify(this.diary)}`);
 
     this.router.navigate([`/diary/${this.diary?.id}/${id}`]);
   }

@@ -74,9 +74,17 @@ export class LiveObjectListService {
         } else {
           if (!this.topicHandlerMap.has(mapKey)) {
 
-            console.log(`LiveObjectListService.subscribeToTopicTree: ********** client.on 'message'`);
+            console.log(
+              `LiveObjectListService.subscribeToTopicTree$: subscribed to '${topicFilter}', attaching handler`
+            );
 
             client.on('message', handler);
+
+            console.log(
+              `LiveObjectListService.subscribeToTopicTree$: ListenerCount: after subscribeToTopicTree:`,
+              client.listenerCount('message')
+            );
+
             this.topicHandlerMap.set(mapKey, handler);
           }
         }
@@ -86,17 +94,29 @@ export class LiveObjectListService {
     subject.subscribe({
       complete: () => {
 
-        console.log(`LiveObjectListService.subscribeToTopicTree - complete: ********** removeListener 'message'`);
+        console.log(
+          `LiveObjectListService.subscribeToTopicTree$: unsubscribing and removing handler}'`
+        );
 
         client.removeListener('message', handler);
+
+        console.log(
+          `LiveObjectListService.subscribeToTopicTree$: ListenerCount: after unsubscribeTopicTree cleanup:`,
+          client.listenerCount('message')
+        );
+
+
         topicFilters.forEach(filter => client.unsubscribe(filter));
         this.topicHandlerMap.delete(mapKey);
         this.topicSubscriptionMap.delete(mapKey);
       },
       error: err => {
-        console.error(`LiveObjectListService: error in stream for ${mapKey}`, err);
+        console.error(`LiveObjectListService.subscribeToTopicTree$: error in stream for ${mapKey}`, err);
 
-        console.log(`LiveObjectListService.subscribeToTopicTree - error: ********** removeListener 'message'`);
+        console.log(
+          `LiveObjectListService.subscribeToTopicTree$: ListenerCount: after unsubscribeTopicTree cleanup:`,
+          client.listenerCount('message')
+        );
 
         client.removeListener('message', handler);
         topicFilters.forEach(filter => client.unsubscribe(filter));
@@ -138,7 +158,7 @@ export class LiveObjectListService {
 
   unsubscribeTopicTree(topicFilters: string[]): void {
 
-    console.log(`LiveObjectListService.unsubscribeTopicTree: topicFilters: ${topicFilters}`);    
+    console.log(`LiveObjectListService.unsubscribeTopicTree: topicFilters: ${topicFilters}`);
 
     const mapKey = topicFilters.join(',');
 

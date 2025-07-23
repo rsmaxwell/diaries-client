@@ -6,6 +6,8 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { DomSanitizer } from '@angular/platform-browser';
 import { ModelContext } from '../../model/model-context';
 import { Subject, takeUntil } from 'rxjs';
+import { Diary } from '../../model/diary';
+import { Page } from '../../model/page';
 
 @Component({
   selector: 'app-pageheader',
@@ -25,6 +27,8 @@ export class PageheaderComponent implements OnInit, OnDestroy {
   @Output() select = new EventEmitter<void>();
 
   title: string = 'Diaries';
+  diary: Diary | null = null;
+  page: Page | null = null;  
 
   private destroy$ = new Subject<void>();
 
@@ -47,8 +51,19 @@ export class PageheaderComponent implements OnInit, OnDestroy {
       )
       .subscribe(diary => {
         console.log(`PageheaderComponent.ngOnInit: diary: ${JSON.stringify(diary)}`);
-        this.title = diary.name;
+        this.diary = diary;
+        this.title = `${this.diary.name} - ${this.page?.name} `;
       });
+
+    this.modelContext.page$
+      .pipe(
+        takeUntil(this.destroy$)
+      )
+      .subscribe(page => {
+        console.log(`PageheaderComponent.ngOnInit: page: ${JSON.stringify(page)}`);
+        this.page = page;
+        this.title = `${this.diary?.name} - ${this.page.name} `;
+      });      
   }
 
   ngOnDestroy(): void {

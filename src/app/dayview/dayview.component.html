@@ -1,0 +1,52 @@
+<div class="dayview" *ngIf="dateSelected; else noDateSelected">
+  <div class="header">
+
+    <span [ngStyle]="{
+        'background-color': isDateValid ? null : 'red',
+        'padding': '2px',
+        'border-radius': '2px'
+       }">
+      {{ formattedDate }}
+    </span>
+  </div>
+
+  <div class="body">
+    <mat-card appearance="outlined" class="card fragments-panel" *ngIf="dataSource.data.length > 0">
+      <mat-card-content class="content">
+        <table 
+          mat-table 
+          [dataSource]="dataSource" 
+          class="mat-elevation-z8 fragments-table"
+          cdkDropList
+          (cdkDropListDropped)="drop($event)"          
+        >
+          <!-- Sequence Column -->
+          <ng-container matColumnDef="sequence">
+            <th mat-header-cell *matHeaderCellDef> Seq </th>
+            <td mat-cell *matCellDef="let fragment">{{fragment.sequence}}</td>
+          </ng-container>
+
+          <!-- Text Column -->
+          <ng-container matColumnDef="text">
+            <th mat-header-cell *matHeaderCellDef> Text </th>
+            <td mat-cell *matCellDef="let fragment">
+              <div [innerHTML]="fragment.text"></div>
+            </td>
+          </ng-container>
+
+          <!-- Header & Row Declarations -->
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr
+            mat-row
+            *matRowDef="let fragment; columns: displayedColumns"
+            cdkDrag
+          ></tr>
+        </table>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>
+
+<ng-template #noDateSelected>
+  <p>No date is selected. Please click on a marquee to view details.</p>
+</ng-template>

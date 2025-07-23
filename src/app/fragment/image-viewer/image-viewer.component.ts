@@ -24,7 +24,7 @@ import { ModelContext } from '../../model/model-context';
 
 enum ViewMode {
   WithMarquee,
-  WithoutFragment
+  WithoutMarquee
 }
 
 @Component({
@@ -62,7 +62,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   resizeEdge?: { left: boolean; right: boolean; top: boolean; bottom: boolean; };
   marquee: Marquee | null = null;
   marquees: Marquee[] = [];
-  mode: ViewMode = ViewMode.WithoutFragment;
+  mode: ViewMode = ViewMode.WithoutMarquee;
   cursorStyle = '';
   isDraggingGlobal = false;
   isDraggingMarquee = false;
@@ -123,9 +123,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       )
       .subscribe(marquee => {
         this.marquee = marquee;
-        this.mode = marquee ? ViewMode.WithMarquee : ViewMode.WithoutFragment;
-        this.modelContext.setFragmentId(marquee?.fragmentId ?? null);
-        this.modelContext.setMarqueeId(marquee?.id ?? null);
+        this.mode = marquee ? ViewMode.WithMarquee : ViewMode.WithoutMarquee;
       });
 
     // 6️⃣ Pages list
@@ -393,10 +391,10 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.modelContext.setFragmentId(marquee.fragmentId);
 
-    const target = `/diary/${this.diary.id}/${this.page.id}/${marquee.id}`
+    const target = `/diary/${this.diary.id}/${this.page.id}/${marquee.fragmentId}`
     console.log(`ImageViewerComponent.onSelectMarquee: redirecting to: ${target}`);
 
-    this.router.navigate([`/diary/${this.diary.id}/${this.page.id}/${marquee.id}`]);
+    this.router.navigate([target]);
   }
 
   arraysEqual(a: Marquee[], b: Marquee[]): boolean {

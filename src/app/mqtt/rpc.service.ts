@@ -51,9 +51,17 @@ export class RpcService {
             next: client => {
                 if (!client.listeners('message').some(fn => fn.name === 'rpcDispatcher')) {
 
-                    console.log(`RpcService.ensureListener: ********** client.on 'message'`);
+                    console.log(
+                        `RpcService.ensureListener: attaching handler`
+                    );
 
                     client.on('message', this.rpcDispatcher.bind(this));
+
+                    console.log(
+                        `RpcService.ensureListener: ListenerCount: after subscribeToTopicTree:`,
+                        client.listenerCount('message')
+                    );
+
                 }
             },
             error: err => console.error("RpcServive.ensureListener: Error:", err),
@@ -91,7 +99,7 @@ export class RpcService {
         }
 
         console.log(`rpcDispatcher: received status:`, status);
-//      console.log(`rpcDispatcher: raw userProperties.status:`, props?.userProperties?.["status"]);
+        //      console.log(`rpcDispatcher: raw userProperties.status:`, props?.userProperties?.["status"]);
 
         if (!status || status.code !== HttpStatusCode.Ok) {
             // handler.observer.error(new Error(`Status ${status?.code}: ${status?.message}`));

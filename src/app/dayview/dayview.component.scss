@@ -1,0 +1,118 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 8px;
+  box-sizing: border-box;
+  background-color: #f9f9f9; /* light page background */
+  color: #333; /* default text color */
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 0 0 auto;
+  margin-bottom: 8px;
+  font-weight: 500;
+  margin-left: auto;
+  color: #555;
+  padding: 4px 8px;
+  font-size: 0.9rem;
+  border: 1px solid #888;
+  background-color: #f0f0f0;
+  cursor: pointer;
+  border-radius: 3px;  
+}
+
+.body {
+  /* ensure you have whatever existing styles here */
+
+  .fragments-panel {
+    margin-top: 16px;
+    padding: 8px;
+    border-top: 1px solid #ccc;
+
+    h3 {
+      margin: 0 0 8px;
+      font-size: 1.1rem;
+      font-weight: 500;
+    }
+  }
+
+  .fragments-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .fragment-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: #fff;
+
+    .fragment-field {
+      &.sequence {
+        flex: 0 0 auto;
+        min-width: 80px;
+      }
+      &.text {
+        flex: 1 1 auto;
+        line-height: 1.4;
+
+        /* let the box shrink below content width… */
+        min-width: 0;
+
+        /* default wrapping rules: only at spaces or hyphens */
+        white-space: normal;
+        overflow-wrap: normal;
+        word-wrap: normal;
+        word-break: normal;
+
+        /* allow hyphenation where supported */
+        hyphens: auto;        
+      }
+    }
+  }
+}
+
+/* —— match Diaries list styling —— */
+
+.dayview {
+  .card.fragments-panel {
+    /* same vertical spacing as Diaries’ mat‑card */
+    margin: 16px 0;
+  }
+
+  .card.fragments-panel .content {
+    /* identical padding inside the card */
+    padding: 16px;
+  }
+
+  /* full‑width table like .diaries-table */
+  .fragments-table {
+    width: 100%;
+    border-spacing: 0;
+
+    /* match cell padding */
+    th.mat-header-cell,
+    td.mat-cell {
+      padding: 8px 16px;
+    }
+
+    /* hover effect on rows */
+    tr.mat-row:hover {
+      background-color: rgba(0, 0, 0, 0.04);
+      cursor: pointer;
+    }
+  }
+
+  /* give your “Sequence” column a fixed width like Diaries’ sequence column */
+  .mat-column-sequence {
+    width: 80px;
+  }
+}
