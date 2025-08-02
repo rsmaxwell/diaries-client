@@ -71,7 +71,6 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   originalRectangle?: Rectangle;
   diary: Diary = Diary.default;
   page: Page = Page.default;
-  pages: Page[] = [];
   config: Config | null = null;
 
   ngOnInit(): void {
@@ -124,17 +123,6 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       .subscribe(marquee => {
         this.marquee = marquee;
         this.mode = marquee ? ViewMode.WithMarquee : ViewMode.WithoutMarquee;
-      });
-
-    // 6️⃣ Pages list
-    this.modelContext.pages$
-      .pipe(
-        map(pages => pages ?? []),
-        distinctUntilChanged((a, b) => a.length === b.length && a.every((x, i) => x.id === b[i].id)),
-        takeUntil(this.destroy$)
-      )
-      .subscribe(pages => {
-        this.pages = pages;
       });
 
     // 7️⃣ Marquees list
@@ -289,7 +277,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    console.log(`ImageViewerComponent.onMouseMoveBoundInternal: mode=${this.mode} isDraggingGlobal=${this.isDraggingGlobal} isDraggingMarquee=${this.isDraggingMarquee}`);
+    // console.log(`ImageViewerComponent.onMouseMoveBoundInternal: mode=${this.mode} isDraggingGlobal=${this.isDraggingGlobal} isDraggingMarquee=${this.isDraggingMarquee}`);
 
     const isCtrlKeyDown = event.ctrlKey;
     let mousePosition = this.getMousePosition(event);

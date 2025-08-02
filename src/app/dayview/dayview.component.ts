@@ -1,5 +1,5 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, take, takeUntil } from 'rxjs';
 import { ModelContext } from '../model/model-context';
 import { Fragment } from '../model/fragment';
 import { CommonModule } from '@angular/common';
@@ -12,6 +12,7 @@ import { RpcService } from '../mqtt/rpc.service';
 import { AlertService } from '../alerts/alert.service';
 import { ScrollingModule } from '@angular/cdk/scrolling';
 import { Router } from '@angular/router';
+import { SafeHtmlPipe } from '../utilities/safe-html.pipe';
 
 @Component({
   selector: 'app-diary',
@@ -22,7 +23,8 @@ import { Router } from '@angular/router';
     CommonModule,
     MatCardModule,
     MatButtonModule,
-    DragDropModule
+    DragDropModule,
+    SafeHtmlPipe
   ],
   templateUrl: './dayview.component.html',
   styleUrl: './dayview.component.scss'
@@ -68,7 +70,7 @@ export class DayviewComponent implements OnInit, OnDestroy {
             this.dateSelected = false;
           }
           else {
-            console.log(`DayviewComponent: fragment: ${JSON.stringify(fragment)}`);
+            console.log(`DayviewComponent: fragment: ${fragment.id}`);
             this.year = fragment.year;
             this.month = fragment.month;
             this.day = fragment.day;
@@ -129,25 +131,29 @@ export class DayviewComponent implements OnInit, OnDestroy {
     this.dataSource.data = updated;
 
     // Update the item with the updated "sequence" number
-    this.rpcService.updateFragment$(movedItem).subscribe({
-      next: (n) => {
-        console.log(`DayviewComponent.drop: UpdateFragment succeeded: n: ${n}`);
+    this.rpcService.updateFragment$(movedItem)
+      .pipe(take(1))
+      .subscribe({
+        next: (n) => {
+          console.log(`DayviewComponent.drop: UpdateFragment succeeded: n: ${n}`);
 
-        // Normalise the sequence numbers
-        this.rpcService.normaliseFragments$(this.year, this.month, this.day).subscribe({
-          next: (n) => {
-            console.log(`DayviewComponent.drop: NormaliseFragments succeeded: n: ${n}`);
-          },
-          error: err => this.handleError(err)
-        });
-      },
-      error: err => this.handleError(err)
-    });
+          // Normalise the sequence numbers
+          this.rpcService.normaliseFragments$(this.year, this.month, this.day)
+            .pipe(take(1))
+            .subscribe({
+              next: (n) => {
+                console.log(`DayviewComponent.drop: NormaliseFragments succeeded: n: ${n}`);
+              },
+              error: err => this.handleError(err)
+            });
+        },
+        error: err => this.handleError(err)
+      });
   }
 
   /** error handler */
   private handleError(err: any) {
-    console.log(`DayviewComponent.handleError: RPC error: ${err}`);    
+    console.log(`DayviewComponent.handleError: RPC error: ${err}`);
 
     if (err?.status === 401) {
       // capture the full current URL (path + query) so you can come back here
@@ -162,5 +168,17 @@ export class DayviewComponent implements OnInit, OnDestroy {
     else {
       this.alertService.error(err);
     }
+  }
+
+  goToFragment(fragment: Fragment) {
+    console.log(`DayviewComponent.goToFragment: fragmentId: ${fragment.id}`);
+
+    const marqueeId = fragment.marqueeId;
+
+    const diaryId = fragment.;
+    const pageId = /* get the pageId that this fragment lives on */;
+
+    // If your route is /diary/:diaryId/:pageId/:fragmentId
+    this.router.navigate(['/diary', diaryId, pageId, fragment.id]);
   }
 }

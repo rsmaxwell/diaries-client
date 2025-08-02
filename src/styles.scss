@@ -3,10 +3,10 @@
 @import "quill/dist/quill.core.css";
 @import "quill/dist/quill.snow.css";
 
-html, body {
+html, body, app-root {
+    height: 100%;
     margin: 0;
     padding: 0;
-    height: 100%;
 }
 
 app-root {

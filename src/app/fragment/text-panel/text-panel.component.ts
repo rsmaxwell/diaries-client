@@ -2,7 +2,7 @@ import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ModelContext } from '../../model/model-context';
 import { Fragment } from '../../model/fragment';
-import { combineLatest, distinctUntilChanged, Subject, takeUntil } from 'rxjs';
+import { combineLatest, distinctUntilChanged, distinctUntilKeyChanged, map, Subject, takeUntil } from 'rxjs';
 import { QuillModule } from 'ngx-quill';
 import { FormControl, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { RpcService } from '../../mqtt/rpc.service';
@@ -73,15 +73,16 @@ export class TextPanelComponent implements OnInit, OnDestroy {
 
     this.modelContext.fragment$
       .pipe(
+        distinctUntilChanged(),
         takeUntil(this.destroy$)
       )
       .subscribe(fragment => {
-        console.log(`TextPanelComponent.ngOnInit: fragment: ${JSON.stringify(fragment)}`);
-        this.fragment = fragment;
+        console.log(`TextPanelComponent.ngOnInit: fragment: ${fragment.marqueeId}`);
 
-        if (fragment.marqueeId) {
+        if (this.fragment?.marqueeId != fragment.marqueeId) {
           this.modelContext.setMarqueeId(fragment.marqueeId);
         }
+        this.fragment = fragment;
 
         let html = '';
         let dateFormatter = new DateFormatter(0, 0, 0);
@@ -91,7 +92,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
           this.originalDay = 0;
         }
         else {
-          console.log(`TextPanelComponent: fragment: ${JSON.stringify(fragment)}`);
+          console.log(`TextPanelComponent: fragment: ${fragment.id}`);
           // store the “initial” date
           this.originalYear = fragment.year;
           this.originalMonth = fragment.month;

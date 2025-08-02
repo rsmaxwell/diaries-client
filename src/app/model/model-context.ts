@@ -104,8 +104,13 @@ export class ModelContext {
   );
 
   readonly marquees$ = combineLatest([this.diaryId$, this.pageId$]).pipe(
-    filter(([diaryId, pageId]) => diaryId != null && pageId != null),
-    switchMap(([diaryId, pageId]) => this.getMarqueesForPage$(diaryId, pageId)
+    // now tells TS “after this point, diaryId & pageId are definitely number”
+    filter(
+      (ids): ids is [number, number] =>
+        ids[0] != null && ids[1] != null
+    ),
+    switchMap(([diaryId, pageId]) =>
+      this.getMarqueesForPage$(diaryId, pageId)
     )
   );
 
@@ -150,16 +155,25 @@ export class ModelContext {
     );
   }
 
-  getMarqueesForPage$(diaryId: number | null, pageId: number | null): Observable<Marquee[]> {
+  getMarqueesForPage$(diaryId: number, pageId: number) {
     const topicFilters = [`diaries/${diaryId}/${pageId}/+`];
-    topicFilters.forEach(filter => this.activeTopicFilters.add(filter));
+    topicFilters.forEach(f => this.activeTopicFilters.add(f));
 
     return from(this.mqtt.getConnection()).pipe(
       switchMap(client =>
-        this.liveObjectListService.subscribeToTopicTree$<Marquee>(client, topicFilters, (buf: Buffer) => {
-          return JSON.parse(buf.toString()) as Marquee;
+        new Observable<Marquee[]>(observer => {
+          const sub = this.liveObjectListService
+            .subscribeToTopicTree$<Marquee>(client, topicFilters, buf => JSON.parse(buf.toString()))
+            .subscribe(observer);
+
+          return () => {
+            sub.unsubscribe();
+            this.liveObjectListService.unsubscribeTopicTree(topicFilters);
+          };
         })
-      )
+      ),
+      // *** HOT + cache it so teardown only happens when everyone really goes away ***
+      shareReplay({ bufferSize: 1, refCount: true })
     );
   }
 

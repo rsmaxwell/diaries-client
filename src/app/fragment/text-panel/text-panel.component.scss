@@ -1,64 +1,82 @@
+/* text-panel.component.scss */
+
+/**
+ * Make the component host fill whatever space GoldenLayout gives it,
+ * and set up a column flex context for the panel inside.
+ */
 :host {
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 8px;
-  box-sizing: border-box;
-  background-color: #f9f9f9;
-  /* light page background */
-  color: #333;
-  /* default text color */
+  width: 100%;
 }
 
-.header {
+/* Root container for the whole panel */
+.text-panel-container {
   display: flex;
-  align-items: center;
-  gap: 16px;
-  flex: 0 0 auto;
-  margin-bottom: 8px;
-  font-weight: 500;
-  margin-left: auto;
-  color: #555;
-  padding: 4px 8px;
-  font-size: 0.9rem;
-  border: 1px solid #888;
-  background-color: #f0f0f0;
-  cursor: pointer;
-  border-radius: 3px;
+  flex-direction: column;
+  flex: 1 1 auto;           // fill the host
+  width: 100%;
+  background: #fff;         // (or your existing background)
 }
 
-/* default: disabled look */
-.save-button {
-  margin-left: auto;
-  padding: 4px 8px;
-  font-size: 0.9rem;
-  border: 1px solid #888;
-  background-color: #f0f0f0;
-  color: #666;
-  cursor: not-allowed;
-  border-radius: 3px;
+/* Header bar: fixed natural height */
+.text-panel-container .header {
+  flex: 0 0 auto;           // don’t grow or shrink
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid #e0e0e0;
+  background: #f7f7f7;
+  /* your other header styles */
 }
 
-/* when active (has edits): enabled, blue background */
-.save-button.active {
-  background-color: #007bff;
-  /* bootstrap‑style blue */
-  border-color: #007bff;
-  color: white;
-  cursor: pointer;
+/* Body area: grows and shrinks, scrolls internally */
+.text-panel-container .body {
+  flex: 1 1 auto;           // fill remaining space
+  overflow: auto;           // scroll if content is too tall
+  padding: 1rem;
+  position: relative;
+  min-height: 0;        // permit shrinking below content’s “auto” height
+
+  /* Make the quill‑editor itself a flex container so its host fills the body */
+  quill-editor {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    width: 100%;
+  }
+
+  /* Force Quill’s container and editor to stretch fully */
+  quill-editor ::ng-deep .ql-container {
+    flex: 1 1 auto;
+    height: 100% !important;
+    box-sizing: border-box;
+  }
+  quill-editor ::ng-deep .ql-editor {
+    flex: 1 1 auto;
+    min-height: 0 !important;   // override Quill’s default
+    height: 100% !important;
+  }
 }
 
-.save-button.active:hover {
-  background-color: #0056b3;
-}
 
-/* Override Quill editor styling */
-::ng-deep .ql-editor {
+
+// make the form fill & flex inside the .body
+.text-panel-container .body form {
+  display: flex;
+  flex-direction: column;
   flex: 1 1 auto;
-  overflow: auto;
-  padding: 8px;
-  background-color: #ffffff;
-  color: #000000;
-  font-size: 1.05rem;
+  min-height: 0;        // again, allow it to shrink
+}
+
+// ensure the editor wrapper fills the form
+.text-panel-container .body quill-editor {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
   min-height: 0;
+}
+.text-panel-container .body quill-editor ::ng-deep .ql-container,
+.text-panel-container .body quill-editor ::ng-deep .ql-editor {
+  flex: 1 1 auto;
+  min-height: 0 !important;  // override Quill’s defaults
 }
