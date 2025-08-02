@@ -175,8 +175,8 @@ export class DayviewComponent implements OnInit, OnDestroy {
 
     const marqueeId = fragment.marqueeId;
 
-    const diaryId = fragment.;
-    const pageId = /* get the pageId that this fragment lives on */;
+    const diaryId = 0;
+    const pageId = 0;
 
     // If your route is /diary/:diaryId/:pageId/:fragmentId
     this.router.navigate(['/diary', diaryId, pageId, fragment.id]);
