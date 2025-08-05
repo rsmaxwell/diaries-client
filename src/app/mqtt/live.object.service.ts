@@ -31,35 +31,28 @@ export class LiveObjectService {
     deserialize: (buf: Buffer) => T
   ): Observable<T> {
 
-    // If someone’s already watching this topic, bump the refCount and reuse
+    // If already subscribed, increment refCount
     if (this.subjects.has(topic)) {
       const entry = this.subjects.get(topic)!;
       entry.refCount++;
-      console.log(
-        `LiveObjectService.getObjectById$: refCount for '${topic}' is now ${entry.refCount}`
-      );
+      console.log(`LiveObjectService.getObjectById$: SUBSCRIBE '${topic}', refCount incremented to ${entry.refCount}`);
       return entry.subject.asObservable();
     }
 
-    // First time, create a new ReplaySubject and handler
+    // First time: create ReplaySubject and message handler
     const subject = new ReplaySubject<T>(1);
     const handler = (messageTopic: string, payload: Buffer) => {
       if (messageTopic === topic) {
         const payloadStr = payload.toString();
         if (!payloadStr.trim()) {
-          console.log(
-            `LiveObjectService.getObjectById$: Empty payload => deleted object at ${topic}`
-          );
+          console.log(`LiveObjectService.getObjectById$: Empty payload => deleted object at ${topic}`);
           subject.complete();
           return;
         }
         try {
           subject.next(deserialize(payload));
         } catch (err) {
-          console.error(
-            `LiveObjectService.getObjectById$: parse error on ${topic}:`,
-            err
-          );
+          console.error(`LiveObjectService.getObjectById$: parse error on ${topic}:`, err);
           subject.error(err as Error);
         }
       }
@@ -81,16 +74,11 @@ export class LiveObjectService {
           return;
         }
 
-        console.log(
-          `LiveObjectService.getObjectById$: subscribed to '${topic}', attaching handler`
-        );
+        console.log(`LiveObjectService.getObjectById$: SUBSCRIBED to '${topic}'`);
 
         client.on('message', handler);
 
-        console.log(
-          `LiveObjectService.getObjectById$: ListenerCount: after subscribeToTopicTree:`,
-          client.listenerCount('message')
-        );
+        console.log(`LiveObjectService.getObjectById$: ListenerCount after SUBSCRIBE '${topic}': ${client.listenerCount('message')}`);
       });
     });
 
@@ -104,22 +92,21 @@ export class LiveObjectService {
 
         // 2) Decrement refCount and, if zero, remove listener + unsubscribe topic
         const entry = this.subjects.get(topic)!;
+        if (!entry) return;
+
         entry.refCount--;
+        console.log(`LiveObjectService.getObjectById$: UNSUBSCRIBE '${topic}', refCount decremented to ${entry.refCount}`);
+
         if (entry.refCount === 0) {
+          console.log(`LiveObjectService.getObjectById$: preparing to unsubscribe '${topic}'`);
           this.mqtt.getConnection().then(client => {
+            console.log(`LiveObjectService.getObjectById$: got connection for '${topic}'`);
             client.unsubscribe(topic);
-            console.log(
-              `LiveObjectService.getObjectById$: unsubscribing and removing handler for '${topic}'`
-            );
-            client.removeListener('message', handler);
-
-            console.log(
-              `LiveObjectService.getObjectById$: ListenerCount: after unsubscribeTopicTree cleanup:`,
-              client.listenerCount('message')
-            );
-
+            client.removeListener('message', entry.handler);
+            console.log(`LiveObjectService.getObjectById$: unsubscribing and removing handler for '${topic}'`);
+            console.log(`LiveObjectService.getObjectById$: ListenerCount after UNSUBSCRIBE '${topic}': ${client.listenerCount('message')}`);
+            this.subjects.delete(topic);
           });
-          this.subjects.delete(topic);
         }
       };
     });

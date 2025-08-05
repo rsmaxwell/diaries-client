@@ -55,6 +55,8 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly onMouseUpBound = this.onMouseUpBoundInternal.bind(this);
 
   private destroy$ = new Subject<void>();
+  private destroyMarquee$ = new Subject<void>();
+
   scale = 1;
   offsetX = 0;
   offsetY = 0;
@@ -80,7 +82,6 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.modelContext.addButtonClicked$
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
-        console.log('ImageViewerComponent.ngOnInit: add button clicked');
         this.onAddButtonClick();
       });
 
@@ -115,15 +116,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       });
 
     // 5️⃣ Selected marquee
-    this.modelContext.marquee$
-      .pipe(
-        takeUntil(this.destroy$),
-        distinctUntilChanged((a, b) => a?.id === b?.id)
-      )
-      .subscribe(marquee => {
-        this.marquee = marquee;
-        this.mode = marquee ? ViewMode.WithMarquee : ViewMode.WithoutMarquee;
-      });
+    this.subscribeToMarquee();
 
     // 7️⃣ Marquees list
     this.modelContext.marquees$
@@ -141,7 +134,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     const newURL = `${this.config.fileServerUrl}/${this.diary.name}/${this.page.name}${this.page.extension}`;
     if (newURL !== this.imageURL) {
       this.imageURL = newURL;
-      console.log(`ImageViewer: imageURL updated to ${this.imageURL}`);
+      console.log(`ImageViewer.updateImageUrl: imageURL updated to ${this.imageURL}`);
     }
   }
 
@@ -163,6 +156,9 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     console.log(`ImageViewerComponent.ngOnDestroy`);
+
+    this.destroyMarquee$.next();
+    this.destroyMarquee$.complete();
 
     this.destroy$.next();
     this.destroy$.complete();
@@ -352,7 +348,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.marquee) return;
     if (this.isResizing() || this.isDragging()) {
 
-      console.log(`ImageViewerComponent.onMouseUp: updating marquee`);
+      console.log(`ImageViewerComponent.onMouseUp: updating marquee: ${JSON.stringify(this.marquee)}`);
       this.rpcService.updateMarquee$(this.marquee).subscribe({
         next: (id) => {
           console.log(`ImageViewerComponent.onMouseUp: marquee updated succeeded: id: ${id}`);
@@ -374,9 +370,32 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.originalRectangle = undefined;
   }
 
+  private subscribeToMarquee() {
+    this.modelContext.marquee$
+      .pipe(
+        takeUntil(this.destroyMarquee$),
+        distinctUntilChanged((a, b) => a?.id === b?.id)
+      )
+      .subscribe(marquee => {
+        this.marquee = marquee;
+        this.mode = marquee ? ViewMode.WithMarquee : ViewMode.WithoutMarquee;
+      });
+  }
+
   onSelectMarquee(marquee: Marquee) {
     console.log(`ImageViewerComponent.onSelectMarquee: marquee: ${JSON.stringify(marquee)}`);
 
+    if (this.marquee) {
+      if (this.marquee.id != marquee.id) {
+        console.log(`ImageViewerComponent.onSelectMarquee: cleaning up marquee: ${this.marquee.id}`);
+        this.destroyMarquee$.next();
+        this.destroyMarquee$.complete();
+        this.destroyMarquee$ = new Subject<void>();
+        this.subscribeToMarquee(); //
+      }
+    }
+
+    this.modelContext.setMarqueeId(marquee.id);
     this.modelContext.setFragmentId(marquee.fragmentId);
 
     const target = `/diary/${this.diary.id}/${this.page.id}/${marquee.fragmentId}`
@@ -555,7 +574,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     console.log(`ImageViewerComponent.onAddButtonClick: id: ${JSON.stringify(rectangle)}`)
     this.rpcService.addMarquee$(this.page, rectangle, sequence).subscribe({
       next: (id) => {
-        const marquee = new Marquee(id, 0, this.page.id, rectangle, sequence);
+        const marquee = new Marquee(id, 0, 0, this.page.id, rectangle, sequence);
 
         console.log(`ImageViewerComponent.onAddButtonClick: marquee: id: ${marquee.id} added`);
         this.alertService.info(`marquee: id: ${marquee.id} added`);

@@ -53,38 +53,6 @@ export class DayviewComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     console.log(`DayviewComponent.ngOnInit`);
 
-    this.modelContext.fragment$
-      .pipe(
-        takeUntil(this.destroy$)
-      )
-      .subscribe(fragment => {
-        if (fragment) {
-          this.year = fragment.year;
-          this.month = fragment.month;
-          this.day = fragment.day;
-
-          if (!fragment) {
-            this.year = 0;
-            this.month = 0;
-            this.day = 0;
-            this.dateSelected = false;
-          }
-          else {
-            console.log(`DayviewComponent: fragment: ${fragment.id}`);
-            this.year = fragment.year;
-            this.month = fragment.month;
-            this.day = fragment.day;
-            this.dateSelected = true;
-          }
-
-          let dateFormatter = new DateFormatter(this.year, this.month, this.day);
-          this.formattedDate = dateFormatter.formattedDate;
-          this.isDateValid = dateFormatter.isDateValid;
-
-          console.log(`DayviewComponent.ngOnInit: year: ${this.year} month: ${this.month} day: ${this.day}`);
-        }
-      });
-
     this.modelContext.fragmentsForSelectedDate$
       .pipe(
         takeUntil(this.destroy$)
@@ -92,6 +60,22 @@ export class DayviewComponent implements OnInit, OnDestroy {
       .subscribe(fragments => {
         console.log(`DayviewComponent: loaded ${fragments.length} fragments`);
         this.dataSource.data = fragments;
+
+        const first = fragments[0];
+        if (first) {
+          this.year = first.year;
+          this.month = first.month;
+          this.day = first.day;
+          this.dateSelected = true;
+
+          const dateFormatter = new DateFormatter(this.year, this.month, this.day);
+          this.formattedDate = dateFormatter.formattedDate;
+          this.isDateValid = dateFormatter.isDateValid;
+        } else {
+          this.dateSelected = false;
+          this.formattedDate = '';
+          this.isDateValid = false;
+        }
       });
   }
 

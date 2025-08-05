@@ -203,6 +203,7 @@ export class ModelContext {
   }
 
   setFragmentId(id: number | null) {
+    console.log(`ModelContext.setFragmentId: ${id}`);    
     this.fragmentIdSubject.next(id);
   }
 

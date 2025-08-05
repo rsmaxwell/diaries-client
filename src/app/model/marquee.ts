@@ -2,13 +2,15 @@ import { Rectangle } from "../utilities/rectangle";
 
 export class Marquee {
     id: number;
+    version: number;
+    sequence: number;    
     fragmentId: number;
     pageId: number;
     rectangle: Rectangle;
-    sequence: number;
 
-    constructor(id: number, fragmentId: number, pageId: number, rectangle: Rectangle, sequence: number) {
+    constructor(id: number, version: number, fragmentId: number, pageId: number, rectangle: Rectangle, sequence: number) {
         this.id = id;
+        this.version = version;
         this.fragmentId = fragmentId;
         this.pageId = pageId;
         this.rectangle = rectangle;
@@ -36,16 +38,18 @@ export class AddMarqueeRequest {
 
 export class UpdateMarqueeRequest {
     id: number;
+    version: number;
+    sequence: number;
     fragmentId: number;
     pageId: number;
     x: number;
     y: number;
     width: number;
     height: number;
-    sequence: number;
 
     constructor(marquee: Marquee) {
         this.id = marquee.id;
+        this.version = marquee.version;
         this.fragmentId = marquee.fragmentId;
         this.pageId = marquee.pageId;
         this.x = marquee.rectangle.x;

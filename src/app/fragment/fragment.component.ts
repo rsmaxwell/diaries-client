@@ -123,12 +123,13 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
                 type: 'component',
                 componentType: 'TextPanel',
                 title: 'Editor'
-              },
-              {
-                type: 'component',
-                componentType: 'Dayview',
-                title: 'List'
               }
+//              ,
+//              {
+//                type: 'component',
+//                componentType: 'Dayview',
+//                title: 'List'
+//              }
             ]
           }
         ]

@@ -19,17 +19,17 @@ export class FullfooterComponent {
   ) {}
 
   home() {
-    console.log('Home');
+    console.log('FullfooterComponent.home');
     this.router.navigate(['/']);
   }
 
   diaries() {
-    console.log('diaries');
+    console.log('FullfooterComponent.diaries');
     this.router.navigate(['/diaries']);
   }
 
   pages() {
-    console.log('thing');
+    console.log('FullfooterComponent.thing');
     this.router.navigate(['/thing']);
   }
 

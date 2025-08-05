@@ -77,11 +77,15 @@ export class TextPanelComponent implements OnInit, OnDestroy {
         takeUntil(this.destroy$)
       )
       .subscribe(fragment => {
-        console.log(`TextPanelComponent.ngOnInit: fragment: ${fragment.marqueeId}`);
+        console.log(`TextPanelComponent.<subscribe fragment>: ${JSON.stringify(fragment)}`);
 
-        if (this.fragment?.marqueeId != fragment.marqueeId) {
-          this.modelContext.setMarqueeId(fragment.marqueeId);
+        if (this.fragment && this.fragment.id !== fragment.id) {
+          console.log(`TextPanelComponent.<on subscribe fragment>: Cleaning up fragment: ${this.fragment.id}`);
+          this.destroy$.next();
+          this.destroy$.complete(); 
+          this.destroy$ = new Subject<void>();
         }
+
         this.fragment = fragment;
 
         let html = '';
@@ -92,7 +96,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
           this.originalDay = 0;
         }
         else {
-          console.log(`TextPanelComponent: fragment: ${fragment.id}`);
+          console.log(`TextPanelComponent.<subscribe fragment>: fragment: ${fragment.id}`);
           // store the “initial” date
           this.originalYear = fragment.year;
           this.originalMonth = fragment.month;
@@ -111,6 +115,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    console.log(`TextPanelComponent.ngOnDestroy`);
     this.destroy$.next();
     this.destroy$.complete();
   }
