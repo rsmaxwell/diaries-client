@@ -75,7 +75,7 @@ export class DiaryComponent implements OnInit, OnDestroy {
       })
 
     // Subscribe to the reactive Diary stream 
-    this.modelContext.diary$
+    this.modelContext.selectedDiary$
       .pipe(takeUntil(this.destroy$))
       .subscribe(diary => {
         console.log(`DiaryComponent.ngOnInit: diary.id: ${diary.id}`);

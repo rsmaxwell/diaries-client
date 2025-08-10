@@ -62,6 +62,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
   formattedDate = '';
   isDateValid = false;
   private destroy$ = new Subject<void>();
+  private destroyFragment$ = new Subject<void>();
 
   constructor(
     private modelContext: ModelContext,
@@ -71,7 +72,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     console.log(`TextPanelComponent.ngOnInit`);
 
-    this.modelContext.fragment$
+    this.modelContext.selectedFragment$
       .pipe(
         distinctUntilChanged(),
         takeUntil(this.destroy$)
@@ -79,12 +80,8 @@ export class TextPanelComponent implements OnInit, OnDestroy {
       .subscribe(fragment => {
         console.log(`TextPanelComponent.<subscribe fragment>: ${JSON.stringify(fragment)}`);
 
-        if (this.fragment && this.fragment.id !== fragment.id) {
-          console.log(`TextPanelComponent.<on subscribe fragment>: Cleaning up fragment: ${this.fragment.id}`);
-          this.destroy$.next();
-          this.destroy$.complete(); 
-          this.destroy$ = new Subject<void>();
-        }
+        // Cleanup any previous per-fragment subscriptions
+        this.destroyFragment$.next();
 
         this.fragment = fragment;
 

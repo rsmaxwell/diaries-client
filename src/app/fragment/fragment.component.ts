@@ -7,7 +7,7 @@ import { GoldenLayout, RowOrColumnItemConfig } from 'golden-layout';
 import { ImageViewerComponent } from './image-viewer/image-viewer.component';
 import { TextPanelComponent } from './text-panel/text-panel.component';
 import { ModelContext } from '../model/model-context';
-import { distinctUntilChanged, filter, map, Subject, takeUntil } from 'rxjs';
+import { distinctUntilChanged, filter, map, Observable, of, Subject, switchMap, takeUntil } from 'rxjs';
 import { ActivatedRoute, Router } from '@angular/router';
 import { DayviewComponent } from '../dayview/dayview.component';
 import { Page } from '../model/page';
@@ -40,48 +40,64 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
     private modelContext: ModelContext
   ) { }
 
-  ngOnInit(): void {
-
-    // 🚦 Listen reactively for param changes
-    const params$ = this.route.paramMap.pipe(
-      takeUntil(this.destroy$),
-      map(pm => ({
-        diaryId: +pm.get('diaryId')!,
-        pageId: +pm.get('pageId')!,
-        fragmentIdStr: pm.get('fragmentId')
-      }))
+  // 1) Resolve the parameter as string|null by walking up parents
+  private paramFromRoute$(route: ActivatedRoute, key: string): Observable<string | null> {
+    return route.paramMap.pipe(
+      map(pm => pm.get(key)),
+      switchMap(v =>
+        v !== null
+          ? of(v)
+          : route.parent
+            ? this.paramFromRoute$(route.parent, key)   // <-- still string|null
+            : of(null)
+      ),
+      distinctUntilChanged()
     );
+  }
 
-    // Always push diaryId and pageId
-    params$.subscribe(({ diaryId, pageId }) => {
-      this.modelContext.setDiaryId(diaryId);
-      this.modelContext.setPageId(pageId);
+  // 2) Convert to number|null safely
+  private idFromRoute$(route: ActivatedRoute, key: string): Observable<number | null> {
+    return this.paramFromRoute$(route, key).pipe(
+      map(v => (v === null ? null : (Number.isFinite(+v) ? +v : null))),
+      distinctUntilChanged()
+    );
+  }
+
+ngOnInit(): void {
+  // Resolve ids from this route or any parent using the helper
+  const diaryId$    = this.idFromRoute$(this.route, 'diaryId');
+  const pageId$     = this.idFromRoute$(this.route, 'pageId');
+  const fragmentId$ = this.idFromRoute$(this.route, 'fragmentId');
+
+  // Push into ModelContext (allow null to clear; ModelContext guards handle NaN)
+  diaryId$.pipe(takeUntil(this.destroy$))
+    .subscribe(id => this.modelContext.setDiaryId(id));
+
+  pageId$.pipe(takeUntil(this.destroy$))
+    .subscribe(id => this.modelContext.setPageId(id));
+
+  // Only push fragmentId when present and > 0
+  fragmentId$.pipe(
+      filter((id): id is number => id != null && id > 0),
+      takeUntil(this.destroy$)
+    )
+    .subscribe(id => {
+      console.log(`FragmentComponent.ngOnInit: pushing fragmentId ${id} to the ModelContext`);
+      this.modelContext.setFragmentId(id);
     });
 
-    // Only push fragmentId when it exists and is > 0
-    params$
-      .pipe(
-        filter(({ fragmentIdStr }) => fragmentIdStr !== null),      // skip when there's no param
-        map(({ fragmentIdStr }) => +fragmentIdStr!),               // convert to number
-        filter(fragmentId => fragmentId > 0)                       // skip the 0 case
-      )
-      .subscribe(fragmentId => {
-        console.log(`FragmentComponent.ngOninit: pushing fragmentId ${fragmentId} to the ModelContext`);
-        this.modelContext.setFragmentId(fragmentId);
-      });
-
-    // 6️⃣ Pages list - ordered by sequence number
-    this.modelContext.pages$
-      .pipe(
-        map(pages => pages ?? []),
-        map(pages => pages.slice().sort((a, b) => a.sequence - b.sequence)),
-        distinctUntilChanged((a, b) => a.length === b.length && a.every((x, i) => x.id === b[i].id)),
-        takeUntil(this.destroy$)
-      )
-      .subscribe(pages => {
-        this.pages = pages;
-      });
-  }
+  // Pages list - ordered by sequence number (unchanged)
+  this.modelContext.pages$
+    .pipe(
+      map(pages => pages ?? []),
+      map(pages => pages.slice().sort((a, b) => a.sequence - b.sequence)),
+      distinctUntilChanged((a, b) => a.length === b.length && a.every((x, i) => x.id === b[i].id)),
+      takeUntil(this.destroy$)
+    )
+    .subscribe(pages => {
+      this.pages = pages;
+    });
+}
 
   // Generic bindComponent: strongly typed and reusable
   private bindComponent<T>(container: any, component: any): void {
@@ -124,12 +140,12 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
                 componentType: 'TextPanel',
                 title: 'Editor'
               }
-//              ,
-//              {
-//                type: 'component',
-//                componentType: 'Dayview',
-//                title: 'List'
-//              }
+              ,
+              {
+                type: 'component',
+                componentType: 'Dayview',
+                title: 'List'
+              }
             ]
           }
         ]
@@ -174,8 +190,6 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.destroy$.next();
     this.destroy$.complete();
-
-    this.modelContext.cleanupTopicTree();
 
     if (this.layout) {
       this.layout.destroy();

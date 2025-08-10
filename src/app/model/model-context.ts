@@ -1,5 +1,5 @@
 import { Injectable } from "@angular/core";
-import { BehaviorSubject, combineLatest, filter, from, map, Observable, of, shareReplay, Subject, switchMap, takeUntil } from "rxjs";
+import { BehaviorSubject, combineLatest, distinctUntilChanged, filter, from, map, Observable, of, shareReplay, Subject, switchMap, takeUntil } from "rxjs";
 import { LiveObjectListService } from "../mqtt/live.object.list.service";
 import { Marquee } from "./marquee";
 import { MqttService } from "../mqtt/mqtt.service";
@@ -30,116 +30,324 @@ export class ModelContext {
 
   private destroy$ = new Subject<void>();
 
+  private liveMarquees = new Map<number, Observable<Marquee>>();
+  private liveFragments = new Map<number, Observable<Fragment>>();
+  private livePages = new Map<number, Observable<Page>>();
+  private liveDiaries = new Map<number, Observable<Diary>>();
+
+  private pageCache = new Map<number, Page>();
+  private marqueeCache = new Map<number, Marquee>();
+
+  selectedMarquee$: Observable<Marquee>;
+  selectedFragment$: Observable<Fragment>;
+  selectedPage$: Observable<Page>;
+  selectedDiary$: Observable<Diary>;
+
+  pages$: Observable<Page[]>;
+  marquees$: Observable<Marquee[]>;
+  fragments$: Observable<Fragment[]>;
+  selectFragmentsForDate$: Observable<Fragment[]>;
+
   constructor(
     private mqtt: MqttService,
     private liveObjectListService: LiveObjectListService,
     private liveObjectService: LiveObjectService
-  ) { }
+  ) {
+    this.selectedMarquee$ = this.marqueeId$.pipe(
+      filter((id): id is number => Number.isFinite(id)),
+      switchMap(id => this.getLiveMarquee$(id))
+    );
 
-  // Live single objects
+    this.selectedFragment$ = this.fragmentId$.pipe(
+      filter((id): id is number => Number.isFinite(id)),
+      switchMap(id => this.getLiveFragment$(id))
+    );
 
-  // A single shareReplay per stream. No other caching layer.
-  readonly diary$ = this.diaryId$.pipe(
-    switchMap(id =>
-      this.liveObjectService.getObjectById$<Diary>(
-        `diaries/${id}`, buf => JSON.parse(buf.toString()) as Diary
-      )
-    ),
-    shareReplay({ bufferSize: 1, refCount: true })
-  );
+    this.selectedPage$ = this.pageId$.pipe(
+      filter((id): id is number => Number.isFinite(id)),
+      switchMap(id => this.getLivePage$(id))
+    );
 
-  readonly page$ = this.pageId$.pipe(
-    switchMap(id =>
-      this.liveObjectService.getObjectById$<Page>(
-        `pages/${id}`, buf => JSON.parse(buf.toString()) as Page
-      )
-    ),
-    shareReplay({ bufferSize: 1, refCount: true })
-  );
+    this.selectedDiary$ = this.diaryId$.pipe(
+      filter((id): id is number => Number.isFinite(id)),
+      switchMap(id => this.getLiveDiary$(id))
+    );
 
-  readonly fragment$ = this.fragmentId$.pipe(
-    switchMap(id =>
-      this.liveObjectService.getObjectById$<Fragment>(
-        `fragments/${id}`, buf => JSON.parse(buf.toString()) as Fragment
-      )
-    ),
-    shareReplay({ bufferSize: 1, refCount: true })
-  );
+    this.pages$ = this.diaryId$.pipe(
+      filter((id): id is number => Number.isFinite(id)),
+      switchMap(id => {
+        const topicFilters = [`diaries/${id}/+`];
+        topicFilters.forEach(f => this.activeTopicFilters.add(f));
 
-  readonly marquee$ = this.marqueeId$.pipe(
-    switchMap(id =>
-      id != null
-        ? this.liveObjectService.getObjectById$<Marquee>(
-          `marquees/${id}`, buf => JSON.parse(buf.toString()) as Marquee
-        )
-        : of(null)
-    ),
-    shareReplay({ bufferSize: 1, refCount: true })
-  );
-
-  // Live collections
-
-  /** the currently selected diary’s pages, kept up to date whenever diaryId$ emits */
-  readonly pages$: Observable<Page[]> = this.diaryId$.pipe(
-    // skip any “null” or uninitialized id
-    filter((id): id is number => id != null),
-    // whenever the diaryId changes, tear down the old subscription and open a new one
-    switchMap(id => {
-      const topicFilters = [`diaries/${id}/+`];
-      // keep track so you can unsubscribe later if you like
-      topicFilters.forEach(f => this.activeTopicFilters.add(f));
-
-      return from(this.mqtt.getConnection()).pipe(
-        switchMap(client =>
-          this.liveObjectListService.subscribeToTopicTree$<Page>(
-            client,
-            topicFilters,
-            buf => JSON.parse(buf.toString()) as Page
+        return from(this.mqtt.getConnection()).pipe(
+          switchMap(client =>
+            this.liveObjectListService.subscribeToTopicTree$<Page>(
+              client,
+              topicFilters,
+              buf => JSON.parse(buf.toString()) as Page
+            )
           )
-        )
-      );
-    }),
-    // share the same hot stream with anyone who subscribes
-    shareReplay({ bufferSize: 1, refCount: true })
-  );
+        );
+      }),
+      shareReplay({ bufferSize: 1, refCount: true })
+    );
 
-  readonly marquees$ = combineLatest([this.diaryId$, this.pageId$]).pipe(
-    // now tells TS “after this point, diaryId & pageId are definitely number”
-    filter(
-      (ids): ids is [number, number] =>
-        ids[0] != null && ids[1] != null
-    ),
-    switchMap(([diaryId, pageId]) =>
-      this.getMarqueesForPage$(diaryId, pageId)
-    )
-  );
+    this.marquees$ = combineLatest([this.diaryId$, this.pageId$]).pipe(
+      filter(
+        (ids): ids is [number, number] =>
+          Number.isFinite(ids[0] as number) && Number.isFinite(ids[1] as number)
+      ),
+      switchMap(([diaryId, pageId]) => this.getMarqueesForPage$(diaryId, pageId))
+    );
 
-  get fragments$(): Observable<Fragment[]> {
-    return from(this.mqtt.getConnection()).pipe(
-      switchMap(client =>
-        this.liveObjectListService.subscribeToTopicTree$<Fragment>(
-          client,
-          ['fragments/+'],
-          buf => JSON.parse(buf.toString()) as Fragment
-        )
+
+    combineLatest([this.fragmentId$, this.marquees$])
+      .pipe(
+        map(([fragmentId, marquees]) => {
+          if (!Number.isFinite(fragmentId)) return null;
+          const m = marquees.find(x => x.fragmentId === fragmentId);
+          return m ? m.id : null;
+        }),
+        distinctUntilChanged(),
+        takeUntil(this.destroy$)
+      )
+      .subscribe((marqueeId) => this.setMarqueeId(marqueeId));
+
+
+    this.fragments$ = this.marquees$.pipe(
+      map(marquees => {
+        const ids = marquees
+          .map(m => m.fragmentId)
+          .filter((id): id is number => Number.isFinite(id))
+        // de-dupe
+        return Array.from(new Set(ids));
+      }),
+      switchMap(ids =>
+        ids.length
+          ? combineLatest(ids.map(id => this.getLiveFragment$(id)))
+          : of([] as Fragment[])
       ),
       shareReplay({ bufferSize: 1, refCount: true })
     );
-  }
 
-  get fragmentsForSelectedDate$(): Observable<Fragment[]> {
-    return combineLatest([
-      this.fragment$.pipe(filter(f => f != null)),
+
+    this.selectFragmentsForDate$ = combineLatest([
+      this.selectedFragment$,
       this.fragments$
     ]).pipe(
       map(([selected, all]) =>
         all.filter(f =>
-          f.year === selected!.year &&
-          f.month === selected!.month &&
-          f.day === selected!.day
+          f.year === selected.year &&
+          f.month === selected.month &&
+          f.day === selected.day
         )
       )
     );
+
+    // Clear caches when context pivots
+    this.diaryId$.subscribe(() => {
+      this.pageCache.clear();
+      this.marqueeCache.clear();
+    });
+    this.pageId$.subscribe(() => {
+      this.marqueeCache.clear();
+    });
+
+    // Populate caches from your existing streams
+    this.pages$.subscribe(pages => {
+      for (const p of pages) this.pageCache.set(p.id, p);
+    });
+
+    this.marquees$.subscribe(marquees => {
+      for (const m of marquees) this.marqueeCache.set(m.id, m);
+    });
+  }
+
+
+
+
+
+
+  getLiveMarquee$(id: number): Observable<Marquee> {
+    if (!this.liveMarquees.has(id)) {
+      const topic = `marquees/${id}`;
+      const observable$ = this.liveObjectService.getObjectById$<Marquee>(topic, buf => JSON.parse(buf.toString()) as Marquee)
+        .pipe(
+          shareReplay({ bufferSize: 1, refCount: true })
+        );
+
+      this.liveMarquees.set(id, observable$);
+    }
+
+    return this.liveMarquees.get(id)!;
+  }
+
+  /*
+   * When we know the id of a marquee we want to explicitly stop listening to.
+   */
+  unsubscribeMarquee(id: number): void {
+    const topic = `marquees/${id}`;
+
+    if (this.liveMarquees.has(id)) {
+      console.log(`ModelContext.unsubscribeMarquee: unsubscribing from ${topic}`);
+      this.liveMarquees.delete(id);
+      this.liveObjectService.unsubscribeTopic(topic);
+    }
+  }
+
+  /* 
+   * Unsubscribe from all active marquee topics and clear the entire liveMarquee map.
+   * To be when we know we're done with a particular marquee.
+   */
+  releaseLiveMarquee(): void {
+    this.liveMarquees.forEach((_obs, id) => {
+      const topic = `marquees/${id}`;
+      console.log(`ModelContext.releaseLiveMarquee: unsubscribing from ${topic}`);
+      this.liveObjectService.unsubscribeTopic(topic);
+    });
+
+    this.liveMarquees.clear();
+  }
+
+
+
+
+
+
+  getLiveFragment$(id: number): Observable<Fragment> {
+    if (!this.liveFragments.has(id)) {
+      const topic = `fragments/${id}`;
+      const observable$ = this.liveObjectService.getObjectById$<Fragment>(topic, buf => JSON.parse(buf.toString()) as Fragment)
+        .pipe(
+          shareReplay({ bufferSize: 1, refCount: true })
+        );
+
+      this.liveFragments.set(id, observable$);
+    }
+
+    return this.liveFragments.get(id)!;
+  }
+
+  /*
+   * When we know the id of a fragment we want to explicitly stop listening to.
+   */
+  unsubscribeFragment(id: number): void {
+    const topic = `fragments/${id}`;
+
+    if (this.liveFragments.has(id)) {
+      console.log(`ModelContext.unsubscribeFragment: unsubscribing from ${topic}`);
+      this.liveFragments.delete(id);
+      this.liveObjectService.unsubscribeTopic(topic);
+    }
+  }
+
+  /* 
+   * Unsubscribe from all active fragment topics and clear the entire liveFragments map.
+   * To be when we know we're done with a particular fragment.
+   */
+  releaseLiveFragment(): void {
+    this.liveFragments.forEach((_obs, id) => {
+      const topic = `fragments/${id}`;
+      console.log(`ModelContext.releaseLiveFragment: unsubscribing from ${topic}`);
+      this.liveObjectService.unsubscribeTopic(topic);
+    });
+
+    this.liveFragments.clear();
+  }
+
+
+
+
+
+
+
+
+  getLivePage$(id: number): Observable<Page> {
+    if (!this.livePages.has(id)) {
+      const topic = `pages/${id}`;
+      const observable$ = this.liveObjectService.getObjectById$<Page>(topic, buf => JSON.parse(buf.toString()) as Page)
+        .pipe(
+          shareReplay({ bufferSize: 1, refCount: true })
+        );
+
+      this.livePages.set(id, observable$);
+    }
+
+    return this.livePages.get(id)!;
+  }
+
+  /*
+   * When we know the id of a page we want to explicitly stop listening to.
+   */
+  unsubscribePage(id: number): void {
+    const topic = `pages/${id}`;
+
+    if (this.livePages.has(id)) {
+      console.log(`ModelContext.unsubscribePage: unsubscribing from ${topic}`);
+      this.livePages.delete(id);
+      this.liveObjectService.unsubscribeTopic(topic);
+    }
+  }
+
+  /* 
+   * Unsubscribe from all active page topics and clear the entire livePages map.
+   * To be when we know we're done with a particular page.
+   */
+  releaseLivePage(): void {
+    this.livePages.forEach((_obs, id) => {
+      const topic = `pages/${id}`;
+      console.log(`ModelContext.releaseLivePage: unsubscribing from ${topic}`);
+      this.liveObjectService.unsubscribeTopic(topic);
+    });
+
+    this.livePages.clear();
+  }
+
+
+
+
+
+
+
+  getLiveDiary$(id: number): Observable<Diary> {
+    if (!this.liveDiaries.has(id)) {
+      const topic = `diaries/${id}`;
+      const observable$ = this.liveObjectService.getObjectById$<Diary>(topic, buf => JSON.parse(buf.toString()) as Diary)
+        .pipe(
+          shareReplay({ bufferSize: 1, refCount: true })
+        );
+
+      this.liveDiaries.set(id, observable$);
+    }
+
+    return this.liveDiaries.get(id)!;
+  }
+
+  /*
+   * When we know the id of a diary we want to explicitly stop listening to.
+   */
+  unsubscribeDiary(id: number): void {
+    const topic = `diaries/${id}`;
+
+    if (this.liveDiaries.has(id)) {
+      console.log(`ModelContext.unsubscribeDiary: unsubscribing from ${topic}`);
+      this.liveDiaries.delete(id);
+      this.liveObjectService.unsubscribeTopic(topic);
+    }
+  }
+
+  /* 
+   * Unsubscribe from all active diary topics and clear the entire liveDiaries map.
+   * To be when we know we're done with a particular diary.
+   */
+  releaseLiveDiary(): void {
+    this.liveDiaries.forEach((_obs, id) => {
+      const topic = `diaries/${id}`;
+      console.log(`ModelContext.releaseLiveDiary: unsubscribing from ${topic}`);
+      this.liveObjectService.unsubscribeTopic(topic);
+    });
+
+    this.liveDiaries.clear();
   }
 
   getDiaries$(): Observable<Diary[]> {
@@ -187,6 +395,9 @@ export class ModelContext {
       this.liveObjectListService.unsubscribeTopicTree([filter]);
     });
     this.activeTopicFilters.clear();
+
+    this.pageCache.clear();
+    this.marqueeCache.clear();
   }
 
   // State setters
@@ -195,23 +406,41 @@ export class ModelContext {
   }
 
   setDiaryId(id: number | null) {
+    if (id === null) { this.diaryIdSubject.next(null); return; }
+    if (!Number.isFinite(id)) { console.warn('setDiaryId ignored non-finite value:', id); return; }
     this.diaryIdSubject.next(id);
   }
 
   setPageId(id: number | null) {
+    if (id === null) { this.pageIdSubject.next(null); return; }
+    if (!Number.isFinite(id)) { console.warn('setPageId ignored non-finite value:', id); return; }
     this.pageIdSubject.next(id);
   }
 
   setFragmentId(id: number | null) {
-    console.log(`ModelContext.setFragmentId: ${id}`);    
+    if (id === null) { this.fragmentIdSubject.next(null); return; }
+    if (!Number.isFinite(id)) { console.warn('setFragmentId ignored non-finite value:', id); return; }
     this.fragmentIdSubject.next(id);
   }
 
   setMarqueeId(id: number | null) {
+    if (id === null) { this.marqueeIdSubject.next(null); return; }
+    if (!Number.isFinite(id)) { console.warn('setMarqueeId ignored non-finite value:', id); return; }
     this.marqueeIdSubject.next(id);
   }
 
   fireAddButtonClick(): void {
     this.addButtonClickedSubject.next();
   }
+
+  // PUBLIC SYNC GETTERS (used by DayviewComponent.goToFragment)
+  getPageById(id: number): Page | undefined {
+    return this.pageCache.get(id);
+  }
+
+  getMarqueeById(id: number): Marquee | undefined {
+    return this.marqueeCache.get(id);
+  }
+
 }
+

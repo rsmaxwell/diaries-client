@@ -112,4 +112,31 @@ export class LiveObjectService {
     });
   }
 
+  /**
+   * Explicitly unsubscribe from a topic and remove the handler,
+   * regardless of whether it's still in use.
+   * This should be used with caution.
+   */
+  unsubscribeTopic(topic: string): void {
+    const entry = this.subjects.get(topic);
+    if (!entry) {
+      console.warn(`LiveObjectService.unsubscribeTopic: topic '${topic}' not found`);
+      return;
+    }
+
+    entry.refCount--;
+    console.log(`LiveObjectService.unsubscribeTopic: '${topic}' refCount decremented to ${entry.refCount}`);
+
+    if (entry.refCount <= 0) {
+      console.log(`LiveObjectService.unsubscribeTopic: unsubscribing '${topic}'`);
+      this.mqtt.getConnection().then(client => {
+        client.unsubscribe(topic);
+        client.removeListener('message', entry.handler);
+        console.log(`LiveObjectService.unsubscribeTopic: unsubscribed and removed handler for '${topic}'`);
+        console.log(`LiveObjectService.unsubscribeTopic: ListenerCount after UNSUBSCRIBE '${topic}': ${client.listenerCount('message')}`);
+        this.subjects.delete(topic);
+      });
+    }
+  }
+
 }

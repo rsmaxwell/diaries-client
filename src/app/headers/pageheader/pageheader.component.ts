@@ -45,7 +45,7 @@ export class PageheaderComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     console.log(`PageheaderComponent.ngOnInit`);
 
-    this.modelContext.diary$
+    this.modelContext.selectedDiary$
       .pipe(
         takeUntil(this.destroy$)
       )
@@ -55,7 +55,7 @@ export class PageheaderComponent implements OnInit, OnDestroy {
         this.title = `${this.diary.name} - ${this.page?.name} `;
       });
 
-    this.modelContext.page$
+    this.modelContext.selectedPage$
       .pipe(
         takeUntil(this.destroy$)
       )

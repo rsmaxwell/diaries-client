@@ -53,16 +53,25 @@ export class DayviewComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     console.log(`DayviewComponent.ngOnInit`);
 
-    this.modelContext.fragmentsForSelectedDate$
+    this.modelContext.selectFragmentsForDate$
       .pipe(
         takeUntil(this.destroy$)
       )
       .subscribe(fragments => {
         console.log(`DayviewComponent: loaded ${fragments.length} fragments`);
+
         this.dataSource.data = fragments;
 
         const first = fragments[0];
         if (first) {
+
+          if ((this.year != first.year) || (this.month != first.month) || (this.day != first.day)) {
+            console.log(`DayviewComponent.<on subscribe fragments>: Cleaning up fragments`);
+            this.destroy$.next();
+            this.destroy$.complete();
+            this.destroy$ = new Subject<void>();
+          }
+
           this.year = first.year;
           this.month = first.month;
           this.day = first.day;
@@ -158,11 +167,30 @@ export class DayviewComponent implements OnInit, OnDestroy {
     console.log(`DayviewComponent.goToFragment: fragmentId: ${fragment.id}`);
 
     const marqueeId = fragment.marqueeId;
+    if (!marqueeId) {
+      console.warn(`No marqueeId for fragment ${fragment.id}`);
+      return;
+    }
 
-    const diaryId = 0;
-    const pageId = 0;
+    // Get the Marquee object from ModelContext
+    const marquee = this.modelContext.getMarqueeById(marqueeId);
+    if (!marquee) {
+      console.warn(`No marquee found for id ${marqueeId}`);
+      return;
+    }
 
-    // If your route is /diary/:diaryId/:pageId/:fragmentId
+    const pageId = marquee.pageId;
+
+    // Get the Page object from ModelContext
+    const page = this.modelContext.getPageById(pageId);
+    if (!page) {
+      console.warn(`No page found for id ${pageId}`);
+      return;
+    }
+
+    const diaryId = page.diaryId;
+
+    // Navigate using actual IDs
     this.router.navigate(['/diary', diaryId, pageId, fragment.id]);
   }
 }

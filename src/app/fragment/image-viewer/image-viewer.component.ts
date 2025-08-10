@@ -66,7 +66,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   marquees: Marquee[] = [];
   mode: ViewMode = ViewMode.WithoutMarquee;
   cursorStyle = '';
-  isDraggingGlobal = false;
+  isPanning = false;
   isDraggingMarquee = false;
   dragStart?: DOMPoint;
   dragStartMarquee?: Point;
@@ -74,6 +74,8 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   diary: Diary = Diary.default;
   page: Page = Page.default;
   config: Config | null = null;
+  draggingMarqueeId: number = 0
+  draggingMarqueeVersion: number = 0;
 
   ngOnInit(): void {
     console.log('ImageViewerComponent.ngOnInit');
@@ -94,7 +96,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       .subscribe(config => this.config = config);
 
     // 3️⃣ Diary
-    this.modelContext.diary$
+    this.modelContext.selectedDiary$
       .pipe(
         takeUntil(this.destroy$),
         distinctUntilChanged((a, b) => a?.id === b?.id)
@@ -105,7 +107,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       });
 
     // 4️⃣ Page
-    this.modelContext.page$
+    this.modelContext.selectedPage$
       .pipe(
         takeUntil(this.destroy$),
         distinctUntilChanged((a, b) => a?.id === b?.id)
@@ -116,7 +118,15 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       });
 
     // 5️⃣ Selected marquee
-    this.subscribeToMarquee();
+    this.modelContext.selectedMarquee$
+      .pipe(
+        takeUntil(this.destroy$),
+        distinctUntilChanged((a, b) => a?.id === b?.id)
+      )
+      .subscribe(marquee => {
+        this.marquee = marquee;
+        this.mode = marquee ? ViewMode.WithMarquee : ViewMode.WithoutMarquee;
+      });
 
     // 7️⃣ Marquees list
     this.modelContext.marquees$
@@ -129,9 +139,20 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       });
   }
 
+
+
   private updateImageUrl() {
     if (!this.config || !this.diary || !this.page) return;
-    const newURL = `${this.config.fileServerUrl}/${this.diary.name}/${this.page.name}${this.page.extension}`;
+    if (!this.diary.name) {
+      console.warn('updateImageUrl: diary not resolved yet', { diary: this.diary });
+      return;
+    }
+    if (!this.page.name) {
+      console.warn('updateImageUrl: page not resolved yet', { page: this.page });
+      return;
+    }
+    const base = this.config.fileServerUrl?.replace(/\/+$/, '');
+    const newURL = `${base}/${this.diary.name}/${this.page.name}${this.page.extension}`;
     if (newURL !== this.imageURL) {
       this.imageURL = newURL;
       console.log(`ImageViewer.updateImageUrl: imageURL updated to ${this.imageURL}`);
@@ -139,11 +160,11 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   get width(): number {
-    return this.page?.width ?? this.width;
+    return this.page?.width ?? 0;
   }
 
   get height(): number {
-    return this.page?.height ?? this.height;
+    return this.page?.height ?? 0;
   }
 
   get otherMarquees(): Marquee[] {
@@ -157,13 +178,11 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     console.log(`ImageViewerComponent.ngOnDestroy`);
 
-    this.destroyMarquee$.next();
-    this.destroyMarquee$.complete();
+    window.removeEventListener('mousemove', this.onMouseMoveBound);
+    window.removeEventListener('mouseup', this.onMouseUpBound);
 
     this.destroy$.next();
     this.destroy$.complete();
-
-    this.modelContext.cleanupTopicTree();
   }
 
   ngAfterViewInit(): void {
@@ -179,6 +198,18 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
 
   onMouseLeave(event: MouseEvent) {
     console.log(`ImageViewer.onMouseLeave:`);
+
+    window.removeEventListener('mousemove', this.onMouseMoveBound);
+    window.removeEventListener('mouseup', this.onMouseUpBound);
+
+    this.isPanning = false;
+    this.isDraggingMarquee = false;
+    this.resizeEdge = undefined;
+    this.dragStart = undefined;
+    this.dragStartMarquee = undefined;
+    this.originalRectangle = undefined;
+    this.draggingMarqueeId = 0;
+    this.draggingMarqueeVersion = 0;
   }
 
   onWheel(event: WheelEvent) {
@@ -230,6 +261,9 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
 
     const isCtrlKeyDown = event.ctrlKey;
 
+    console.log(`ImageViewerComponent.onMouseDown: is viewMode.WithMarquee: ${this.mode === ViewMode.WithMarquee}`);
+    console.log(`ImageViewerComponent.onMouseDown: this.marquee: ${JSON.stringify(this.marquee)}`);
+    console.log(`ImageViewerComponent.onMouseDown: isCtrlKeyDown: ${isCtrlKeyDown}`);
     if (this.mode === ViewMode.WithMarquee && this.marquee && isCtrlKeyDown) {
       console.log(`ImageViewerComponent.onMouseDown: with marquee`);
       this.resizeEdge = this.detectResizeEdge(mousePosition);
@@ -241,6 +275,8 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
         this.isDraggingMarquee = true;
         const r = this.marquee.rectangle;
         this.dragStartMarquee = { x: r.x, y: r.y };
+        this.draggingMarqueeId = this.marquee.id
+        this.draggingMarqueeVersion = this.marquee.version;
       } else {
         // Ctrl + click near edge = resize
         this.dragStart = mousePosition;
@@ -248,7 +284,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     } else {
       console.log(`ImageViewerComponent.onMouseDown: global pan`);
       // fallback to global pan
-      this.isDraggingGlobal = true;
+      this.isPanning = true;
       this.dragStart = mousePosition;
     }
   }
@@ -288,7 +324,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     const dy = mousePosition.y - this.dragStart!.y;
 
     // ✅ PANNING works when mode is WithoutFragment:
-    if (this.isDraggingGlobal) {
+    if (this.isPanning) {
       this.offsetX += dx;
       this.offsetY += dy;
       this.dragStart = mousePosition;
@@ -346,7 +382,11 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
 
     if (this.mode !== ViewMode.WithMarquee) return;
     if (!this.marquee) return;
-    if (this.isResizing() || this.isDragging()) {
+    if (this.isPanning) return;
+    if (this.draggingMarqueeId !== this.marquee.id) return;
+    if (this.draggingMarqueeVersion !== this.marquee.version) return;
+
+    if (this.isResizing() || this.isDraggingMarquee) {
 
       console.log(`ImageViewerComponent.onMouseUp: updating marquee: ${JSON.stringify(this.marquee)}`);
       this.rpcService.updateMarquee$(this.marquee).subscribe({
@@ -362,46 +402,26 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       });
     }
 
-    this.isDraggingGlobal = false;
+    this.isPanning = false;
     this.isDraggingMarquee = false;
     this.resizeEdge = undefined;
     this.dragStart = undefined;
     this.dragStartMarquee = undefined;
     this.originalRectangle = undefined;
-  }
-
-  private subscribeToMarquee() {
-    this.modelContext.marquee$
-      .pipe(
-        takeUntil(this.destroyMarquee$),
-        distinctUntilChanged((a, b) => a?.id === b?.id)
-      )
-      .subscribe(marquee => {
-        this.marquee = marquee;
-        this.mode = marquee ? ViewMode.WithMarquee : ViewMode.WithoutMarquee;
-      });
+    this.draggingMarqueeId = 0;
+    this.draggingMarqueeVersion = 0;
   }
 
   onSelectMarquee(marquee: Marquee) {
     console.log(`ImageViewerComponent.onSelectMarquee: marquee: ${JSON.stringify(marquee)}`);
 
-    if (this.marquee) {
-      if (this.marquee.id != marquee.id) {
-        console.log(`ImageViewerComponent.onSelectMarquee: cleaning up marquee: ${this.marquee.id}`);
-        this.destroyMarquee$.next();
-        this.destroyMarquee$.complete();
-        this.destroyMarquee$ = new Subject<void>();
-        this.subscribeToMarquee(); //
-      }
-    }
-
     this.modelContext.setMarqueeId(marquee.id);
     this.modelContext.setFragmentId(marquee.fragmentId);
 
-    const target = `/diary/${this.diary.id}/${this.page.id}/${marquee.fragmentId}`
+    const target = `/diary/${this.diary.id}/${this.page.id}/${marquee.fragmentId}`;
     console.log(`ImageViewerComponent.onSelectMarquee: redirecting to: ${target}`);
-
-    this.router.navigate([target]);
+    
+    this.router.navigate(['/diary', this.diary.id, this.page.id, marquee.fragmentId]);
   }
 
   arraysEqual(a: Marquee[], b: Marquee[]): boolean {
@@ -557,7 +577,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
 
       });
 
-      this.router.navigate([`/diary/${this.diary.id}/${this.page.id}`]);
+      this.router.navigate(['/diary', this.diary.id, this.page.id]);
     }
   }
 
@@ -579,7 +599,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
         console.log(`ImageViewerComponent.onAddButtonClick: marquee: id: ${marquee.id} added`);
         this.alertService.info(`marquee: id: ${marquee.id} added`);
 
-        this.router.navigate([`/diary/${this.diary.id}/${this.page.id}/${marquee.id}`]);
+        this.router.navigate(['/diary', this.diary.id, this.page.id, marquee.fragmentId]);
       },
       error: (err) => {
         if (!this.handleAuthError(err)) {
