@@ -380,28 +380,28 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     window.removeEventListener('mousemove', this.onMouseMoveBound);
     window.removeEventListener('mouseup', this.onMouseUpBound);
 
-    if (this.mode !== ViewMode.WithMarquee) return;
-    if (!this.marquee) return;
-    if (this.isPanning) return;
-    if (this.draggingMarqueeId !== this.marquee.id) return;
-    if (this.draggingMarqueeVersion !== this.marquee.version) return;
+    const m = this.marquee; // <-- local capture
 
-    if (this.isResizing() || this.isDraggingMarquee) {
+    const canUpdate =
+      this.mode === ViewMode.WithMarquee &&
+      !!m &&                              // <-- boolean check stays
+      !this.isPanning &&
+      this.draggingMarqueeId === m.id &&
+      this.draggingMarqueeVersion === m.version &&
+      (this.isResizing() || this.isDraggingMarquee);
 
-      console.log(`ImageViewerComponent.onMouseUp: updating marquee: ${JSON.stringify(this.marquee)}`);
-      this.rpcService.updateMarquee$(this.marquee).subscribe({
-        next: (id) => {
-          console.log(`ImageViewerComponent.onMouseUp: marquee updated succeeded: id: ${id}`);
-        },
+    if (canUpdate) {
+      console.log(`ImageViewerComponent.onMouseUp: updating marquee: ${JSON.stringify(m)}`);
+      this.rpcService.updateMarquee$(m).subscribe({
+        next: (id) => console.log(`ImageViewerComponent.onMouseUp: marquee updated succeeded: id: ${id}`),
         error: (err) => {
           console.log(`ImageViewerComponent.onMouseUp: ${err}`);
-          if (!this.handleAuthError(err)) {
-            this.alertService.error(err);
-          }
+          if (!this.handleAuthError(err)) this.alertService.error(err);
         }
       });
     }
 
+    // Always reset
     this.isPanning = false;
     this.isDraggingMarquee = false;
     this.resizeEdge = undefined;
@@ -412,6 +412,8 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.draggingMarqueeVersion = 0;
   }
 
+
+
   onSelectMarquee(marquee: Marquee) {
     console.log(`ImageViewerComponent.onSelectMarquee: marquee: ${JSON.stringify(marquee)}`);
 
@@ -420,7 +422,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
 
     const target = `/diary/${this.diary.id}/${this.page.id}/${marquee.fragmentId}`;
     console.log(`ImageViewerComponent.onSelectMarquee: redirecting to: ${target}`);
-    
+
     this.router.navigate(['/diary', this.diary.id, this.page.id, marquee.fragmentId]);
   }
 
