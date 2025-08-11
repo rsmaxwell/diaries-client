@@ -114,19 +114,23 @@ export class ModelContext {
       .subscribe((marqueeId) => this.setMarqueeId(marqueeId));
 
 
-    this.fragments$ = this.marquees$.pipe(
-      map(marquees => {
-        const ids = marquees
-          .map(m => m.fragmentId)
-          .filter((id): id is number => Number.isFinite(id))
-        // de-dupe
-        return Array.from(new Set(ids));
+    this.fragments$ = combineLatest([this.selectedFragment$]).pipe(
+      // use the selected fragment’s Y/M/D for the Dayview’s list
+      switchMap(([selected]) => {
+        const y = selected.year, m = selected.month, d = selected.day;
+        const topicFilters = [`dates/${y}/${m}/${d}/+`];
+        topicFilters.forEach(f => this.activeTopicFilters.add(f));
+
+        return from(this.mqtt.getConnection()).pipe(
+          switchMap(client =>
+            this.liveObjectListService.subscribeToTopicTree$<Fragment>(
+              client,
+              topicFilters,
+              buf => JSON.parse(buf.toString()) as Fragment
+            )
+          )
+        );
       }),
-      switchMap(ids =>
-        ids.length
-          ? combineLatest(ids.map(id => this.getLiveFragment$(id)))
-          : of([] as Fragment[])
-      ),
       shareReplay({ bufferSize: 1, refCount: true })
     );
 
