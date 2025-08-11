@@ -116,3 +116,26 @@
     width: 80px;
   }
 }
+
+/* Let text wrap and align from the top */
+.fragments-table td.mat-cell,
+.fragments-table th.mat-header-cell {
+  vertical-align: top;
+  white-space: normal;
+}
+
+/* Quill content: preserve line breaks & wrap long words */
+.ql-editor.ql-editor--viewer {
+  white-space: pre-wrap;       /* keep newlines from Quill HTML */
+  overflow-wrap: anywhere;     /* break very long words/URLs */
+  word-break: break-word;      /* fallback */
+  line-height: 1.4;
+  font-size: 14px;             /* match your TextPanel if you want */
+}
+
+/* Images in fragments shouldn’t overflow cells */
+.ql-editor.ql-editor--viewer img {
+  max-width: 100%;
+  height: auto;
+  display: inline-block;
+}

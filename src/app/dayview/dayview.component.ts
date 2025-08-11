@@ -60,7 +60,8 @@ export class DayviewComponent implements OnInit, OnDestroy {
       .subscribe(fragments => {
         console.log(`DayviewComponent: loaded ${fragments.length} fragments`);
 
-        this.dataSource.data = fragments;
+        const sorted = fragments.slice().sort((a, b) => a.sequence - b.sequence);
+        this.dataSource.data = sorted;
 
         const first = fragments[0];
         if (first) {
