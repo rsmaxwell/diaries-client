@@ -55,7 +55,6 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly onMouseUpBound = this.onMouseUpBoundInternal.bind(this);
 
   private destroy$ = new Subject<void>();
-  private destroyMarquee$ = new Subject<void>();
 
   scale = 1;
   offsetX = 0;
@@ -87,35 +86,24 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
         this.onAddButtonClick();
       });
 
-    // fetch config exactly once
-    from(this.configService.getConfig())
-      .pipe(
-        takeUntil(this.destroy$),
-        take(1)
-      )
-      .subscribe(config => this.config = config);
 
-    // 3️⃣ Diary
-    this.modelContext.selectedDiary$
-      .pipe(
-        takeUntil(this.destroy$),
-        distinctUntilChanged((a, b) => a?.id === b?.id)
-      )
-      .subscribe(diary => {
+
+    const config$ = from(this.configService.getConfig()).pipe(take(1));
+
+    combineLatest([
+      config$,
+      this.modelContext.selectedDiary$,
+      this.modelContext.selectedPage$,
+    ])
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(([config, diary, page]) => {
+        this.config = config;
         this.diary = diary!;
-        this.updateImageUrl();
-      });
-
-    // 4️⃣ Page
-    this.modelContext.selectedPage$
-      .pipe(
-        takeUntil(this.destroy$),
-        distinctUntilChanged((a, b) => a?.id === b?.id)
-      )
-      .subscribe(page => {
         this.page = page!;
         this.updateImageUrl();
       });
+
+
 
     // 5️⃣ Selected marquee
     this.modelContext.selectedMarquee$
@@ -168,7 +156,8 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   get otherMarquees(): Marquee[] {
-    return this.marquees.filter(m => m.id !== this.marquee?.id);
+    const selectedId = this.marquee?.id;
+    return this.marquees.filter(m => m.id !== selectedId);
   }
 
   trackById(index: number, m: Marquee) {
@@ -492,10 +481,6 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     this.cursorStyle = cursor;
-  }
-
-  trackByMarqueeId(marquee: Marquee): number {
-    return marquee.id;
   }
 
   detectResizeEdge(mousePosition: DOMPoint): { left: boolean, right: boolean, top: boolean, bottom: boolean } {

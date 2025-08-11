@@ -64,14 +64,6 @@ export class DayviewComponent implements OnInit, OnDestroy {
 
         const first = fragments[0];
         if (first) {
-
-          if ((this.year != first.year) || (this.month != first.month) || (this.day != first.day)) {
-            console.log(`DayviewComponent.<on subscribe fragments>: Cleaning up fragments`);
-            this.destroy$.next();
-            this.destroy$.complete();
-            this.destroy$ = new Subject<void>();
-          }
-
           this.year = first.year;
           this.month = first.month;
           this.day = first.day;

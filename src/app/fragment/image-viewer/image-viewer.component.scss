@@ -41,17 +41,21 @@
   }
 }
 
-.baseMask {
-  fill:rgb(60, 60, 60);
-}
+// .baseMask15   { fill: rgb(60, 60, 60); }
+// .otherMask    { fill: rgb(80, 80, 80); }
+// 
+// .baseMask16   { fill: rgb(60, 60, 60); }
+// .selectedMask { fill: white;           }
 
-.selectedMask {
-  fill: white;
-}
 
-.otherMask {
-  fill: rgb(80, 80, 80);
-}
+/* Mask 15: whole image faint; non-selected areas slightly brighter */
+.baseMask15  { fill: white; opacity: 0.20; }   /* default faint image */
+.otherMask   { fill: white; opacity: 0.40; }   /* non-selected brighter than base */
+
+/* Mask 16: show ONLY the selected marquee at full brightness */
+.baseMask16  { fill: black; }                  /* hide everything */
+.selectedMask{ fill: white; }                  /* show selected at 100% */
+
 
 .other {
   fill: transparent;

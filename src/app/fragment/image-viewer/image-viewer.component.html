@@ -26,40 +26,29 @@
             y="0"
             [attr.width]="width"
             [attr.height]="height"
-            class="baseMask"
+            class="baseMask15"
           />
           <g *ngFor="let m of otherMarquees; trackBy: trackById">
             <rect
-              [attr.id]="m.id"
               [attr.x]="m.rectangle.x"
               [attr.y]="m.rectangle.y"
               [attr.width]="m.rectangle.width"
               [attr.height]="m.rectangle.height"
               class="otherMask"
             />
-          </g>          
-          <g *ngIf="marquee"> 
-            <rect
-              id="rect-selected"
-              [attr.x]="marquee.rectangle.x"
-              [attr.y]="marquee.rectangle.y"
-              [attr.width]="marquee.rectangle.width"
-              [attr.height]="marquee.rectangle.height"
-              class="selectedMask"
-            />
           </g>
         </g>
       </mask>
 
       <mask maskUnits="userSpaceOnUse" id="mask16">
-        <g id="g17" style="display:inline">
+        <g id="g18" style="display:inline">
           <rect
             id="rect-base"
             x="0"
             y="0"
             [attr.width]="width"
             [attr.height]="height"
-            class="baseMask"
+            class="baseMask16"
           />
           <g *ngIf="marquee">            
             <rect
@@ -87,7 +76,6 @@
 
     <g *ngFor="let m of otherMarquees; trackBy: trackById">
       <rect
-        [attr.id]="m.id"
         [attr.x]="m.rectangle.x"
         [attr.y]="m.rectangle.y"
         [attr.width]="m.rectangle.width"

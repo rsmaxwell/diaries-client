@@ -3,7 +3,7 @@ import { Component, OnInit, ViewChild, OnDestroy, ElementRef, AfterViewInit, App
 import { CommonModule } from '@angular/common';
 import { PageheaderComponent } from '../headers/pageheader/pageheader.component';
 import { PagefooterComponent } from '../headers/pagefooter/pagefooter.component';
-import { GoldenLayout, RowOrColumnItemConfig } from 'golden-layout';
+import { GoldenLayout, RowOrColumnItemConfig, Side, LayoutConfig } from 'golden-layout';
 import { ImageViewerComponent } from './image-viewer/image-viewer.component';
 import { TextPanelComponent } from './text-panel/text-panel.component';
 import { ModelContext } from '../model/model-context';
@@ -63,41 +63,41 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
     );
   }
 
-ngOnInit(): void {
-  // Resolve ids from this route or any parent using the helper
-  const diaryId$    = this.idFromRoute$(this.route, 'diaryId');
-  const pageId$     = this.idFromRoute$(this.route, 'pageId');
-  const fragmentId$ = this.idFromRoute$(this.route, 'fragmentId');
+  ngOnInit(): void {
+    // Resolve ids from this route or any parent using the helper
+    const diaryId$ = this.idFromRoute$(this.route, 'diaryId');
+    const pageId$ = this.idFromRoute$(this.route, 'pageId');
+    const fragmentId$ = this.idFromRoute$(this.route, 'fragmentId');
 
-  // Push into ModelContext (allow null to clear; ModelContext guards handle NaN)
-  diaryId$.pipe(takeUntil(this.destroy$))
-    .subscribe(id => this.modelContext.setDiaryId(id));
+    // Push into ModelContext (allow null to clear; ModelContext guards handle NaN)
+    diaryId$.pipe(takeUntil(this.destroy$))
+      .subscribe(id => this.modelContext.setDiaryId(id));
 
-  pageId$.pipe(takeUntil(this.destroy$))
-    .subscribe(id => this.modelContext.setPageId(id));
+    pageId$.pipe(takeUntil(this.destroy$))
+      .subscribe(id => this.modelContext.setPageId(id));
 
-  // Only push fragmentId when present and > 0
-  fragmentId$.pipe(
+    // Only push fragmentId when present and > 0
+    fragmentId$.pipe(
       filter((id): id is number => id != null && id > 0),
       takeUntil(this.destroy$)
     )
-    .subscribe(id => {
-      console.log(`FragmentComponent.ngOnInit: pushing fragmentId ${id} to the ModelContext`);
-      this.modelContext.setFragmentId(id);
-    });
+      .subscribe(id => {
+        console.log(`FragmentComponent.ngOnInit: pushing fragmentId ${id} to the ModelContext`);
+        this.modelContext.setFragmentId(id);
+      });
 
-  // Pages list - ordered by sequence number (unchanged)
-  this.modelContext.pages$
-    .pipe(
-      map(pages => pages ?? []),
-      map(pages => pages.slice().sort((a, b) => a.sequence - b.sequence)),
-      distinctUntilChanged((a, b) => a.length === b.length && a.every((x, i) => x.id === b[i].id)),
-      takeUntil(this.destroy$)
-    )
-    .subscribe(pages => {
-      this.pages = pages;
-    });
-}
+    // Pages list - ordered by sequence number (unchanged)
+    this.modelContext.pages$
+      .pipe(
+        map(pages => pages ?? []),
+        map(pages => pages.slice().sort((a, b) => a.sequence - b.sequence)),
+        distinctUntilChanged((a, b) => a.length === b.length && a.every((x, i) => x.id === b[i].id)),
+        takeUntil(this.destroy$)
+      )
+      .subscribe(pages => {
+        this.pages = pages;
+      });
+  }
 
   // Generic bindComponent: strongly typed and reusable
   private bindComponent<T>(container: any, component: any): void {
@@ -120,7 +120,7 @@ ngOnInit(): void {
   }
 
   ngAfterViewInit(): void {
-    const layoutConfig = {
+    const layoutConfig: LayoutConfig = {
       root: <RowOrColumnItemConfig>{
         type: 'row',
         content: [
@@ -151,7 +151,14 @@ ngOnInit(): void {
         ]
       },
       settings: {
-        hasHeaders: true
+        hasHeaders: true,
+        showPopoutIcon: false,    // ⬅️ hide “open in new window”
+        showMaximiseIcon: false,   // ⬅️ hide “maximise”
+        showCloseIcon: false   // ⬅️ hide “close”
+      },
+      header: {
+        show: Side.top,
+        close: false            // ❌ some versions accept this per header
       }
     };
 

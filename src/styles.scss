@@ -19,3 +19,16 @@ body {
     margin: 0;
     font-family: Roboto, "Helvetica Neue", sans-serif;
 }
+
+/* GoldenLayout: hide all close/popout/maximise UI */
+.lm_controls .lm_close,
+.lm_controls .lm_popout,
+.lm_controls .lm_maximise {
+  display: none !important;
+}
+
+/* Hide the “X” inside each tab */
+.lm_tab .lm_close_tab {
+  display: none !important;
+}
+
