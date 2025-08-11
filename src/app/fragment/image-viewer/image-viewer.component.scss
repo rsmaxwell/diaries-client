@@ -50,7 +50,7 @@
 
 /* Mask 15: whole image faint; non-selected areas slightly brighter */
 .baseMask15  { fill: white; opacity: 0.20; }   /* default faint image */
-.otherMask   { fill: white; opacity: 0.40; }   /* non-selected brighter than base */
+.otherMask   { fill: white; opacity: 0.05; }   /* non-selected brighter than base */
 
 /* Mask 16: show ONLY the selected marquee at full brightness */
 .baseMask16  { fill: black; }                  /* hide everything */
