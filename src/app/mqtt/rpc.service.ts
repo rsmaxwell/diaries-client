@@ -169,9 +169,9 @@ export class RpcService {
                     properties
                 };
 
-                console.log(`RpcService.rpcRequest: sending to topic '${requestTopic}'`);
-                console.log(`RpcService.rpcRequest: ${publishPayload}`);
-                console.log(`RpcService.rpcRequest: correlationId: '${corr}', replyTopic: '${replyTopic}'`);
+                // console.log(`RpcService.rpcRequest: sending to topic '${requestTopic}'`);
+                // console.log(`RpcService.rpcRequest: ${publishPayload}`);
+                // console.log(`RpcService.rpcRequest: correlationId: '${corr}', replyTopic: '${replyTopic}'`);
 
                 client.publish(requestTopic, publishPayload, publishOptions, err => {
                     if (err) {

@@ -38,7 +38,7 @@ export class DayviewComponent implements OnInit, OnDestroy {
   month: number = 0;
   day: number = 0;
 
-  displayedColumns = ['sequence', 'text'];
+  displayedColumns = ['id', 'sequence', 'text'];
   dataSource = new MatTableDataSource<Fragment>();
 
   private destroy$ = new Subject<void>();
@@ -58,7 +58,7 @@ export class DayviewComponent implements OnInit, OnDestroy {
         takeUntil(this.destroy$)
       )
       .subscribe(fragments => {
-        console.log(`DayviewComponent: loaded ${fragments.length} fragments`);
+        console.log("DayviewComponent.<subscribe fragments>: fragments:", fragments.map(f => f.id));
 
         const sorted = fragments.slice().sort((a, b) => a.sequence - b.sequence);
         this.dataSource.data = sorted;
@@ -134,7 +134,7 @@ export class DayviewComponent implements OnInit, OnDestroy {
             });
         },
         error: err => this.handleError(err)
-      });
+      });      
   }
 
   /** error handler */

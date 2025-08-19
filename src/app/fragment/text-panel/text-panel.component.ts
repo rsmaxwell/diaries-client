@@ -2,11 +2,10 @@ import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ModelContext } from '../../model/model-context';
 import { Fragment } from '../../model/fragment';
-import { combineLatest, distinctUntilChanged, distinctUntilKeyChanged, map, Subject, takeUntil } from 'rxjs';
+import { combineLatest, distinctUntilChanged, distinctUntilKeyChanged, filter, map, Subject, switchMap, take, takeUntil } from 'rxjs';
 import { QuillModule } from 'ngx-quill';
 import { FormControl, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { RpcService } from '../../mqtt/rpc.service';
-import { Marquee } from '../../model/marquee';
 
 // import the Material modules and types
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -62,7 +61,6 @@ export class TextPanelComponent implements OnInit, OnDestroy {
   formattedDate = '';
   isDateValid = false;
   private destroy$ = new Subject<void>();
-  private destroyFragment$ = new Subject<void>();
 
   constructor(
     private modelContext: ModelContext,
@@ -74,32 +72,32 @@ export class TextPanelComponent implements OnInit, OnDestroy {
 
     this.modelContext.selectedFragment$
       .pipe(
-        distinctUntilChanged(),
+        // emit again when either id or version changes
+        distinctUntilChanged((a, b) =>
+          (!!a && !!b) ? (a.id === b.id && a.version === b.version) : (a === b)
+        ),
         takeUntil(this.destroy$)
       )
       .subscribe(fragment => {
-        console.log(`TextPanelComponent.<subscribe fragment>: ${JSON.stringify(fragment)}`);
-
-        // Cleanup any previous per-fragment subscriptions
-        this.destroyFragment$.next();
+        console.log(`TextPanelComponent.<subscribe fragment>: ${fragment ? fragment.id : 'none'}`);
 
         this.fragment = fragment;
 
+        // (re)seed form + date baselines
         let html = '';
         let dateFormatter = new DateFormatter(0, 0, 0);
-        if (!fragment) {
-          this.originalYear = 0;
-          this.originalMonth = 0;
-          this.originalDay = 0;
-        }
-        else {
-          console.log(`TextPanelComponent.<subscribe fragment>: fragment: ${fragment.id}`);
+        if (fragment) {
           // store the “initial” date
           this.originalYear = fragment.year;
           this.originalMonth = fragment.month;
           this.originalDay = fragment.day;
           html = fragment.text;
           dateFormatter = new DateFormatter(fragment.year, fragment.month, fragment.day);
+        }
+        else {
+          this.originalYear = 0;
+          this.originalMonth = 0;
+          this.originalDay = 0;
         }
 
         this.formattedDate = dateFormatter.formattedDate;
@@ -178,27 +176,80 @@ export class TextPanelComponent implements OnInit, OnDestroy {
   }
 
 
+
   onSave(): void {
-    console.log(`Save clicked! Current fragment: ${JSON.stringify(this.fragment)}`);
-    const current = this.form.get('body')!.value as string;
+    console.log(`TextPanelComponent.onSave: fragment: ${JSON.stringify(this.fragment)}`);
+    if (!this.fragment) return;
 
-    if (this.fragment) {
-      this.fragment.text = current;
+    const currentBody = this.form.get('body')!.value as string;
 
-      console.log(`TextPanelComponent.onSave`)
-      this.rpcService.updateFragment$(this.fragment).subscribe({
-        next: (reply) => {
-          console.log(`TextPanelComponent.onSave: success: reply: ${reply}`)
+    // Snapshots for rollback
+    const prevFragment: Fragment = { ...this.fragment };
+    const prevOriginals = {
+      y: this.originalYear,
+      m: this.originalMonth,
+      d: this.originalDay,
+    };
 
-          // update the “initial” date
-          this.originalYear = this.fragment?.year || 0;
-          this.originalMonth = this.fragment?.month || 0;
-          this.originalDay = this.fragment?.day || 0;
-        },
-        error: (err) => {
-          console.log(`TextPanelComponent.onSave: error: ${err}`)
-        }
-      });
-    }
+    // Build "server payload": keep the PREVIOUS version here
+    // (typical optimistic concurrency expects the server to bump)
+    const requestPayload: Fragment = {
+      ...prevFragment,
+      text: currentBody,
+      // year/month/day were already applied locally via onDateSelected()
+      // so use whatever is currently on the fragment for the payload:
+      year: this.fragment.year,
+      month: this.fragment.month,
+      day: this.fragment.day,
+      version: prevFragment.version, // send old version to the server
+    };
+
+    // ---- OPTIMISTIC LOCAL UPDATE ----
+    // 1) bump local version for immediate UI feedback
+    this.fragment = {
+      ...requestPayload,
+      version: (prevFragment.version ?? 0) + 1,
+    };
+
+    // 2) update baselines & header so hasEdits() becomes false, date header matches
+    this.originalYear = this.fragment.year || 0;
+    this.originalMonth = this.fragment.month || 0;
+    this.originalDay = this.fragment.day || 0;
+
+    const df = new DateFormatter(this.fragment.year || 0, this.fragment.month || 0, this.fragment.day || 0);
+    this.formattedDate = df.formattedDate;
+    this.isDateValid = df.isDateValid;
+
+    // 3) optionally mark the form pristine now that we've "saved"
+    this.form.markAsPristine();
+
+    // ---- SERVER CALL ----
+    this.rpcService.updateFragment$(requestPayload).subscribe({
+      next: () => {
+        // Success: nothing else to do. ModelContext will refresh
+        // the selected fragment when it hears from the backend,
+        // but our optimistic state is already correct.
+        console.log('TextPanelComponent.onSave: success (optimistic accepted)');
+      },
+      error: (err) => {
+        console.log(`TextPanelComponent.onSave: error -> rolling back: ${err}`);
+
+        // ---- ROLLBACK ----
+        this.fragment = prevFragment;
+        this.originalYear = prevOriginals.y;
+        this.originalMonth = prevOriginals.m;
+        this.originalDay = prevOriginals.d;
+
+        const rollDf = new DateFormatter(prevFragment.year || 0, prevFragment.month || 0, prevFragment.day || 0);
+        this.formattedDate = rollDf.formattedDate;
+        this.isDateValid = rollDf.isDateValid;
+
+        // restore editor body without firing change handlers
+        this.form.get('body')!.setValue(prevFragment.text ?? '', {
+          emitEvent: false,
+          emitModelToViewChange: true
+        });
+      }
+    });
   }
 }

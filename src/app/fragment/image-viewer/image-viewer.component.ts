@@ -18,7 +18,7 @@ import { Page } from '../../model/page';
 import { RpcService } from '../../mqtt/rpc.service';
 import { AlertService } from '../../alerts/alert.service';
 import { Router } from '@angular/router';
-import { combineLatest, distinctUntilChanged, filter, from, map, Subject, take, takeUntil } from 'rxjs';
+import { combineLatest, distinctUntilChanged, filter, from, map, Subject, switchMap, take, takeUntil } from 'rxjs';
 import { Config, ConfigService } from '../../config/config.service';
 import { ModelContext } from '../../model/model-context';
 
@@ -53,7 +53,6 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private readonly onMouseMoveBound = this.onMouseMoveBoundInternal.bind(this);
   private readonly onMouseUpBound = this.onMouseUpBoundInternal.bind(this);
-
   private destroy$ = new Subject<void>();
 
   scale = 1;
@@ -119,10 +118,10 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     // 7️⃣ Marquees list
     this.modelContext.marquees$
       .pipe(
-        takeUntil(this.destroy$),
-        distinctUntilChanged((a, b) => a.length === b.length && a.every((x, i) => x.id === b[i].id))
+        takeUntil(this.destroy$)
       )
       .subscribe(marquees => {
+        console.log("ImageViewerComponent.<subscribe marquees>: marquees:", marquees.map(m => m.id));
         this.marquees = marquees;
       });
   }
@@ -205,8 +204,8 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     event.preventDefault();
 
     // This increases (scroll up) or decreases (scroll down) the scale.
-    const scaleFactor = event.deltaY < 0 ? 1.1 : 0.9;
-    const newScale = this.scale * scaleFactor;
+    const factor = event.deltaY < 0 ? 1.1 : 0.9;
+    const newScale = this.scale * factor;
 
     // This computes the mouse position relative to the SVG element in screen/pixel space.
     const pt = this.svgRef.nativeElement.createSVGPoint();
@@ -225,29 +224,27 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     // Recalculate offset so the same point stays under the mouse
     this.offsetX = svgPoint.x - svgXBefore * newScale;
     this.offsetY = svgPoint.y - svgYBefore * newScale;
-
     this.scale = newScale;
   }
 
   onMouseDown(event: MouseEvent) {
+
+    console.log(`ImageViewerComponent.onMouseDown`);
 
     if (!this.svgRef) {
       console.log(`ImageViewerComponent.onMouseDown: skipping as !svgRef`);
       return;
     }
 
-    console.log(`ImageViewerComponent.onMouseDown`);
-
-    window.addEventListener('mousemove', this.onMouseMoveBound);
-    window.addEventListener('mouseup', this.onMouseUpBound);
-
     if (event.button !== 0) {
       console.log(`ImageViewerComponent.onMouseDown: skipping as 'wrong mouse button'`);
       return;
     }
 
-    const mousePosition = this.getMousePosition(event);
+    window.addEventListener('mousemove', this.onMouseMoveBound);
+    window.addEventListener('mouseup', this.onMouseUpBound);
 
+    const mousePosition = this.getMousePosition(event);
     const isCtrlKeyDown = event.ctrlKey;
 
     console.log(`ImageViewerComponent.onMouseDown: is viewMode.WithMarquee: ${this.mode === ViewMode.WithMarquee}`);
@@ -259,7 +256,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       this.dragStart = mousePosition;
       this.originalRectangle = { ...this.marquee.rectangle };
 
-      if (Object.values(this.resizeEdge).every(v => v === false)) {
+      if (!this.resizeEdge || Object.values(this.resizeEdge).every(v => !v)) {
         // Ctrl + click inside marquee = move marquee
         this.isDraggingMarquee = true;
         const r = this.marquee.rectangle;
@@ -343,23 +340,25 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
 
     if (this.isResizing() && this.originalRectangle) {
       const { left, right, top, bottom } = this.resizeEdge!;
+      let { x, y, width, height } = this.originalRectangle;
+
       const dx = (mousePosition.x - this.dragStart!.x) / this.scale;
       const dy = (mousePosition.y - this.dragStart!.y) / this.scale;
 
-      if (left) {
-        r.x = this.originalRectangle.x + dx;
-        r.width = this.originalRectangle.width - dx;
-      }
-      if (right) {
-        r.width = this.originalRectangle.width + dx;
-      }
-      if (top) {
-        r.y = this.originalRectangle.y + dy;
-        r.height = this.originalRectangle.height - dy;
-      }
-      if (bottom) {
-        r.height = this.originalRectangle.height + dy;
-      }
+      if (left) { x = this.originalRectangle.x + dx; width = this.originalRectangle.width - dx; }
+      if (right) { width = this.originalRectangle.width + dx; }
+      if (top) { y = this.originalRectangle.y + dy; height = this.originalRectangle.height - dy; }
+      if (bottom) { height = this.originalRectangle.height + dy; }
+
+      // normalize: keep width/height >= MIN and flip origin if crossed
+      const MIN = 5;
+      if (width < 0) { x += width; width = Math.abs(width); }
+      if (height < 0) { y += height; height = Math.abs(height); }
+      width = Math.max(width, MIN);
+      height = Math.max(height, MIN);
+
+      const r = this.marquee!.rectangle;
+      r.x = x; r.y = y; r.width = width; r.height = height;
       return;
     }
   }
@@ -369,28 +368,65 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     window.removeEventListener('mousemove', this.onMouseMoveBound);
     window.removeEventListener('mouseup', this.onMouseUpBound);
 
-    const m = this.marquee; // <-- local capture
-
+    const m = this.marquee;
     const canUpdate =
       this.mode === ViewMode.WithMarquee &&
-      !!m &&                              // <-- boolean check stays
+      !!m &&
       !this.isPanning &&
       this.draggingMarqueeId === m.id &&
       this.draggingMarqueeVersion === m.version &&
       (this.isResizing() || this.isDraggingMarquee);
 
-    if (canUpdate) {
-      console.log(`ImageViewerComponent.onMouseUp: updating marquee: ${JSON.stringify(m)}`);
-      this.rpcService.updateMarquee$(m).subscribe({
-        next: (id) => console.log(`ImageViewerComponent.onMouseUp: marquee updated succeeded: id: ${id}`),
+    const changed =
+      this.isResizing() ||
+      (this.isDraggingMarquee &&
+        Math.hypot(this.marquee!.rectangle.x - this.dragStartMarquee!.x,
+          this.marquee!.rectangle.y - this.dragStartMarquee!.y) > 0.5);
+
+    if (canUpdate && changed) {
+      const current = this.marquee!;
+      const prevSnapshot: Marquee = { ...current, rectangle: { ...current.rectangle } }; // rollback snapshot
+
+      // Build the server payload using the PREVIOUS version (server will bump)
+      const requestPayload: Marquee = {
+        ...prevSnapshot,
+        // rectangle is already updated by your drag/resize logic
+        version: prevSnapshot.version  // send old version to the server
+      };
+
+      // ---- OPTIMISTIC LOCAL UPDATE ----
+      // 1) bump local version so UI reflects the save immediately
+      current.version = (current.version ?? 0) + 1;
+
+      // 2) (optional) update any local baselines used in guards if you have them
+      //    Not strictly needed here since you reset the drag state below.
+
+      // ---- SERVER CALL ----
+      this.rpcService.updateMarquee$(requestPayload).subscribe({
+        next: () => {
+          // Success: nothing to do. Store will eventually emit fresh data;
+          // our optimistic state already looks correct.
+          console.log('ImageViewer: marquee update succeeded (optimistic).');
+        },
         error: (err) => {
-          console.log(`ImageViewerComponent.onMouseUp: ${err}`);
+          console.log(`ImageViewer: marquee update failed, rolling back.`, err);
+          // ---- ROLLBACK ----
+          if (this.marquee && this.marquee.id === prevSnapshot.id) {
+            this.marquee.version = prevSnapshot.version;
+            this.marquee.rectangle = { ...prevSnapshot.rectangle };
+          }
+          // Also fix the list entry if the same object identity isn't shared:
+          const idx = this.marquees.findIndex(m => m.id === prevSnapshot.id);
+          if (idx >= 0) {
+            this.marquees[idx] = { ...prevSnapshot, rectangle: { ...prevSnapshot.rectangle } };
+          }
+
           if (!this.handleAuthError(err)) this.alertService.error(err);
         }
       });
     }
 
-    // Always reset
+    // Always reset UI drag state
     this.isPanning = false;
     this.isDraggingMarquee = false;
     this.resizeEdge = undefined;
@@ -400,6 +436,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.draggingMarqueeId = 0;
     this.draggingMarqueeVersion = 0;
   }
+
 
 
 
@@ -419,6 +456,20 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     if (a.length !== b.length) return false;
     return a.every((m, i) => m.id === b[i].id);
   }
+
+
+
+  private marqueeBoundsInSvg() {
+    const m = this.marquee!.rectangle;
+    const x = m.x * this.scale + this.offsetX;
+    const y = m.y * this.scale + this.offsetY;
+    const w = m.width * this.scale;
+    const h = m.height * this.scale;
+    return { left: x, right: x + w, top: y, bottom: y + h, w, h };
+  }
+
+
+
 
   calculateCursorStyle(mousePosition: DOMPoint, isCtrlKeyDown: boolean) {
 
@@ -443,27 +494,19 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     const m = this.marquee.rectangle;
 
     // Apply the <g> transform to get the position of the marquee in SVG logical space
-    const rectX = m.x * this.scale + this.offsetX;
-    const rectY = m.y * this.scale + this.offsetY;
-    const rectWidth = m.width * this.scale;
-    const rectHeight = m.height * this.scale;
-
-    const left = rectX;
-    const right = rectX + rectWidth;
-    const top = rectY;
-    const bottom = rectY + rectHeight;
+    const bounds = this.marqueeBoundsInSvg();
 
     // The mouse position is already in SVG logical space
 
     // Now hit-test against the transformed marquee
     const margin = 40;
-    const nearLeft = Math.abs(mousePosition.x - left) < margin;
-    const nearRight = Math.abs(mousePosition.x - right) < margin;
-    const nearTop = Math.abs(mousePosition.y - top) < margin;
-    const nearBottom = Math.abs(mousePosition.y - bottom) < margin;
+    const nearLeft = Math.abs(mousePosition.x - bounds.left) < margin;
+    const nearRight = Math.abs(mousePosition.x - bounds.right) < margin;
+    const nearTop = Math.abs(mousePosition.y - bounds.top) < margin;
+    const nearBottom = Math.abs(mousePosition.y - bounds.bottom) < margin;
 
-    const insideHoriz = (mousePosition.x + margin >= left) && (mousePosition.x - margin <= right);
-    const insideVert = (mousePosition.y + margin >= top) && (mousePosition.y - margin <= bottom);
+    const insideHoriz = (mousePosition.x + margin >= bounds.left) && (mousePosition.x - margin <= bounds.right);
+    const insideVert = (mousePosition.y + margin >= bounds.top) && (mousePosition.y - margin <= bounds.bottom);
 
     if (insideHoriz && insideVert) {
 
@@ -492,21 +535,18 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     const margin = 40;
 
     // Apply the <g> transform to get the position of the marquee in SVG logical space
-    const left = m.x * this.scale + this.offsetX;
-    const right = (m.x + m.width) * this.scale + this.offsetX;
-    const top = m.y * this.scale + this.offsetY;
-    const bottom = (m.y + m.height) * this.scale + this.offsetY;
+    const bounds = this.marqueeBoundsInSvg();
 
     // The mouse position is already in SVG logical space
     // Now hit-test against the transformed marquee
-    const insideHoriz = (mousePosition.x + margin >= left) && (mousePosition.x - margin <= right);
-    const insideVert = (mousePosition.y + margin >= top) && (mousePosition.y - margin <= bottom);
+    const insideHoriz = (mousePosition.x + margin >= bounds.left) && (mousePosition.x - margin <= bounds.right);
+    const insideVert = (mousePosition.y + margin >= bounds.top) && (mousePosition.y - margin <= bounds.bottom);
 
     if (insideHoriz && insideVert) {
-      edges.left = Math.abs(mousePosition.x - left) < margin;
-      edges.right = Math.abs(mousePosition.x - right) < margin;
-      edges.top = Math.abs(mousePosition.y - top) < margin;
-      edges.bottom = Math.abs(mousePosition.y - bottom) < margin;
+      edges.left = Math.abs(mousePosition.x - bounds.left) < margin;
+      edges.right = Math.abs(mousePosition.x - bounds.right) < margin;
+      edges.top = Math.abs(mousePosition.y - bounds.top) < margin;
+      edges.bottom = Math.abs(mousePosition.y - bounds.bottom) < margin;
     }
 
     return edges;
@@ -572,26 +612,26 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onAddButtonClick() {
-    const x = this.width / 5;
-    const y = this.height / 5;
-    const width = 3 * this.width / 5;
-    const height = 3 * this.height / 5;
-    const rectangle = new Rectangle(x, y, width, height);
-    const sequence = 123
-    console.log(`ImageViewerComponent.onAddButtonClick: id: ${JSON.stringify(rectangle)}`)
-    this.rpcService.addMarquee$(this.page, rectangle, sequence).subscribe({
-      next: (id) => {
-        const marquee = new Marquee(id, 0, 0, this.page.id, rectangle, sequence);
+    const rectangle = new Rectangle(this.width / 5, this.height / 5, (3 * this.width) / 5, (3 * this.height) / 5);
+    const sequence = 123;
 
-        console.log(`ImageViewerComponent.onAddButtonClick: marquee: id: ${marquee.id} added`);
-        this.alertService.info(`marquee: id: ${marquee.id} added`);
-
-        this.router.navigate(['/diary', this.diary.id, this.page.id, marquee.fragmentId]);
+    this.rpcService.addMarquee$(this.page, rectangle, sequence).pipe(
+      switchMap((newId: number) =>
+        this.modelContext.marquees$.pipe(
+          map(ms => ms.find(m => m.id === newId) ?? null),
+          filter((m): m is Marquee => !!m && m.fragmentId > 0),
+          take(1)
+        )
+      )
+    ).subscribe({
+      next: (m) => {
+        this.alertService.info(`marquee: id: ${m.id} added`);
+        this.modelContext.setMarqueeId(m.id);
+        this.modelContext.setFragmentId(m.fragmentId);
+        this.router.navigate(['/diary', this.diary.id, this.page.id, m.fragmentId]);
       },
       error: (err) => {
-        if (!this.handleAuthError(err)) {
-          this.alertService.error(err);
-        }
+        if (!this.handleAuthError(err)) this.alertService.error(err);
       }
     });
   }
