@@ -7,7 +7,7 @@ import { GoldenLayout, RowOrColumnItemConfig, Side, LayoutConfig } from 'golden-
 import { ImageViewerComponent } from './image-viewer/image-viewer.component';
 import { TextPanelComponent } from './text-panel/text-panel.component';
 import { ModelContext } from '../model/model-context';
-import { distinctUntilChanged, filter, map, Observable, of, Subject, switchMap, takeUntil } from 'rxjs';
+import { distinctUntilChanged, filter, map, Observable, of, Subject, switchMap, take, takeUntil } from 'rxjs';
 import { ActivatedRoute, Router } from '@angular/router';
 import { DayviewComponent } from '../dayview/dayview.component';
 import { Page } from '../model/page';
@@ -73,7 +73,9 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
     diaryId$.pipe(takeUntil(this.destroy$))
       .subscribe(id => this.modelContext.setDiaryId(id));
 
-    pageId$.pipe(takeUntil(this.destroy$))
+    pageId$.pipe(
+      takeUntil(this.destroy$)
+    )
       .subscribe(id => this.modelContext.setPageId(id));
 
     // Only push fragmentId when present and > 0
@@ -204,52 +206,36 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  onBackPressed() {
-    console.log(`FragmentComponent.onBackPressed`);
-
-    // 1) grab the current diaryId & pageId from the URL
-    const diaryId = +this.route.snapshot.paramMap.get('diaryId')!;
-    const pageId = +this.route.snapshot.paramMap.get('pageId')!;
-
-    // 2) find where we are in the sorted pages list
-    const currentIndex = this.pages.findIndex(p => p.id === pageId);
-
-    // 3) if there *is* a previous page, navigate to it
-    if (currentIndex >= 1) {
-      const previousPage = this.pages[currentIndex - 1];
-      this.router.navigate(['/diary', diaryId, previousPage.id]);
-    }
-    else {
-      console.log('Already at the first page');
-    }
-  }
-
   onUpPressed() {
     console.log('FragmentComponent: Up pressed');
-  }
-
-  onForwardPressed() {
-    console.log('FragmentComponent: Forward pressed');
-
-    // 1) grab the current diaryId & pageId from the URL
-    const diaryId = +this.route.snapshot.paramMap.get('diaryId')!;
-    const pageId = +this.route.snapshot.paramMap.get('pageId')!;
-
-    // 2) find where we are in the sorted pages list
-    const currentIndex = this.pages.findIndex(p => p.id === pageId);
-
-    // 3) if there *is* a next page, navigate to it
-    if (currentIndex >= 0 && currentIndex < this.pages.length - 1) {
-      const nextPage = this.pages[currentIndex + 1];
-      this.router.navigate(['/diary', diaryId, nextPage.id]);
-    }
-    else {
-      console.log('Already at the last page');
-    }
   }
 
   onAddButtonClick() {
     console.log(`FragmentComponent.onAddButtonClick`);
     this.modelContext.fireAddButtonClick();
+  }
+
+
+
+  onBackPressed() {
+    const diaryId = +this.route.snapshot.paramMap.get('diaryId')!;
+    const pageId = +this.route.snapshot.paramMap.get('pageId')!;
+    const i = this.pages.findIndex(p => p.id === pageId);
+    if (i >= 1) {
+      const prev = this.pages[i - 1];
+      console.log(`FragmentComponent.onBackPressed: diaryId: ${diaryId}, prev.id:/${prev.id}`);
+      this.router.navigate(['/diary', diaryId, prev.id]);
+    }
+  }
+
+  onForwardPressed() {
+    const diaryId = +this.route.snapshot.paramMap.get('diaryId')!;
+    const pageId = +this.route.snapshot.paramMap.get('pageId')!;
+    const i = this.pages.findIndex(p => p.id === pageId);
+    if (i >= 0 && i < this.pages.length - 1) {
+      const next = this.pages[i + 1];
+      console.log(`FragmentComponent.onForwardPressed: diaryId: ${diaryId}, next.id:/${next.id}`);
+      this.router.navigate(['/diary', diaryId, next.id]);
+    }
   }
 }

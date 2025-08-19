@@ -38,7 +38,7 @@ export class ModelContext {
   private pageCache = new Map<number, Page>();
   private marqueeCache = new Map<number, Marquee>();
 
-  selectedMarquee$: Observable<Marquee>;
+  selectedMarquee$: Observable<Marquee | null>;
   selectedFragment$: Observable<Fragment>;
   selectedPage$: Observable<Page>;
   selectedDiary$: Observable<Diary>;
@@ -53,9 +53,11 @@ export class ModelContext {
     private liveObjectListService: LiveObjectListService,
     private liveObjectService: LiveObjectService
   ) {
+
     this.selectedMarquee$ = this.marqueeId$.pipe(
-      filter((id): id is number => Number.isFinite(id)),
-      switchMap(id => this.getLiveMarquee$(id))
+      switchMap(id =>
+        Number.isFinite(id) ? this.getLiveMarquee$(id as number) : of(null)
+      )
     );
 
     this.selectedFragment$ = this.fragmentId$.pipe(

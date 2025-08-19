@@ -78,73 +78,60 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnInit(): void {
     console.log('ImageViewerComponent.ngOnInit');
 
-    // 1️⃣ React when the header add button is clicked
+    // header add button
     this.modelContext.addButtonClicked$
       .pipe(takeUntil(this.destroy$))
-      .subscribe(() => {
-        this.onAddButtonClick();
-      });
+      .subscribe(() => this.onAddButtonClick());
 
+    // 1) Cache config and ensure it’s present
+    const config$ = from(this.configService.getConfig()).pipe(
+      filter((c): c is Config => !!c && !!c.fileServerUrl),
+      // if you import shareReplay: shareReplay({bufferSize:1, refCount:true})
+      take(1) // you only need it once here
+    );
 
+    // 2) Only proceed once diary/page are *resolved* (have names)
+    const diary$ = this.modelContext.selectedDiary$.pipe(
+      filter((d): d is Diary => !!d && !!d.name)
+    );
+    const page$ = this.modelContext.selectedPage$.pipe(
+      filter((p): p is Page => !!p && !!p.name && !!p.extension)
+    );
 
-    const config$ = from(this.configService.getConfig()).pipe(take(1));
-
-    combineLatest([
-      config$,
-      this.modelContext.selectedDiary$,
-      this.modelContext.selectedPage$,
-    ])
+    // 3) Build imageURL whenever any of these change
+    combineLatest([config$, diary$, page$])
       .pipe(takeUntil(this.destroy$))
       .subscribe(([config, diary, page]) => {
         this.config = config;
-        this.diary = diary!;
-        this.page = page!;
-        this.updateImageUrl();
+        this.diary = diary;
+        this.page = page;
+
+        const url = new URL(`images/${diary.name}/${page.name}${page.extension}`, config.fileServerUrl);
+        this.imageURL = url.toString();
+        console.log(`ImageViewer.updateImageUrl: imageURL updated to ${this.imageURL}`);
       });
 
-
-
-    // 5️⃣ Selected marquee
+    // 4) Selected marquee → mode
     this.modelContext.selectedMarquee$
       .pipe(
         takeUntil(this.destroy$),
         distinctUntilChanged((a, b) => a?.id === b?.id)
       )
-      .subscribe(marquee => {
-        this.marquee = marquee;
-        this.mode = marquee ? ViewMode.WithMarquee : ViewMode.WithoutMarquee;
+      .subscribe(m => {
+        this.marquee = m;
+        this.mode = m ? ViewMode.WithMarquee : ViewMode.WithoutMarquee;
       });
 
-    // 7️⃣ Marquees list
+    // 5) Marquees list
     this.modelContext.marquees$
-      .pipe(
-        takeUntil(this.destroy$)
-      )
-      .subscribe(marquees => {
-        console.log("ImageViewerComponent.<subscribe marquees>: marquees:", marquees.map(m => m.id));
-        this.marquees = marquees;
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(ms => {
+        console.log('ImageViewerComponent.<subscribe marquees>: ids=', ms.map(m => m.id));
+        this.marquees = ms;
       });
   }
 
 
-
-  private updateImageUrl() {
-    if (!this.config || !this.diary || !this.page) return;
-    if (!this.diary.name) {
-      console.warn('updateImageUrl: diary not resolved yet', { diary: this.diary });
-      return;
-    }
-    if (!this.page.name) {
-      console.warn('updateImageUrl: page not resolved yet', { page: this.page });
-      return;
-    }
-    const base = this.config.fileServerUrl?.replace(/\/+$/, '');
-    const newURL = `${base}/${this.diary.name}/${this.page.name}${this.page.extension}`;
-    if (newURL !== this.imageURL) {
-      this.imageURL = newURL;
-      console.log(`ImageViewer.updateImageUrl: imageURL updated to ${this.imageURL}`);
-    }
-  }
 
   get width(): number {
     return this.page?.width ?? 0;
