@@ -1,0 +1,26 @@
+<div class="dialog-container">
+  <h2>Server uploads ({{ data?.length ?? 0 }})</h2>
+
+  <div *ngIf="!data?.length" class="empty">No files found.</div>
+
+  <div class="files-grid">
+    <a *ngFor="let f of data"
+       class="file-card"
+       [href]="f.url" target="_blank" rel="noopener">
+      <div class="thumb">
+        <img class="thumb-img" [src]="resolveUrl(f.url)" alt="{{ f.name }}"
+             (error)="onImgError($event, f)"/>
+      </div>
+      <div class="file-meta">
+        <div class="file-name" title="{{ f.name }}">{{ f.name }}</div>
+        <div class="file-sub">
+          {{ f.size | number }} bytes · {{ f.mtime | date:'medium' }}
+        </div>
+      </div>
+    </a>
+  </div>
+
+  <div class="actions">
+    <button mat-button (click)="close()">Close</button>
+  </div>
+</div>

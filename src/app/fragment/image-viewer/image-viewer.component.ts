@@ -85,7 +85,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // 1) Cache config and ensure it’s present
     const config$ = from(this.configService.getConfig()).pipe(
-      filter((c): c is Config => !!c && !!c.fileServerUrl),
+      filter((c): c is Config => !!c && !!c.baseUrl),
       take(1) // you only need it once here
     );
 
@@ -105,9 +105,11 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
         this.diary = diary;
         this.page = page;
 
-        const url = new URL(`images/${diary.name}/${page.name}${page.extension}`, config.fileServerUrl);
+        console.log(`ImageViewer.ngOnInit: config.baseUrl:  ${config.baseUrl}`);
+
+        const url = new URL(`${config.diaries}/${diary.name}/${page.name}${page.extension}`, config.baseUrl);
         this.imageURL = url.toString();
-        console.log(`ImageViewer.updateImageUrl: imageURL updated to ${this.imageURL}`);
+        console.log(`ImageViewer.ngOnInit: imageURL updated to ${this.imageURL}`);
       });
 
     // 4) Selected marquee → mode

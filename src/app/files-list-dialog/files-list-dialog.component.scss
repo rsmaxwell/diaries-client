@@ -1,0 +1,65 @@
+@use '../../styles/constants' as *;
+
+.dialog-container {
+  max-width: 960px;
+  padding: 1rem;
+}
+
+h2 {
+  margin: 0 0 0.75rem 0;
+}
+
+.empty {
+  opacity: 0.7;
+}
+
+.files-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.file-card {
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+
+  &:hover { border-color: #cbd5e1; }
+}
+
+/* The preview box: choose a consistent tile ratio (change if you like) */
+.thumb {
+  width: 100%;
+  aspect-ratio: 4 / 3;            /* e.g. 4:3 tile; try 16/9 or 1/1 */
+  background: #f5f5f5;
+  display: grid;
+  place-items: center;            /* center the image if it doesn’t fill */
+}
+
+/* The image: fill the box, preserve aspect, no cropping */
+.thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;            /* key: letterboxes instead of cropping */
+  image-rendering: auto;          /* default; keeps hi-dpi crisp */
+}
+
+.file-meta {
+  padding: 0.5rem 0.75rem;
+}
+
+.file-name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-sub {
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+

@@ -3,7 +3,9 @@ import { Injectable } from '@angular/core';
 import { lastValueFrom } from 'rxjs';
 
 export interface Config {
-  fileServerUrl: string;
+  baseUrl: string;
+  diaries: string;
+  files: string;
   brokerUrl: string;
   clientId: string;
   username: string;

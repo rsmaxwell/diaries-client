@@ -11,6 +11,8 @@ import { Page } from '../../model/page';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { RpcService } from '../../mqtt/rpc.service';
 import { FilesListDialogComponent } from '../../files-list-dialog/files-list-dialog.component';
+import { Router } from '@angular/router';
+import { AlertService } from '../../alerts/alert.service';
 
 @Component({
   selector: 'app-pageheader',
@@ -44,7 +46,9 @@ export class PageheaderComponent implements OnInit, OnDestroy {
     private iconRegistry: MatIconRegistry,
     private sanitizer: DomSanitizer,
     private rpcService: RpcService,
-    private dialog: MatDialog
+    private dialog: MatDialog,
+    private router: Router,
+    private alertService: AlertService
   ) {
     this.iconRegistry.addSvgIcon('hand-pointer', this.sanitizer.bypassSecurityTrustResourceUrl('assets/icons/hand-pointer.svg'));
     this.iconRegistry.addSvgIcon('select', this.sanitizer.bypassSecurityTrustResourceUrl('assets/icons/select.svg'));
@@ -149,8 +153,10 @@ export class PageheaderComponent implements OnInit, OnDestroy {
         });
       },
       error: (err) => {
-        console.error('List files failed', err);
-        // Optional: surface via your AlertService if you prefer
+        if (!this.handleAuthError(err)) {
+          console.error('List files failed', err);
+          this.alertService.error(err); 
+        }
       }
     });
   }
@@ -158,6 +164,16 @@ export class PageheaderComponent implements OnInit, OnDestroy {
   onDeleteFileClick() {
     console.log('Delete File button clicked');
     this.deleteFile.emit();
+  }
+
+  // centralised helper (same idea as in ImageViewerComponent)
+  private handleAuthError(err: any): boolean {
+    if (err?.status === 401) {
+      const returnUrl = this.router.url; // capture current route+query
+      this.router.navigate(['/signin'], { queryParams: { returnUrl } });
+      return true;
+    }
+    return false;
   }
 }
 
