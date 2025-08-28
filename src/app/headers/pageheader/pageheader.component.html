@@ -1,20 +1,20 @@
 <mat-toolbar class="header">
-    <button mat-icon-button class="example-icon" aria-label="Example icon-button with menu icon">
+    <button mat-icon-button class="menu icon" aria-label="menu">
       <mat-icon>menu</mat-icon>
     </button>
     <span>{{title}}</span>
 
-    <span class="example-spacer"></span>
+    <span class="spacer"></span>
 
-    <button mat-icon-button class="example-icon hand-pointer-icon" aria-label="Example icon-button with hand-pointer icon" (click)="onViewClick()">
-      <mat-icon svgIcon="hand-pointer"></mat-icon>
+    <button mat-icon-button class="upload icon" aria-label="upload" (click)="onUploadClick()">
+      <mat-icon svgIcon="upload"></mat-icon>
     </button>
 
-    <button mat-icon-button class="example-icon select-icon" aria-label="Example icon-button with select icon" (click)="onSelectClick()">
-      <mat-icon svgIcon="select"></mat-icon>      
+    <button mat-icon-button class="list-files icon" aria-label="list-files" (click)="onListFilesClick()">
+      <mat-icon svgIcon="files"></mat-icon>
     </button>
 
-    <button mat-icon-button class="example-icon add-icon" aria-label="Example icon-button with add icon" (click)="onAddClick()">
+    <button mat-icon-button class="add icon" aria-label="add" (click)="onAddClick()">
       <mat-icon svgIcon="cross"></mat-icon>
     </button>
 

@@ -30,8 +30,8 @@ export class ModelContext {
 
   private destroy$ = new Subject<void>();
 
-  private liveMarquees = new Map<number, Observable<Marquee>>();
-  private liveFragments = new Map<number, Observable<Fragment>>();
+  private liveMarquees = new Map<number, Observable<Marquee | null>>();
+  private liveFragments = new Map<number, Observable<Fragment | null>>();
   private livePages = new Map<number, Observable<Page>>();
   private liveDiaries = new Map<number, Observable<Diary>>();
 
@@ -39,7 +39,7 @@ export class ModelContext {
   private marqueeCache = new Map<number, Marquee>();
 
   selectedMarquee$: Observable<Marquee | null>;
-  selectedFragment$: Observable<Fragment>;
+  selectedFragment$: Observable<Fragment | null>;
   selectedPage$: Observable<Page>;
   selectedDiary$: Observable<Diary>;
 
@@ -61,8 +61,9 @@ export class ModelContext {
     );
 
     this.selectedFragment$ = this.fragmentId$.pipe(
-      filter((id): id is number => Number.isFinite(id)),
-      switchMap(id => this.getLiveFragment$(id))
+      switchMap(id =>
+        Number.isFinite(id) ? this.getLiveFragment$(id as number) : of(null)
+      )
     );
 
     this.selectedPage$ = this.pageId$.pipe(
@@ -116,19 +117,24 @@ export class ModelContext {
       .subscribe((marqueeId) => this.setMarqueeId(marqueeId));
 
 
-    this.fragments$ = combineLatest([this.selectedFragment$]).pipe(
-      // use the selected fragment’s Y/M/D for the Dayview’s list
-      switchMap(([selected]) => {
-        const y = selected.year, m = selected.month, d = selected.day;
+    // selectedFragment$ should emit Fragment | null
+    this.selectedFragment$ = this.fragmentId$.pipe(
+      switchMap(id => Number.isFinite(id) ? this.getLiveFragment$(id as number) : of(null))
+    );
+
+    // Build the Dayview list for the selected date
+    this.fragments$ = this.selectedFragment$.pipe(
+      switchMap(selected => {
+        if (!selected) return of([] as Fragment[]); // nothing selected → clear list
+
+        const { year: y, month: m, day: d } = selected;
         const topicFilters = [`dates/${y}/${m}/${d}/+`];
         topicFilters.forEach(f => this.activeTopicFilters.add(f));
 
         return from(this.mqtt.getConnection()).pipe(
           switchMap(client =>
             this.liveObjectListService.subscribeToTopicTree$<Fragment>(
-              client,
-              topicFilters,
-              buf => JSON.parse(buf.toString()) as Fragment
+              client, topicFilters, buf => JSON.parse(buf.toString()) as Fragment
             )
           )
         );
@@ -142,11 +148,11 @@ export class ModelContext {
       this.fragments$
     ]).pipe(
       map(([selected, all]) =>
-        all.filter(f =>
+        selected ? all.filter(f =>
           f.year === selected.year &&
           f.month === selected.month &&
           f.day === selected.day
-        )
+        ) : []
       )
     );
 
@@ -174,7 +180,7 @@ export class ModelContext {
 
 
 
-  getLiveMarquee$(id: number): Observable<Marquee> {
+  getLiveMarquee$(id: number): Observable<Marquee | null> {
     if (!this.liveMarquees.has(id)) {
       const topic = `marquees/${id}`;
       const observable$ = this.liveObjectService.getObjectById$<Marquee>(topic, buf => JSON.parse(buf.toString()) as Marquee)
@@ -220,7 +226,7 @@ export class ModelContext {
 
 
 
-  getLiveFragment$(id: number): Observable<Fragment> {
+  getLiveFragment$(id: number): Observable<Fragment | null> {
     if (!this.liveFragments.has(id)) {
       const topic = `fragments/${id}`;
       const observable$ = this.liveObjectService.getObjectById$<Fragment>(topic, buf => JSON.parse(buf.toString()) as Fragment)
@@ -267,19 +273,22 @@ export class ModelContext {
 
 
 
-
   getLivePage$(id: number): Observable<Page> {
-    if (!this.livePages.has(id)) {
-      const topic = `pages/${id}`;
-      const observable$ = this.liveObjectService.getObjectById$<Page>(topic, buf => JSON.parse(buf.toString()) as Page)
-        .pipe(
-          shareReplay({ bufferSize: 1, refCount: true })
-        );
+    const cached = this.livePages.get(id);
+    if (cached) return cached;
 
-      this.livePages.set(id, observable$);
-    }
+    const topic = `pages/${id}`;
 
-    return this.livePages.get(id)!;
+    const observable$ = this.liveObjectService
+      .getObjectById$<Page>(topic, buf => JSON.parse(buf.toString()) as Page) // emits Page | null
+      .pipe(
+        // Narrow to Page (drops nulls) so the type becomes Observable<Page>
+        filter((p): p is Page => p !== null),
+        shareReplay({ bufferSize: 1, refCount: true })
+      );
+
+    this.livePages.set(id, observable$);   // ✅ types now match
+    return observable$;
   }
 
   /*
@@ -316,17 +325,19 @@ export class ModelContext {
 
 
   getLiveDiary$(id: number): Observable<Diary> {
-    if (!this.liveDiaries.has(id)) {
-      const topic = `diaries/${id}`;
-      const observable$ = this.liveObjectService.getObjectById$<Diary>(topic, buf => JSON.parse(buf.toString()) as Diary)
-        .pipe(
-          shareReplay({ bufferSize: 1, refCount: true })
-        );
+    const cached = this.liveDiaries.get(id);
+    if (cached) return cached;
 
-      this.liveDiaries.set(id, observable$);
-    }
+    const topic = `diaries/${id}`;
+    const observable$ = this.liveObjectService
+      .getObjectById$<Diary>(topic, buf => JSON.parse(buf.toString()) as Diary)
+      .pipe(
+        filter((d): d is Diary => d !== null),
+        shareReplay({ bufferSize: 1, refCount: true })
+      );
 
-    return this.liveDiaries.get(id)!;
+    this.liveDiaries.set(id, observable$);
+    return observable$;
   }
 
   /*
@@ -344,7 +355,7 @@ export class ModelContext {
 
   /* 
    * Unsubscribe from all active diary topics and clear the entire liveDiaries map.
-   * To be when we know we're done with a particular diary.
+   * To be used when we know we're done with a particular diary.
    */
   releaseLiveDiary(): void {
     this.liveDiaries.forEach((_obs, id) => {

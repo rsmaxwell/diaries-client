@@ -86,7 +86,6 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     // 1) Cache config and ensure it’s present
     const config$ = from(this.configService.getConfig()).pipe(
       filter((c): c is Config => !!c && !!c.fileServerUrl),
-      // if you import shareReplay: shareReplay({bufferSize:1, refCount:true})
       take(1) // you only need it once here
     );
 
@@ -128,6 +127,35 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       .subscribe(ms => {
         console.log('ImageViewerComponent.<subscribe marquees>: ids=', ms.map(m => m.id));
         this.marquees = ms;
+      });
+
+    // Auto-select first marquee if URL has no fragmentId
+    this.modelContext.selectedPage$
+      .pipe(
+        filter(p => !!p), // run once per concrete page
+        switchMap(() =>
+          combineLatest([
+            this.modelContext.marquees$,   // marquees for the current page
+            this.modelContext.fragmentId$, // current fragment (null if none in URL)
+          ]).pipe(
+            filter(([ms, fid]) => fid == null && Array.isArray(ms) && ms.length > 0),
+            take(1) // only once per page activation
+          )
+        ),
+        takeUntil(this.destroy$)
+      )
+      .subscribe(([ms]) => {
+        const first = ms[0];
+
+        // keep global state in sync
+        this.modelContext.setMarqueeId(first.id);
+        this.modelContext.setFragmentId(first.fragmentId);
+
+        // use the already-known diary/page to canonicalise the URL
+        this.router.navigate(
+          ['/diary', this.diary!.id, this.page!.id, first.fragmentId],
+          { replaceUrl: true }
+        );
       });
   }
 

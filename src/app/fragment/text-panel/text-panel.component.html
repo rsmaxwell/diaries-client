@@ -11,6 +11,13 @@
     >
       {{ formattedDate }}
     </span>
+    <span
+          [ngStyle]="{
+        'color': 'grey',
+        'padding-left': '50px',
+        'border-radius': '2px'
+       }"
+    > id: {{ fragment.id }} </span>
 
     <!-- hidden field + picker -->
     <mat-form-field style="width:0; height:0; overflow:hidden; margin:0; padding:0;">

@@ -1,4 +1,4 @@
-import { forkJoin, from, Observable, Subscriber, switchMap } from "rxjs";
+import { forkJoin, from, map, Observable, Subscriber, switchMap } from "rxjs";
 import { MqttService } from "./mqtt.service";
 import { Buffer } from 'buffer';
 import mqtt, { IClientPublishOptions, IPublishPacket } from "mqtt";
@@ -20,6 +20,7 @@ import { RefreshTokenReply, RefreshTokenRequest } from "../model/refresh.token";
 import { Fragment, NormaliseFragmentsRequest, UpdateFragmentRequest } from "../model/fragment";
 import { AccessTokenService } from "../user/token/accessTokenService";
 import { RefreshTokenService } from "../user/token/refreshTokenService";
+import { ImageItem } from "../model/image-item";
 
 
 @Injectable({ providedIn: 'root' })
@@ -384,6 +385,53 @@ export class RpcService {
                 const payload = { function: 'deleteMarquee', args: new DeleteMarqueeRequest(id) };
                 const deserialize = ReplyHandler.getBufferAsNumber
                 return this.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
+            })
+        );
+    }
+
+    listFiles$(): Observable<ImageItem[]> {
+        return forkJoin({
+            cfg: this.configService.getConfig(),
+            client: this.mqtt.getConnection(),
+            token: this.accessTokenService.getToken()
+        }).pipe(
+            switchMap(({ cfg, client, token }) => {
+                const replyTopic = `reply/${cfg.clientId}/listFiles`;
+                const payload = { function: 'listFiles' };
+                const deserialize = ReplyHandler.getBufferAsObject as (buffer: Buffer) => ImageItem[];
+                return this.rpcRequest<ImageItem[]>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
+            })
+        );
+    }
+
+    uploadFile$(file: File): Observable<ImageItem> {
+        return forkJoin({
+            cfg: this.configService.getConfig(),
+            client: this.mqtt.getConnection(),
+            token: this.accessTokenService.getToken()
+        }).pipe(
+            // Read the file as bytes → base64 (no full string copies)
+            switchMap(({ cfg, client, token }) =>
+                from(file.arrayBuffer()).pipe(
+                    map(buf => {
+                        const b64 = Buffer.from(new Uint8Array(buf)).toString('base64');
+                        return { cfg, client, token, b64 };
+                    })
+                )
+            ),
+            switchMap(({ cfg, client, token, b64 }) => {
+                const replyTopic = `reply/${cfg.clientId}/uploadFile`;
+                const payload = {
+                    function: 'uploadFile',
+                    args: {
+                        name: file.name,
+                        contentType: file.type || 'application/octet-stream',
+                        size: file.size,
+                        bytes: b64
+                    }
+                };
+                const deserialize = ReplyHandler.getBufferAsObject as (buffer: Buffer) => ImageItem;
+                return this.rpcRequest<ImageItem>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
             })
         );
     }

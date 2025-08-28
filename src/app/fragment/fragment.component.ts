@@ -40,52 +40,39 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
     private modelContext: ModelContext
   ) { }
 
-  // 1) Resolve the parameter as string|null by walking up parents
-  private paramFromRoute$(route: ActivatedRoute, key: string): Observable<string | null> {
-    return route.paramMap.pipe(
+  // Number (or null) with safe parsing
+  private idFromRoute$(key: string): Observable<number | null> {
+    return this.route.paramMap.pipe(
       map(pm => pm.get(key)),
-      switchMap(v =>
-        v !== null
-          ? of(v)
-          : route.parent
-            ? this.paramFromRoute$(route.parent, key)   // <-- still string|null
-            : of(null)
-      ),
-      distinctUntilChanged()
-    );
-  }
-
-  // 2) Convert to number|null safely
-  private idFromRoute$(route: ActivatedRoute, key: string): Observable<number | null> {
-    return this.paramFromRoute$(route, key).pipe(
-      map(v => (v === null ? null : (Number.isFinite(+v) ? +v : null))),
+      map(v => (v !== null && /^\d+$/.test(v) ? parseInt(v, 10) : null)),
       distinctUntilChanged()
     );
   }
 
   ngOnInit(): void {
     // Resolve ids from this route or any parent using the helper
-    const diaryId$ = this.idFromRoute$(this.route, 'diaryId');
-    const pageId$ = this.idFromRoute$(this.route, 'pageId');
-    const fragmentId$ = this.idFromRoute$(this.route, 'fragmentId');
+    const diaryId$ = this.idFromRoute$('diaryId');
+    const pageId$ = this.idFromRoute$('pageId');
+    const rawFragId$ = this.idFromRoute$('fragmentId');
 
     // Push into ModelContext (allow null to clear; ModelContext guards handle NaN)
-    diaryId$.pipe(takeUntil(this.destroy$))
-      .subscribe(id => this.modelContext.setDiaryId(id));
+    diaryId$.pipe(takeUntil(this.destroy$)).subscribe(id => this.modelContext.setDiaryId(id));
+    pageId$.pipe(takeUntil(this.destroy$)).subscribe(id => this.modelContext.setPageId(id));
 
-    pageId$.pipe(
-      takeUntil(this.destroy$)
-    )
-      .subscribe(id => this.modelContext.setPageId(id));
+    // Normalize fragment id (null when absent or 0)
+    const fragmentIdOrNull$ = rawFragId$.pipe(
+      map(id => (id != null && id > 0) ? id : null),
+      distinctUntilChanged()
+    );
 
-    // Only push fragmentId when present and > 0
-    fragmentId$.pipe(
-      filter((id): id is number => id != null && id > 0),
-      takeUntil(this.destroy$)
-    )
-      .subscribe(id => {
-        console.log(`FragmentComponent.ngOnInit: pushing fragmentId ${id} to the ModelContext`);
-        this.modelContext.setFragmentId(id);
+    // Push to ModelContext; clear marquee if fragment clears
+    fragmentIdOrNull$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(fid => {
+        this.modelContext.setFragmentId(fid);
+        if (fid === null) {
+          this.modelContext.setMarqueeId(null);
+        }
       });
 
     // Pages list - ordered by sequence number (unchanged)
@@ -154,13 +141,13 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
       },
       settings: {
         hasHeaders: true,
-        showPopoutIcon: false,    // ⬅️ hide “open in new window”
-        showMaximiseIcon: false,   // ⬅️ hide “maximise”
-        showCloseIcon: false   // ⬅️ hide “close”
+        showPopoutIcon: false,
+        showMaximiseIcon: false,
+        showCloseIcon: false
       },
       header: {
         show: Side.top,
-        close: false            // ❌ some versions accept this per header
+        close: false
       }
     };
 
@@ -207,7 +194,9 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onUpPressed() {
+    const diaryId = +this.route.snapshot.paramMap.get('diaryId')!;
     console.log('FragmentComponent: Up pressed');
+    this.router.navigate(['/diary', diaryId]);
   }
 
   onAddButtonClick() {

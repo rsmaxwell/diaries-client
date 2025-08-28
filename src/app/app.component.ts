@@ -17,17 +17,11 @@ import { TokenRequestor } from './user/tokenRequestor';
 export class AppComponent implements OnInit {
   constructor(
     private accessToken: AccessTokenService,
-    private refreshToken: RefreshTokenService,
-    private tokenRequestor: TokenRequestor
+    private refreshToken: RefreshTokenService
   ) {}
 
   ngOnInit() {
     const token = this.accessToken.getCurrentToken();
     const refreshToken = this.refreshToken.getCurrentToken();
-    // if (token && refreshToken) {
-    //   const defaultRefreshInterval = 10; // or derive this dynamically if needed
-    //   console.log("AppComponent: starting TokenRequestor");
-    //   this.tokenRequestor.start(defaultRefreshInterval);
-    // }
   }
 }

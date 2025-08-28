@@ -29,7 +29,7 @@ export class LiveObjectService {
   getObjectById$<T>(
     topic: string,
     deserialize: (buf: Buffer) => T
-  ): Observable<T> {
+  ): Observable<T | null> {
 
     // If already subscribed, increment refCount
     if (this.subjects.has(topic)) {
@@ -40,21 +40,22 @@ export class LiveObjectService {
     }
 
     // First time: create ReplaySubject and message handler
-    const subject = new ReplaySubject<T>(1);
+    const subject = new ReplaySubject<T | null>(1);
     const handler = (messageTopic: string, payload: Buffer) => {
-      if (messageTopic === topic) {
-        const payloadStr = payload.toString();
-        if (!payloadStr.trim()) {
-          console.log(`LiveObjectService.getObjectById$: Empty payload => deleted object at ${topic}`);
-          subject.complete();
-          return;
-        }
-        try {
-          subject.next(deserialize(payload));
-        } catch (err) {
-          console.error(`LiveObjectService.getObjectById$: parse error on ${topic}:`, err);
-          subject.error(err as Error);
-        }
+      if (messageTopic !== topic) return;
+
+      // retained delete => zero-length payload
+      if (!payload || payload.length === 0) {
+        console.log(`LiveObjectService.getObjectById$: zero-length payload => emit null for ${topic}`);
+        subject.next(null);      // <— tell subscribers it's gone
+        return;                  // keep stream alive for future values
+      }
+
+      try {
+        subject.next(deserialize(payload));
+      } catch (err) {
+        console.error(`LiveObjectService.getObjectById$: parse error on ${topic}:`, err);
+        subject.error(err as Error);
       }
     };
 
@@ -83,7 +84,7 @@ export class LiveObjectService {
     });
 
     // Return an observable that tears itself down correctly
-    return new Observable<T>(observer => {
+    return new Observable<T | null>(observer => {
       const sub = subject.subscribe(observer);
 
       return () => {

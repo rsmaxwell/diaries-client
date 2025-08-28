@@ -32,16 +32,6 @@ export class PagefooterComponent {
     this.router.navigate(['/']);
   }
 
-  diaries() {
-    console.log('PagefooterComponent.diaries');
-    this.router.navigate(['/diaries']);
-  }
-
-  pages() {
-    console.log('PagefooterComponent.pages');
-    this.router.navigate(['/thing']);
-  }
-
   onBackClick() {
     console.log('PagefooterComponent.onBackClick');
     this.back.emit();
