@@ -1,26 +1,174 @@
-<div class="dialog-container">
-  <h2>Server uploads ({{ data?.length ?? 0 }})</h2>
+<div class="dialog-container" [class.mode-large]="isActive('large')" [class.mode-medium]="isActive('medium')"
+  [class.mode-small]="isActive('small')" [class.mode-list]="isActive('list')"
+  [class.mode-details]="isActive('details')">
 
-  <div *ngIf="!data?.length" class="empty">No files found.</div>
+  <!-- Header: subdir (left) + view buttons (right) -->
+  <div class="dialog-header">
+    <div class="subdir-wrap">
+      <span class="header-folder-icon" aria-hidden="true">📁</span>
+      <h2 class="subdir" [title]="subdirPath">{{ subdirPath || '/' }}</h2>
+    </div>
 
+    <div class="view-switch">
+      <label for="view-mode" class="vh">View</label>
+      <mat-select id="view-mode" class="mat-mdc-select mode-select bare" [value]="viewMode"
+        (selectionChange)="onModeSelect($event.value)">
+        <!-- Closed state: show icon + "View" -->
+        <mat-select-trigger>
+          <span class="option">
+            <mat-icon class="opt-icon" [svgIcon]="modesByValue[viewMode].icon"></mat-icon>
+            <span class="opt-label">View</span>
+          </span>
+        </mat-select-trigger>
+
+        <!-- Menu options (keep your icon + label per mode) -->
+        <mat-option *ngFor="let m of modes" [value]="m.value">
+          <span class="option">
+            <mat-icon class="opt-icon" [svgIcon]="m.icon"></mat-icon>
+            <span class="opt-label">{{ m.label }}</span>
+          </span>
+        </mat-option>
+      </mat-select>
+    </div>
+
+  </div>
+
+  <!-- Empty state -->
+  @if (isEmpty$ | async) {
+  <div class="empty">No files found.</div>
+  }
+
+  <!-- Loading state -->
+  @if (loading) {
+  <div class="loading">Loading…</div>
+  }
+
+  <!-- Scrolling region -->
+  @if (items$ | async; as items) {
   <div class="files-grid">
-    <a *ngFor="let f of data"
-       class="file-card"
-       [href]="f.url" target="_blank" rel="noopener">
-      <div class="thumb">
-        <img class="thumb-img" [src]="resolveUrl(f.url)" alt="{{ f.name }}"
-             (error)="onImgError($event, f)"/>
+    <!-- Parent directory (if not at root) -->
+    @if (parentSubdir) {
+    <button type="button" class="file-card dir parent" (click)="navigateTo(parentSubdir!)" title="Go up one level">
+      <div class="thumb folder">
+        <mat-icon class="folder-icon" svgIcon="folder" aria-hidden="true"></mat-icon>
+        <span class="folder-up">..</span>
       </div>
       <div class="file-meta">
-        <div class="file-name" title="{{ f.name }}">{{ f.name }}</div>
+        <div class="file-name">Parent</div>
+        @if (!isActive('list') && !isActive('details')) {
         <div class="file-sub">
-          {{ f.size | number }} bytes · {{ f.mtime | date:'medium' }}
+          {{ parentSubdir }}
         </div>
+        }
+        @if (isActive('details')) {
+        <div class="file-sub details">Folder</div>
+        }
       </div>
-    </a>
-  </div>
+    </button>
+    }
 
-  <div class="actions">
-    <button mat-button (click)="close()">Close</button>
+    <!-- Details header (only in details mode) -->
+    @if (isActive('details')) {
+    <div class="details-header">
+      <div class="details-row">
+        <div class="col-image" aria-hidden="true"></div> <!-- thumb column -->
+        <div class="col-name">Name</div>
+        <div class="col-size">Size</div>
+        <div class="col-mtime">Modified</div>
+        <div class="col-dtaken">Taken</div>
+      </div>
+    </div>
+    }
+
+    <!-- Folders -->
+    <ng-container *ngFor="let d of items; trackBy: trackByName">
+      @if (d.dir) {
+      @if (isActive('list')) {
+      <!-- LIST mode: name-only tile for directories -->
+      <button type="button" class="file-card dir" title="{{ d.name }}" (click)="navigateTo(d.name)">
+        <div class="file-meta list-meta">
+          <div class="list-row">
+            <div class="col-name" [title]="d.name">{{ d.name }}</div>
+          </div>
+        </div>
+      </button>
+      } @else {
+      <!-- Other modes: the folder tile -->
+      <button type="button" class="file-card dir" title="{{ d.name }}"
+        (click)="navigateTo(subdirPath === '/' ? '/' + d.name : subdirPath + '/' + d.name)">
+        <div class="thumb folder">
+          <mat-icon class="folder-icon" svgIcon="folder" aria-hidden="true"></mat-icon>
+        </div>
+        <div class="file-meta">
+          <div class="file-name" [title]="d.name">{{ d.name }}</div>
+
+          @if (isActive('details')) {
+          <div class="file-sub details">Folder</div>
+          }
+
+          @else {
+          <div class="file-sub">Folder</div>
+          }
+
+        </div>
+      </button>
+      }
+      }
+    </ng-container>
+
+    <!-- Files -->
+    <ng-container *ngFor="let f of items; trackBy: trackByName">
+      @if (!f.dir) {
+      <a class="file-card" [href]="resolveUrl(f.url)" target="_blank" rel="noopener">
+
+        @if (isActive('list')) {
+        <!-- Details: single, tiny inline thumb + aligned columns -->
+        <div class="file-meta list-meta">
+          <div class="list-row">
+            <div class="list-thumb">
+              <img class="thumb-img" [src]="resolveUrl(f.url)" alt="{{ f.name }}" (error)="onImgError($event, f)" />
+            </div>
+            <div class="col-name" title="{{ f.name }}">{{ f.name }}</div>
+          </div>
+        </div>
+        } @else if (isActive('details')) {
+        <!-- Details: single, tiny inline thumb + aligned columns -->
+        <div class="file-meta details-meta">
+          <div class="details-row">
+            <div class="details-thumb">
+              <img class="thumb-img" [src]="resolveUrl(f.url)" alt="{{ f.name }}" (error)="onImgError($event, f)" />
+            </div>
+            <div class="col-name" title="{{ f.name }}">{{ f.name }}</div>
+            <div class="col-size">{{ f.size | number }}</div>
+            <div class="col-mtime">{{ f.mtime | date:'yyyy MMM dd' }}</div>
+            <div class="col-dtaken">{{ (f.dateTaken ? f.dateTaken : null) | date:'yyyy MMM dd' }}</div>
+          </div>
+        </div>
+        } @else {
+        <!-- Non-details (tile/list): outer thumb + simple meta -->
+        <div class="thumb">
+          <img class="thumb-img" [src]="resolveUrl(f.url)" alt="{{ f.name }}" (error)="onImgError($event, f)" />
+        </div>
+
+        <div class="file-meta">
+          <div class="file-name" title="{{ f.name }}">{{ f.name }}</div>
+          <div class="file-sub">
+            {{ (f.dateTaken ? f.dateTaken : f.mtime) | date:'yyyy MMM dd' }}
+          </div>
+        </div>
+        }
+      </a>
+      }
+    </ng-container>
   </div>
-</div>
+  }
+
+  <!-- Footer -->
+  <div class="dialog-footer">
+    <div class="count">
+      {{ fileCount$ | async | i18nPlural: {'=0':'0 files','=1':'1 file','other':'# files'} }}
+    </div>
+    <div class="footer-actions">
+      <button class="close-button" (click)="close()">Close</button>
+    </div>
+  </div>

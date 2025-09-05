@@ -8,7 +8,7 @@ import { ModelContext } from '../../model/model-context';
 import { Subject, switchMap, take, takeUntil } from 'rxjs';
 import { Diary } from '../../model/diary';
 import { Page } from '../../model/page';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { Dialog } from '@angular/cdk/dialog';
 import { RpcService } from '../../mqtt/rpc.service';
 import { FilesListDialogComponent } from '../../files-list-dialog/files-list-dialog.component';
 import { Router } from '@angular/router';
@@ -20,8 +20,7 @@ import { AlertService } from '../../alerts/alert.service';
   imports: [
     MatToolbarModule,
     MatButtonModule,
-    MatIconModule,
-    MatDialogModule
+    MatIconModule
   ],
   templateUrl: './pageheader.component.html',
   styleUrl: './pageheader.component.scss'
@@ -46,7 +45,7 @@ export class PageheaderComponent implements OnInit, OnDestroy {
     private iconRegistry: MatIconRegistry,
     private sanitizer: DomSanitizer,
     private rpcService: RpcService,
-    private dialog: MatDialog,
+    private dialog: Dialog,
     private router: Router,
     private alertService: AlertService
   ) {
@@ -125,7 +124,8 @@ export class PageheaderComponent implements OnInit, OnDestroy {
         next: (items) => {
           this.dialog.open(FilesListDialogComponent, {
             width: '980px',
-            data: items ?? []
+            data: items ?? [],
+            panelClass: 'files-dialog-panel'   // <- custom hook for styling
           });
         },
         error: (err) => {
@@ -140,27 +140,10 @@ export class PageheaderComponent implements OnInit, OnDestroy {
 
   onListFilesClick() {
     console.log('List Files button clicked');
-
-    // Option 1: keep your Output if something else also listens:
     this.listFiles.emit();
-
-    // Option 2 (direct): call RPC and open dialog
-    this.rpcService.listFiles$().pipe(take(1)).subscribe({
-      next: (items) => {
-        this.dialog.open(FilesListDialogComponent, {
-          width: '980px',
-          data: items ?? []
-        });
-      },
-      error: (err) => {
-        if (!this.handleAuthError(err)) {
-          console.error('List files failed', err);
-          this.alertService.error(err); 
-        }
-      }
-    });
   }
 
+  
   onDeleteFileClick() {
     console.log('Delete File button clicked');
     this.deleteFile.emit();

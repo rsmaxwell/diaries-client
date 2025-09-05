@@ -7,11 +7,12 @@ import { GoldenLayout, RowOrColumnItemConfig, Side, LayoutConfig } from 'golden-
 import { ImageViewerComponent } from './image-viewer/image-viewer.component';
 import { TextPanelComponent } from './text-panel/text-panel.component';
 import { ModelContext } from '../model/model-context';
-import { distinctUntilChanged, filter, map, Observable, of, Subject, switchMap, take, takeUntil } from 'rxjs';
+import { BehaviorSubject, distinctUntilChanged, filter, map, Observable, of, Subject, switchMap, take, takeUntil } from 'rxjs';
 import { ActivatedRoute, Router } from '@angular/router';
 import { DayviewComponent } from '../dayview/dayview.component';
 import { Page } from '../model/page';
-
+import { FilesListDialogComponent } from '../files-list-dialog/files-list-dialog.component';
+import { Dialog, DialogModule } from '@angular/cdk/dialog';
 
 @Component({
   selector: 'app-fragment',
@@ -19,7 +20,8 @@ import { Page } from '../model/page';
   imports: [
     CommonModule,
     PageheaderComponent,
-    PagefooterComponent
+    PagefooterComponent,
+    DialogModule
   ],
   templateUrl: './fragment.component.html',
   styleUrls: ['./fragment.component.scss']
@@ -37,7 +39,8 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
     private router: Router,
     private appRef: ApplicationRef,
     private environmentInjector: EnvironmentInjector,
-    private modelContext: ModelContext
+    private modelContext: ModelContext,
+    private dialog: Dialog
   ) { }
 
   // Number (or null) with safe parsing
@@ -204,7 +207,16 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
     this.modelContext.fireAddButtonClick();
   }
 
-
+  openFilesDialog() {
+    console.log(`FragmentComponent.openFilesDialog`);
+    const path$ = new BehaviorSubject<string>('/');
+    const ref = this.dialog.open(FilesListDialogComponent, {
+      width: '980px',
+      panelClass: 'files-dialog-panel',
+      data: { path$ }
+    });
+    ref.closed.pipe(take(1)).subscribe(() => path$.complete());
+  }
 
   onBackPressed() {
     const diaryId = +this.route.snapshot.paramMap.get('diaryId')!;

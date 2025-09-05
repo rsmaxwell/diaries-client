@@ -1,0 +1,34 @@
+<?xml version='1.0' encoding='utf-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="248" height="196" viewBox="230 0 248 196" version="1.1" id="svg2" xml:space="preserve"><defs id="defs2">
+		<linearGradient id="linearGradient2">
+			<stop style="stop-color:#ffe69c;stop-opacity:1;" offset="0" id="stop2" />
+			<stop style="stop-color:#ffca38;stop-opacity:1;" offset="1" id="stop3" />
+		</linearGradient>
+		<filter id="softShadow" x="-0.012121212" y="-0.017777778" width="1.0242424" height="1.0392593">
+			<feGaussianBlur in="SourceAlpha" stdDeviation="2" id="feGaussianBlur1" />
+			<feOffset dx="0" dy="1" result="offsetblur" id="feOffset1" />
+			<feMerge id="feMerge2">
+				<feMergeNode id="feMergeNode1" />
+				<feMergeNode in="SourceGraphic" id="feMergeNode2" />
+			</feMerge>
+		</filter>
+		<linearGradient xlink:href="#linearGradient2" id="linearGradient3" x1="132.11499" y1="140.67223" x2="345.37247" y2="259.67221" gradientUnits="userSpaceOnUse" />
+		<linearGradient xlink:href="#linearGradient2" id="linearGradient4" gradientUnits="userSpaceOnUse" x1="132.11499" y1="140.67223" x2="345.37247" y2="259.67221" />
+		<linearGradient xlink:href="#linearGradient2" id="linearGradient5" gradientUnits="userSpaceOnUse" x1="132.11499" y1="140.67223" x2="345.37247" y2="259.67221" />
+		<linearGradient xlink:href="#linearGradient2" id="linearGradient6" gradientUnits="userSpaceOnUse" x1="132.11499" y1="140.67223" x2="345.37247" y2="259.67221" />
+	</defs>
+	<g id="layer1" style="display:inline" transform="translate(116.66116,-84.03558)">
+		<g id="g1">
+			<rect style="display:inline;fill:#faba1a;fill-opacity:1;stroke:#000000;stroke-width:2.18834;stroke-linecap:round;stroke-opacity:0.0274136;paint-order:stroke fill markers" id="rect1" width="223.91234" height="151.57304" x="126.4724" y="118.60379" rx="12.025169" />
+			<rect style="display:inline;fill:#faba1a;fill-opacity:1;stroke:#000000;stroke-width:0.578271;stroke-linecap:round;stroke-opacity:0.0274136;paint-order:stroke fill markers" id="rect1-9" width="59.898563" height="39.565643" x="126.38343" y="94.399689" rx="9.4236937" />
+			<path id="rect1-9-6" style="display:inline;fill:#faba1a;fill-opacity:1;stroke:#000000;stroke-width:0.56075;stroke-linecap:round;stroke-opacity:0.0274136;paint-order:stroke fill markers" d="m 159.35072,94.44751 h 36.03424 c 8.52424,0 13.93043,3.293321 17.93015,8.08647 L 230.39331,123 c 0,0 -50.614,-0.21044 -80.39331,0 v -19.695 c 0,-4.906979 4.44374,-8.85749 9.35072,-8.85749 z" />
+		</g>
+	</g>
+	<g id="layer3" style="display:inline" transform="translate(116.66116,-84.03558)">
+		<g id="g2" style="fill:url(#linearGradient3)" transform="matrix(1.0013626,0,0,0.99998731,-0.39015781,0.00246971)">
+			<rect style="display:inline;fill:url(#linearGradient4);fill-opacity:1;stroke:#000000;stroke-width:3.16642;stroke-linecap:round;stroke-opacity:0.0274136;paint-order:stroke fill markers" id="rect2" width="223.59103" height="131.53484" x="126.69821" y="134.29962" rx="12" />
+			<rect style="fill:url(#linearGradient5);fill-opacity:1;stroke:#000000;stroke-width:1.46923;stroke-linecap:round;stroke-opacity:0.0274136;paint-order:stroke fill markers" id="rect2-2" width="120.18641" height="52.684814" x="230.04268" y="122.66139" rx="12.016655" />
+			<path id="rect2-2-9" style="fill:url(#linearGradient6);fill-opacity:1;stroke:#000000;stroke-width:1.04599;stroke-linecap:round;stroke-opacity:0.0274136;paint-order:stroke fill markers" d="m 229.22089,122.6205 h 35.88032 c 6.64807,0 12.00013,5.35206 12.00013,12.00013 l 0.24993,13.72908 c 0,0 -71.56095,11.42745 -83.06522,0.0312 -11.50427,-11.3962 -4.76801,-14.08373 -0.12772,-14.09375 4.64029,-0.01 12.06096,-0.40864 13.69139,-0.86977 1.58039,-0.44698 5.85874,-2.30956 8.08086,-3.5876 2.22212,-1.27805 5.07801,-3.44766 6.41518,-4.45921 1.12065,-0.84776 2.78956,-2.75013 6.87513,-2.75013 z" />
+		</g>
+	</g>
+</svg>

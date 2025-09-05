@@ -32,3 +32,9 @@ body {
   display: none !important;
 }
 
+.files-dialog-panel .cdk-dialog-container {
+  border: 1px solid gray;  /* your color */
+  border-radius: 5px;   /* square corners */
+  box-sizing: border-box;
+  background: lightgray;            /* ensure a solid surface */  
+}

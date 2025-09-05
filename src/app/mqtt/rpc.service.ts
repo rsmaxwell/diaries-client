@@ -20,7 +20,8 @@ import { RefreshTokenReply, RefreshTokenRequest } from "../model/refresh.token";
 import { Fragment, NormaliseFragmentsRequest, UpdateFragmentRequest } from "../model/fragment";
 import { AccessTokenService } from "../user/token/accessTokenService";
 import { RefreshTokenService } from "../user/token/refreshTokenService";
-import { ImageItem } from "../model/image-item";
+import { FileEntry } from "../model/FileEntry";
+import { FileListResponse } from "../model/FileListResponse";
 
 
 @Injectable({ providedIn: 'root' })
@@ -130,6 +131,7 @@ export class RpcService {
     ): Observable<R> {
 
         console.log(`RpcService.rpcRequest`)
+        // console.log(`RpcService.rpcRequest: accessToken: ${accessToken}`)
 
         return new Observable<R>(obs => {
             const corr = uuidv4();
@@ -173,6 +175,8 @@ export class RpcService {
                 // console.log(`RpcService.rpcRequest: sending to topic '${requestTopic}'`);
                 // console.log(`RpcService.rpcRequest: ${publishPayload}`);
                 // console.log(`RpcService.rpcRequest: correlationId: '${corr}', replyTopic: '${replyTopic}'`);
+                // console.log(`RpcService.rpcRequest: userProperties: '${JSON.stringify(properties.userProperties)}'`);
+                // console.log(`RpcService.rpcRequest: publishOptions: '${JSON.stringify(publishOptions)}'`);
 
                 client.publish(requestTopic, publishPayload, publishOptions, err => {
                     if (err) {
@@ -389,7 +393,12 @@ export class RpcService {
         );
     }
 
-    listFiles$(): Observable<ImageItem[]> {
+    listFiles$(subdir?: string): Observable<FileListResponse> {
+        // args is {} for root, or { subdir: 'foo/bar' } for a subdir
+        const args = subdir && subdir !== '/'
+            ? { subdir: subdir.replace(/^\/+/, '') }
+            : {};
+
         return forkJoin({
             cfg: this.configService.getConfig(),
             client: this.mqtt.getConnection(),
@@ -397,14 +406,14 @@ export class RpcService {
         }).pipe(
             switchMap(({ cfg, client, token }) => {
                 const replyTopic = `reply/${cfg.clientId}/listFiles`;
-                const payload = { function: 'listFiles' };
-                const deserialize = ReplyHandler.getBufferAsObject as (buffer: Buffer) => ImageItem[];
-                return this.rpcRequest<ImageItem[]>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
+                const payload = { function: 'listFiles', args };
+                const deserialize = ReplyHandler.getBufferAsObject as (buffer: Buffer) => FileListResponse;
+                return this.rpcRequest<FileListResponse>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
             })
         );
     }
 
-    uploadFile$(file: File): Observable<ImageItem> {
+    uploadFile$(file: File): Observable<FileEntry> {
         return forkJoin({
             cfg: this.configService.getConfig(),
             client: this.mqtt.getConnection(),
@@ -430,8 +439,8 @@ export class RpcService {
                         bytes: b64
                     }
                 };
-                const deserialize = ReplyHandler.getBufferAsObject as (buffer: Buffer) => ImageItem;
-                return this.rpcRequest<ImageItem>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
+                const deserialize = ReplyHandler.getBufferAsObject as (buffer: Buffer) => FileEntry;
+                return this.rpcRequest<FileEntry>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
             })
         );
     }
