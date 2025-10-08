@@ -11,7 +11,7 @@
 
     <div class="view-switch">
       <label for="view-mode" class="vh">View</label>
-      <mat-select id="view-mode" class="mat-mdc-select mode-select bare" [value]="viewMode"
+      <mat-select id="view-mode" class="mat-mdc-select mode-select" [value]="viewMode"
         (selectionChange)="onModeSelect($event.value)">
         <!-- Closed state: show icon + "View" -->
         <mat-select-trigger>
@@ -43,6 +43,19 @@
   <div class="loading">Loading…</div>
   }
 
+  <!-- Details header (only in details mode) -->
+  @if (isActive('details')) {
+  <div class="details-header">
+    <div class="details-row">
+      <div class="col-image" aria-hidden="true"></div> <!-- thumb column -->
+      <div class="col-name">Name</div>
+      <div class="col-size">Size</div>
+      <div class="col-mtime">Modified</div>
+      <div class="col-dtaken">Taken</div>
+    </div>
+  </div>
+  }
+
   <!-- Scrolling region -->
   @if (items$ | async; as items) {
   <div class="files-grid">
@@ -67,19 +80,6 @@
     </button>
     }
 
-    <!-- Details header (only in details mode) -->
-    @if (isActive('details')) {
-    <div class="details-header">
-      <div class="details-row">
-        <div class="col-image" aria-hidden="true"></div> <!-- thumb column -->
-        <div class="col-name">Name</div>
-        <div class="col-size">Size</div>
-        <div class="col-mtime">Modified</div>
-        <div class="col-dtaken">Taken</div>
-      </div>
-    </div>
-    }
-
     <!-- Folders -->
     <ng-container *ngFor="let d of items; trackBy: trackByName">
       @if (d.dir) {
@@ -92,10 +92,25 @@
           </div>
         </div>
       </button>
+      } @else if (isActive('details')) {
+      <!-- Details: whole row is clickable (navigateTo) -->
+      <button type="button" class="file-card dir" title="{{ d.name }}" (click)="navigateTo(d.name)"
+        (keydown.enter)="navigateTo(d.name)" (keydown.space)="$event.preventDefault(); navigateTo(d.name)">
+        <div class="file-meta details-meta">
+          <div class="details-row">
+            <div class="details-thumb">
+              <mat-icon class="folder-icon" svgIcon="folder" aria-hidden="true"></mat-icon>
+            </div>
+            <div class="col-name" title="{{ d.name }}">{{ d.name }}</div>
+            <div class="col-size" aria-hidden="true"></div>
+            <div class="col-mtime">{{ d.mtime | date:'yyyy MMM dd' }}</div>
+            <div class="col-dtaken" aria-hidden="true"></div>
+          </div>
+        </div>
+      </button>
       } @else {
       <!-- Other modes: the folder tile -->
-      <button type="button" class="file-card dir" title="{{ d.name }}"
-        (click)="navigateTo(subdirPath === '/' ? '/' + d.name : subdirPath + '/' + d.name)">
+      <button type="button" class="file-card dir" title="{{ d.name }}" (click)="navigateTo(d.name)">
         <div class="thumb folder">
           <mat-icon class="folder-icon" svgIcon="folder" aria-hidden="true"></mat-icon>
         </div>
@@ -119,7 +134,7 @@
     <!-- Files -->
     <ng-container *ngFor="let f of items; trackBy: trackByName">
       @if (!f.dir) {
-      <a class="file-card" [href]="resolveUrl(f.url)" target="_blank" rel="noopener">
+      <a class="file-card" [href]="resolveUrl(f.url)" target="_blank" rel="noopener" (click)="onFileClick(f, $event)">
 
         @if (isActive('list')) {
         <!-- Details: single, tiny inline thumb + aligned columns -->
@@ -141,7 +156,11 @@
             <div class="col-name" title="{{ f.name }}">{{ f.name }}</div>
             <div class="col-size">{{ f.size | number }}</div>
             <div class="col-mtime">{{ f.mtime | date:'yyyy MMM dd' }}</div>
-            <div class="col-dtaken">{{ (f.dateTaken ? f.dateTaken : null) | date:'yyyy MMM dd' }}</div>
+            @if (f.dateTaken) {
+            <div class="col-dtaken">{{ f.dateTaken | date:'yyyy MMM dd' }}</div>
+            } @else {
+            <div class="col-dtaken" aria-hidden="true"></div>
+            }
           </div>
         </div>
         } @else {
@@ -152,9 +171,11 @@
 
         <div class="file-meta">
           <div class="file-name" title="{{ f.name }}">{{ f.name }}</div>
+          @if (f.dateTaken) {
           <div class="file-sub">
-            {{ (f.dateTaken ? f.dateTaken : f.mtime) | date:'yyyy MMM dd' }}
+            {{ f.dateTaken | date:'yyyy MMM dd' }}
           </div>
+          }
         </div>
         }
       </a>

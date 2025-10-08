@@ -1,0 +1,557 @@
+/* ================================
+   FilesListDialog — full SCSS
+   ================================ */
+
+/* --- Layout: scroll only the files area; keep footer fixed at the bottom --- */
+.dialog-container {
+  display: flex;
+  flex-direction: column;
+  max-height: 80vh; /* allow an internal scrolling region with a footer */ 
+  min-height: 0;        /* critical so the middle area can actually shrink */   
+}
+
+/* --- Header with subdir (left) + view-mode buttons (right) --- */
+.dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 12px; /* space between left (subdir) and right (buttons) if not already present */
+  padding: 6px 10px;
+  background-color: rgb(170, 170, 170);
+
+  .subdir-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;   /* space between folder icon and text */
+    min-width: 0; /* keeps long paths from breaking layout */
+
+    .header-folder-icon {
+      font-size: 18px;      /* tweak to taste */
+      line-height: 1;
+      display: inline-block;
+      color: #374151;       /* matches your header/subdir tone */
+      /* Optional nudge: */
+      transform: translateY(1px);
+    }
+
+    .subdir {
+      margin: 0;
+      font-size: 14px;
+      color: #374151;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 70%;
+    }    
+  }
+}
+
+.vh { 
+  position:absolute!important; 
+  width:1px; 
+  height:1px; 
+  margin:-1px; 
+  overflow:hidden; 
+  clip:rect(0 0 0 0); 
+  border:0;
+}
+
+.view-switch {
+  margin-left: auto;             /* right aligned */
+  display: flex;
+  align-items: center;
+}
+
+/* Make the standalone select look like a small inline control */
+:host ::ng-deep .mode-select.bare .mat-mdc-select-trigger {
+  display: flex;
+  align-items: center;
+  height: auto;
+  line-height: 0;         /* avoid extra text line space */
+}
+
+/* Let the arrow wrapper shrink and center its content */
+:host ::ng-deep .mode-select.bare .mat-mdc-select-arrow-wrapper {
+  height: auto !important;       /* stop enforcing 24px */
+  display: flex;
+  align-items: center;           /* center the smaller arrow */
+}
+
+:host ::ng-deep .opt-label {
+  width: 20px;
+}
+
+/* icon + label inside trigger/options */
+.option { 
+  display:inline-flex; 
+  align-items:center; 
+  gap:8px; 
+}
+
+.opt-icon { 
+  width:16px; 
+  height:16px; 
+  font-size:16px; 
+  line-height:1; 
+}
+
+.mode-select-field { 
+  min-width: 170px; 
+}
+
+/* icon + label layout used both in trigger and options */
+.option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.opt-icon {
+  width: 16px;
+  height: 16px;
+  font-size: 16px; /* ensures mat-icon svg renders at the intended size */
+  line-height: 1;
+}
+
+/* Native select styling */
+.mode-select {
+  padding: 6px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 14px;
+  color: #111827;
+  min-width: 140px;
+  cursor: pointer;
+}
+
+.mode-select:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+}
+
+/* Visually hidden label for a11y */
+.vh {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0);
+  white-space: nowrap; border: 0;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  line-height: 1;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fff;
+  color: #374151;
+  cursor: pointer;
+
+  &:hover { background: #f8fafc; }
+  &.is-active {
+    border-color: #6366f1;
+    background: #eef2ff;
+    color: #111827;
+  }
+
+  .icon-16 {
+    width: 16px;
+    height: 16px;
+    display: inline-block;
+  }
+}
+
+/* The scrolling content area (works for all modes) */
+.files-grid {
+  flex: 1 1 auto;
+  min-height: 0;     /* allows internal overflow to work */
+  /* keep your per-mode overflow (x for tiles, y for list/details) */  
+  padding:4px;
+}
+
+/* --- Footer (count on left, actions on right) --- */
+.dialog-footer {
+  flex: 0 0 auto;                 /* footer doesn't grow/shrink */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+
+  padding: 6px 12px;
+  background: rgb(170, 170, 170);            /* panel feel */
+  border-top: 1px solid #e5e7eb;  /* subtle divider */
+  box-shadow: 0 -6px 12px rgba(0,0,0,0.04); /* soft lift; optional */  
+}
+
+/* Footer bits */
+.dialog-footer .count {
+  font-size: 0.8rem;
+  color: #4b5563; /* slate-600 */
+}
+
+.dialog-footer .close-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  line-height: 1;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fff;
+  color: #374151;
+  cursor: pointer;
+
+  &:hover { background: #f8fafc; }  
+}
+
+/* ================================
+   Cards, thumbnails, meta
+   ================================ */
+
+/* tile/card base */
+.file-card {
+  /* Base tile/row shell; tile modes override layout to flex column */
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  overflow: hidden;
+  background: #fff;
+
+  &:hover { border-color: #cbd5e1; }
+}
+
+/* Directory cards are buttons; give a slight different look */
+.file-card.dir {
+  cursor: pointer;
+  text-align: left;
+  border-style: none;
+}
+
+.file-card.dir .thumb.folder {
+  padding: 16%;          /* tweak 5–10% to taste */
+  box-sizing: border-box;  
+  display: grid;         /* easy centering */
+  place-items: center;
+  /* If your thumbs don’t already have a fixed height, uncomment:
+  aspect-ratio: 1;       // optional: keep square thumbs
+  */
+}
+
+/* Keep small icons in LIST/DETAILS rows */
+.list-thumb .folder-icon,
+.details-thumb .folder-icon {
+  width: 24px;
+  height: 24px;
+  font-size: 24px;       /* restore normal size for row views */
+}
+
+.file-card.dir .thumb.folder .folder-icon {
+  width: 100%;
+  height: 100%;
+  display: block;        /* avoid inline sizing quirks */
+  /* Angular Material sizes icons via font-size too; this ensures we ignore it */
+  font-size: 0;
+}
+
+/* Thumbnail area — image centered via grid + object-fit: contain */
+.thumb {
+  width: 100%;
+  aspect-ratio: 4 / 3;          /* tile shape; list mode overrides to 1/1 */
+  background: #f5f5f5;
+
+  /* center the image box */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.thumb.folder {
+  background: #f0f9ff;       /* light folder tint */
+}
+
+.folder-glyph {
+  font-size: 18px;
+  opacity: 0.85;
+}
+
+/* Ensure the entire image is visible, never cropped */
+.thumb-img {
+  /* let the image grow as large as possible INSIDE the thumb,
+     but never exceed the box in either dimension */
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+
+  /* belt-and-braces: prevent any other rule from forcing cover */
+  object-fit: contain !important;
+
+  display: block;
+}
+
+/* File info (meta) */
+.file-meta {
+  padding: 0.5rem 0.75rem;
+  background: #f3f4f6;
+}
+
+.file-name {
+  line-height: 1.25;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.file-sub {
+  font-size: 0.75rem;
+  opacity: 0.75;
+}
+
+/* ================================
+   Modes & scrolling behavior
+   ================================ */
+
+/* ----- Large / Medium / Small: horizontal scrolling strip ----- */
+.mode-large .files-grid,
+.mode-medium .files-grid,
+.mode-small  .files-grid {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* Fixed tile widths per mode (to enable horizontal overflow) */
+.mode-large  .file-card { flex: 0 0 300px; }
+.mode-medium .file-card { flex: 0 0 220px; }
+.mode-small  .file-card { flex: 0 0 140px; }
+
+/* Slightly wider feel for large */
+.mode-large .thumb { aspect-ratio: 16 / 10; }
+
+/* Bottom-align the file info in tile modes + gray background */
+.mode-large .file-card,
+.mode-medium .file-card,
+.mode-small  .file-card {
+  display: flex;
+  flex-direction: column;  /* thumb on top, meta at bottom */
+  padding-left: 0;
+  padding-right: 0;  
+}
+
+.mode-large .thumb,
+.mode-medium .thumb,
+.mode-small  .thumb {
+  flex: 1 1 auto;          /* take remaining height to push meta down */
+  min-height: 0;
+}
+
+.mode-large
+.mode-medium 
+.mode-small {
+
+  &.file-card .thumb {
+    margin-left: 0;
+    margin-right: 0;
+    width: 100%;
+  }
+}
+
+
+
+
+
+/* ================================
+   DETAILS mode: vertical list of rows with very small thumbnail + full info
+   ================================ */
+
+
+/* Unify layout + spacing for details header & rows */
+.mode-details {
+  /* one source of truth for the column widths and gap */
+  --details-cols: 40px 1fr 100px 120px 120px; /* thumb | name | size | mtime | taken */
+  --details-gap: 20px;                        /* space between columns */
+  --pad-x: 6px;                               /* same horizontal padding header/rows */
+}
+
+/* Header */
+.mode-details .details-header {
+  padding: 0px var(--pad-x);
+  background: #e5e7eb;
+  border-bottom: 1px solid #d1d5db;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.mode-details .details-header .details-row {
+  display: grid;
+  grid-template-columns: var(--details-cols);
+  column-gap: var(--details-gap);
+  align-items: center;
+  white-space: nowrap;
+}
+/* Align header cells the same way as data cells */
+.mode-details .details-header .col-image  { width: 40px; height: 30px; }
+// .mode-details .details-header .col-name  { /* no extra padding */ }
+.mode-details .details-header .col-size  { text-align: right; }
+.mode-details .details-header .col-mtime,
+.mode-details .details-header .col-dtaken { font-variant-numeric: tabular-nums; }
+
+.mode-details .col-name { 
+  font-size: 1rem; 
+}
+.mode-details .col-size,
+.mode-details .col-mtime,
+.mode-details .col-dtaken {
+  font-size: 0.75rem;      /* smaller secondary info */
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.9;            /* subtle de-emphasis; tweak as you like */
+}
+
+/* Rows */
+.mode-details .details-meta {
+  padding: 0;
+  background: #f3f4f6;
+  border-top: 1px solid #e5e7eb;
+}
+.mode-details .details-row {
+  display: grid;
+  grid-template-columns: var(--details-cols);
+  column-gap: var(--details-gap);
+  align-items: center;
+  white-space: nowrap;
+}
+/* IMPORTANT: remove any padding-left we added earlier on .col-name */
+.mode-details .col-name { padding-left: 0; overflow: hidden; text-overflow: ellipsis; }
+
+/* Keep data alignment consistent with header */
+.mode-details .col-size  { text-align: right; font-variant-numeric: tabular-nums; }
+.mode-details .col-mtime,
+.mode-details .col-dtaken { font-variant-numeric: tabular-nums; }
+
+/* Tiny thumb cell */
+.mode-details .details-thumb {
+  width: 30px; height: 30px;
+  display: flex; align-items: center; justify-content: center;
+  background: #f5f5f5;
+}
+.mode-details .details-thumb .thumb-img {
+  max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain;
+}
+
+/* Details mode: vertical scroll (don’t rely on prior overflow rules) */
+.mode-details .files-grid {
+  overflow-y: auto !important;   /* show vertical scrollbar when needed */
+  overflow-x: hidden !important; /* no horizontal scroll in details */
+}
+
+
+
+
+/* Tiny thumb cell */
+.empty {
+  width: 300px; height: 100px;
+}
+.loading {
+  width: 300px; height: 100px;
+}
+
+
+
+/* ================================
+   LIST mode: 7-row name grid, columns as needed
+   ================================ */
+
+.mode-list {
+  --list-rows: 7;          /* easy to tweak later */
+  --list-col-gap: 16px;
+  --list-row-gap: 6px;
+  --list-pad-x: 6px;
+}
+
+/* Grid container: rows first, new columns as needed, horizontal scroll */
+.mode-list .files-grid {
+  display: grid !important;
+  grid-auto-flow: column;                                   /* fill rows first */
+  grid-template-rows: repeat(var(--list-rows), auto);       /* exactly 7 rows */
+  grid-auto-columns: max-content;                           /* column width = widest cell in that column */
+  column-gap: var(--list-col-gap);
+  row-gap: var(--list-row-gap);
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 4px var(--list-pad-x) 6px var(--list-pad-x);
+  align-content: start;  /* pack rows to the top */
+  justify-content: start;
+  scrollbar-gutter: stable both-edges;
+  margin-left: 8px;
+  margin-right: 8px;
+}
+
+/* Make each item shrink-wrap to its text (no borders/padding from cards) */
+.mode-list a.file-card,
+.mode-list button.file-card {
+  width: max-content;                   /* column width driven by text width */
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+/* Tiny thumb cell */
+.mode-list .list-thumb {
+  width: 20px; height: 20px;
+  display: flex; align-items: center; justify-content: center;
+  background: #f5f5f5;
+}
+.mode-list .list-thumb .thumb-img {
+  max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain;
+}
+
+/* Name-only meta block */
+.mode-list .file-meta {
+  padding: 0;
+  background: transparent;
+  border: 0;
+}
+
+/* The single line of text */
+.mode-list .list-row { 
+  display: flex;               /* put thumb + name on the same line */
+  align-items: center;         /* vertically center them */
+  gap: 8px;                    /* space between image and text */
+  white-space: nowrap;         /* keep each entry to one line */
+}
+
+/* Tiny inline thumbnail in list mode */
+.mode-list .list-thumb .thumb-img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
+
+.mode-list .col-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;     /* if a column’s max-content clips */
+}
+
+/* Optional: give directories a subtle style difference, if desired */
+.mode-list .file-card.dir .col-name {
+  color: #374151; font-style: italic;
+}
+
+

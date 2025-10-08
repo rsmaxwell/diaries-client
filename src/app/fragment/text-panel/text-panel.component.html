@@ -43,7 +43,8 @@
       <quill-editor
         formControlName="body"
         [modules]="editorModules"
-        placeholder="Write something…">
+        placeholder="Write something…"
+        (onEditorCreated)="onEditorCreated($event)">
       </quill-editor>
       </form>
   </div>

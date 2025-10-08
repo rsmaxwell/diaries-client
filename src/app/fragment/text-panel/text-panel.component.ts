@@ -2,7 +2,7 @@ import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ModelContext } from '../../model/model-context';
 import { Fragment } from '../../model/fragment';
-import { combineLatest, distinctUntilChanged, distinctUntilKeyChanged, filter, map, Subject, switchMap, take, takeUntil } from 'rxjs';
+import { BehaviorSubject, combineLatest, distinctUntilChanged, distinctUntilKeyChanged, filter, map, Subject, switchMap, take, takeUntil } from 'rxjs';
 import { QuillModule } from 'ngx-quill';
 import { FormControl, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { RpcService } from '../../mqtt/rpc.service';
@@ -14,6 +14,14 @@ import { MatDatepickerModule, MatDatepicker } from '@angular/material/datepicker
 import { MatNativeDateModule } from '@angular/material/core';
 import { MatDatepickerInputEvent } from '@angular/material/datepicker';
 import { DateFormatter } from '../../utilities/DateFormatter';
+import Quill from 'quill';
+import { FileSelection, FilesListDialogComponent } from '../../files-list-dialog/files-list-dialog.component';
+import { Dialog, DialogRef } from '@angular/cdk/dialog';
+
+// minimal shape we need
+type QuillToolbarModule = {
+  addHandler: (format: string, handler: (...args: any[]) => void) => void;
+};
 
 @Component({
   selector: 'app-text-panel',
@@ -32,6 +40,7 @@ import { DateFormatter } from '../../utilities/DateFormatter';
   styleUrls: ['./text-panel.component.scss']
 })
 export class TextPanelComponent implements OnInit, OnDestroy {
+
 
   @ViewChild('picker') picker!: MatDatepicker<Date>;
 
@@ -64,7 +73,8 @@ export class TextPanelComponent implements OnInit, OnDestroy {
 
   constructor(
     private modelContext: ModelContext,
-    private rpcService: RpcService
+    private rpcService: RpcService,
+    private dialog: Dialog
   ) { }
 
   ngOnInit(): void {
@@ -250,6 +260,45 @@ export class TextPanelComponent implements OnInit, OnDestroy {
           emitModelToViewChange: true
         });
       }
+    });
+  }
+
+  onEditorCreated(quill: Quill) {
+    console.log(`TextPanelComponent.onEditorCreated`);
+    const toolbar = quill.getModule('toolbar') as unknown as QuillToolbarModule | undefined;
+
+    if (!toolbar || typeof toolbar.addHandler !== 'function') {
+      console.warn('Quill toolbar module not available; ensure toolbar is enabled in editorModules.');
+      return;
+    }
+
+    toolbar.addHandler('image', () => this.openImagePicker(quill));
+  }
+
+  private openImagePicker(quill: any) {
+    // start from root (or remember last path if you prefer)
+    const path$ = new BehaviorSubject<string>('/');
+
+    const ref: DialogRef<FileSelection, FilesListDialogComponent> =
+    this.dialog.open(FilesListDialogComponent, {
+      width: '980px',
+      panelClass: 'files-dialog-panel',
+      data: { path$, select: true }          // <-- selection mode
+    });
+
+    ref.closed.pipe(take(1)).subscribe(res => {
+      path$.complete();                       // tidy
+      if (!res?.url) return;
+
+      // Insert image at the current selection/cursor
+      const range = quill.getSelection(true);
+      const url = res.url.startsWith('http')
+        ? res.url
+        : new URL(res.url, window.location.origin).toString();
+
+      const index = range ? range.index : quill.getLength();
+      quill.insertEmbed(index, 'image', url, 'user');
+      quill.setSelection(index + 1, 0);
     });
   }
 }

@@ -1,6 +1,9 @@
 import { Component, Inject, OnInit } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
-import { DialogRef, DIALOG_DATA } from '@angular/cdk/dialog';
+
+import { Router } from '@angular/router';
+import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
+
 import { MatIconModule, MatIconRegistry } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -15,9 +18,13 @@ import {
   switchMap, map, catchError, finalize, tap, shareReplay,
   distinctUntilChanged, startWith
 } from 'rxjs/operators';
-import { Router } from '@angular/router';
 
 type ViewMode = 'large' | 'medium' | 'small' | 'list' | 'details';
+
+export interface FileSelection {
+  url: string;
+  name: string;
+}
 
 @Component({
   selector: 'app-files-list-dialog',
@@ -55,13 +62,14 @@ export class FilesListDialogComponent implements OnInit {
     this.modes.reduce((acc, m) => { acc[m.value] = { label: m.label, icon: m.icon }; return acc; }, {} as Record<ViewMode, { label: string; icon: string }>);
 
   constructor(
-    @Inject(DIALOG_DATA) public data: { path$: BehaviorSubject<string> },
-    private ref: DialogRef<FilesListDialogComponent>,
+    @Inject(DIALOG_DATA)
+    public data: { path$: BehaviorSubject<string>; select?: boolean },
+    private ref: DialogRef<FileSelection, FilesListDialogComponent>,
     private configService: ConfigService,
     private rpc: RpcService,
     private iconRegistry: MatIconRegistry,
     private sanitizer: DomSanitizer,
-    private router: Router
+    private router: Router,
   ) {
 
     this.iconRegistry.addSvgIcon(
@@ -90,6 +98,15 @@ export class FilesListDialogComponent implements OnInit {
     );
   }
 
+  // add a click helper
+  onFileClick(file: FileEntry, ev?: Event): void {
+    if (!this.data?.select) return;         // normal open-in-new-tab behaviour
+    ev?.preventDefault();
+    ev?.stopPropagation();
+    const url = this.resolveUrl(file.url);
+    this.ref.close({ url, name: file.name }); // <- return selection to caller
+  }
+
   async ngOnInit(): Promise<void> {
     const cfg = await this.configService.getConfig();
     this.fileOrigin = new URL(cfg.baseUrl).origin;
@@ -101,12 +118,12 @@ export class FilesListDialogComponent implements OnInit {
         this.rpc.listFiles$(path).pipe(
           tap(res => this.subdirPath = res.subdir || '/'),
           map(res => res.items),
-          tap(items => {
-            console.group('FilesListDialog');
-            console.log('Subdir:', this.subdirPath, 'Total:', items.length);
-            if (items.length) console.table(items);
-            console.groupEnd();
-          }),
+//          tap(items => {
+//            console.group('FilesListDialog');
+//            console.log('Subdir:', this.subdirPath, 'Total:', items.length);
+//            if (items.length) console.table(items);
+//            console.groupEnd();
+//          }),
           catchError(err => {
             // 1) If it's a 401, redirect to signin and stop this load
             if (this.handleAuthError(err)) {
@@ -165,6 +182,9 @@ export class FilesListDialogComponent implements OnInit {
     catch { return ''; }
   }
 
+
+
+  
   // ---- Path helpers ----
   private normalize(p: string): string {
     if (!p) return '/';

@@ -7,12 +7,12 @@ import { GoldenLayout, RowOrColumnItemConfig, Side, LayoutConfig } from 'golden-
 import { ImageViewerComponent } from './image-viewer/image-viewer.component';
 import { TextPanelComponent } from './text-panel/text-panel.component';
 import { ModelContext } from '../model/model-context';
-import { BehaviorSubject, distinctUntilChanged, filter, map, Observable, of, Subject, switchMap, take, takeUntil } from 'rxjs';
+import { BehaviorSubject, distinctUntilChanged, map, Observable, Subject, take, takeUntil } from 'rxjs';
 import { ActivatedRoute, Router } from '@angular/router';
 import { DayviewComponent } from '../dayview/dayview.component';
 import { Page } from '../model/page';
-import { FilesListDialogComponent } from '../files-list-dialog/files-list-dialog.component';
-import { Dialog, DialogModule } from '@angular/cdk/dialog';
+import { FileSelection, FilesListDialogComponent } from '../files-list-dialog/files-list-dialog.component';
+import { Dialog, DialogModule, DialogRef } from '@angular/cdk/dialog';
 
 @Component({
   selector: 'app-fragment',
@@ -208,14 +208,22 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   openFilesDialog() {
-    console.log(`FragmentComponent.openFilesDialog`);
     const path$ = new BehaviorSubject<string>('/');
-    const ref = this.dialog.open(FilesListDialogComponent, {
-      width: '980px',
-      panelClass: 'files-dialog-panel',
-      data: { path$ }
+
+    const ref: DialogRef<FileSelection, FilesListDialogComponent> =
+      this.dialog.open(FilesListDialogComponent, {
+        width: '980px',
+        panelClass: 'files-dialog-panel',
+        data: { path$, select: true }
+      });
+
+    ref.closed.pipe(take(1)).subscribe(res => {
+      path$.complete();
+      if (!res) return;
+      const { url, name } = res;
+      // …use the selected URL…
+      console.log(`FragmentComponent.openFilesDialog: url: ${url}`);
     });
-    ref.closed.pipe(take(1)).subscribe(() => path$.complete());
   }
 
   onBackPressed() {
