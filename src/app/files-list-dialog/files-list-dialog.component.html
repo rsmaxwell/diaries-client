@@ -43,22 +43,20 @@
   <div class="loading">Loading…</div>
   }
 
-  <!-- Details header (only in details mode) -->
-  @if (isActive('details')) {
-  <div class="details-header">
-    <div class="details-row">
-      <div class="col-image" aria-hidden="true"></div> <!-- thumb column -->
-      <div class="col-name">Name</div>
-      <div class="col-size">Size</div>
-      <div class="col-mtime">Modified</div>
-      <div class="col-dtaken">Taken</div>
-    </div>
-  </div>
-  }
-
   <!-- Scrolling region -->
   @if (items$ | async; as items) {
   <div class="files-grid">
+    @if (isActive('details')) {
+    <div class="details-header">
+      <div class="details-row">
+        <div class="details-thumb" aria-hidden="true"></div>
+        <div class="col-name">Name</div>
+        <div class="col-size">Size</div>
+        <div class="col-mtime">Modified</div>
+        <div class="col-dtaken">Taken</div>
+      </div>
+    </div>
+    }
     <!-- Parent directory (if not at root) -->
     @if (parentSubdir) {
     <button type="button" class="file-card dir parent" (click)="navigateTo(parentSubdir!)" title="Go up one level">
@@ -195,4 +193,3 @@
   </div>
 
 </div>
-  
