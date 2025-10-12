@@ -82,10 +82,13 @@
     <ng-container *ngFor="let d of items; trackBy: trackByName">
       @if (d.dir) {
       @if (isActive('list')) {
-      <!-- LIST mode: name-only tile for directories -->
+      <!-- LIST mode: tiny icon + name in a horizontally scrolling grid -->
       <button type="button" class="file-card dir" title="{{ d.name }}" (click)="navigateTo(d.name)">
         <div class="file-meta list-meta">
           <div class="list-row">
+            <div class="list-thumb">
+              <mat-icon class="folder-icon" svgIcon="folder" aria-hidden="true"></mat-icon>
+            </div>
             <div class="col-name" [title]="d.name">{{ d.name }}</div>
           </div>
         </div>

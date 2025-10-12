@@ -43,6 +43,13 @@
     --meta-h: 56px;
   }
 
+  &.mode-list {
+    --list-item-w: 240px;
+    --list-gap: 12px;
+    --list-thumb-size: 20px; /* tiny */
+    --list-row-h: 28px; /* reduced height per list row */
+  }
+
   /* Generic colors (keep existing feel) */
   --row-hover-bg: rgba(0, 0, 0, 0.04);
   --muted: rgba(0, 0, 0, 0.6);
@@ -203,12 +210,28 @@
     scrollbar-gutter: stable both-edges;
     padding-block: 8px;
   }
+
+  /* Horizontal-scrolling list mode: each item is a column */
+  &.mode-list .files-grid {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: var(--list-item-w);
+    grid-template-rows: repeat(10, var(--list-row-h));
+    column-gap: var(--list-gap);
+    row-gap: 0;
+    margin-left: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-gutter: stable both-edges;
+    padding-block: 0;
+  }
 }
 
 /* Let the grid track clamp the card; avoid auto min-width overflow */
 .dialog-container.mode-small .files-grid>.file-card,
 .dialog-container.mode-medium .files-grid>.file-card,
-.dialog-container.mode-large .files-grid>.file-card {
+.dialog-container.mode-large .files-grid>.file-card,
+.dialog-container.mode-list .files-grid>.file-card {
   min-width: 0;
   min-height: 0;
   width: 100%;
@@ -349,7 +372,8 @@
   /* Small thumbs used in list/details rows */
   .list-thumb .thumb-img,
   .details-thumb .thumb-img,
-  .details-thumb .folder-icon {
+  .details-thumb .folder-icon,
+  .list-thumb .folder-icon {
     width: 32px;
     height: 32px;
     display: block;
@@ -378,11 +402,22 @@
 .mode-list {
   .list-meta .list-row {
     display: grid;
-    grid-template-columns: 32px 1fr;
+    grid-template-columns: var(--list-thumb-size) 1fr;
     /* tiny image/folder slot + name */
     align-items: center;
     column-gap: 12px;
-    min-height: 44px;
+    height: var(--list-row-h);
+  }
+
+  /* Force tiny thumbnail size for files/folders */
+  .list-thumb .thumb-img,
+  .list-thumb .folder-icon {
+    width: var(--list-thumb-size);
+    height: var(--list-thumb-size);
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: cover;
+    display: block;
   }
 }
 
