@@ -134,7 +134,7 @@ export class DayviewComponent implements OnInit, OnDestroy {
             });
         },
         error: err => this.handleError(err)
-      });      
+      });
   }
 
   /** error handler */
@@ -165,25 +165,33 @@ export class DayviewComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Get the Marquee object from ModelContext
-    const marquee = this.modelContext.getMarqueeById(marqueeId);
-    if (!marquee) {
-      console.warn(`No marquee found for id ${marqueeId}`);
-      return;
-    }
+    this.modelContext.getLiveMarquee$(marqueeId)
+      .pipe(take(1))
+      .subscribe({
+        next: (marquee) => {
+          if (!marquee) {
+            console.warn(`No marquee found for id ${marqueeId}`);
+            return;
+          }
 
-    const pageId = marquee.pageId;
+          const pageId = marquee.pageId;
 
-    // Get the Page object from ModelContext
-    const page = this.modelContext.getPageById(pageId);
-    if (!page) {
-      console.warn(`No page found for id ${pageId}`);
-      return;
-    }
+          this.modelContext.getLivePage$(pageId)
+            .pipe(take(1))
+            .subscribe({
+              next: (page: { diaryId: any; }) => {
+                if (!page) {
+                  console.warn(`No page found for id ${pageId}`);
+                  return;
+                }
 
-    const diaryId = page.diaryId;
-
-    // Navigate using actual IDs
-    this.router.navigate(['/diary', diaryId, pageId, fragment.id]);
+                const diaryId = page.diaryId;
+                this.router.navigate(['/diary', diaryId, pageId, fragment.id]);
+              },
+              error: (err: any) => this.handleError(err)
+            });
+        },
+        error: err => this.handleError(err)
+      });
   }
 }

@@ -36,7 +36,7 @@ export class ModelContext {
   private liveDiaries = new Map<number, Observable<Diary>>();
 
   private pageCache = new Map<number, Page>();
-  private marqueeCache = new Map<number, Marquee>();
+  private marqueeCache = new Map<number, Marquee>(); // not a global mqrquee cache, but a current-page marquee cache
 
   selectedMarquee$: Observable<Marquee | null>;
   selectedFragment$: Observable<Fragment | null>;
