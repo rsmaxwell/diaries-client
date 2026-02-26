@@ -273,6 +273,10 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       this.dragStart = mousePosition;
       this.originalRectangle = { ...this.marquee.rectangle };
 
+      // Track which marquee/version this interaction started on (move OR resize)
+      this.draggingMarqueeId = this.marquee.id;
+      this.draggingMarqueeVersion = this.marquee.version;
+
       if (!this.resizeEdge || Object.values(this.resizeEdge).every(v => !v)) {
         // Ctrl + click inside marquee = move marquee
         this.isDraggingMarquee = true;
@@ -282,7 +286,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
         this.draggingMarqueeVersion = this.marquee.version;
       } else {
         // Ctrl + click near edge = resize
-        this.dragStart = mousePosition;
+        // this.dragStart = mousePosition;
       }
     } else {
       console.log(`ImageViewerComponent.onMouseDown: global pan`);
@@ -456,15 +460,32 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
 
 
 
+  private pointInRect(p: Point, r: Rectangle): boolean {
+    return p.x >= r.x && p.x <= r.x + r.width &&
+      p.y >= r.y && p.y <= r.y + r.height;
+  }
 
-  onSelectMarquee(marquee: Marquee) {
+  onSelectMarquee(marquee: Marquee, event?: MouseEvent) {
+    // If user is clicking in an overlap area, prefer keeping the current marquee selected.
+    // Allow override with Shift-click.
+    if (event && this.mode === ViewMode.WithMarquee && this.marquee && this.marquee.id !== marquee.id) {
+      const p = this.getMousePosition(event); // already exists in your component
+      const currentRect = this.marquee.rectangle;
+
+      const insideCurrent = this.pointInRect(p, currentRect);
+      const override = event.shiftKey; // optional: shift-click to select the other one
+
+      if (insideCurrent && !override) {
+        // Keep focus on the current marquee
+        event.stopPropagation();
+        return;
+      }
+    }
+
     console.log(`ImageViewerComponent.onSelectMarquee: marquee: ${JSON.stringify(marquee)}`);
 
     this.modelContext.setMarqueeId(marquee.id);
     this.modelContext.setFragmentId(marquee.fragmentId);
-
-    const target = `/diary/${this.diary.id}/${this.page.id}/${marquee.fragmentId}`;
-    console.log(`ImageViewerComponent.onSelectMarquee: redirecting to: ${target}`);
 
     this.router.navigate(['/diary', this.diary.id, this.page.id, marquee.fragmentId]);
   }
