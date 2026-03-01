@@ -2,7 +2,7 @@ import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ModelContext } from '../../model/model-context';
 import { Fragment } from '../../model/fragment';
-import { BehaviorSubject, combineLatest, distinctUntilChanged, distinctUntilKeyChanged, filter, map, Subject, switchMap, take, takeUntil } from 'rxjs';
+import { auditTime, BehaviorSubject, combineLatest, distinctUntilChanged, distinctUntilKeyChanged, filter, map, pairwise, startWith, Subject, switchMap, take, takeUntil } from 'rxjs';
 import { QuillModule } from 'ngx-quill';
 import { FormControl, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { RpcService } from '../../mqtt/rpc.service';
@@ -17,6 +17,7 @@ import { DateFormatter } from '../../utilities/DateFormatter';
 import Quill from 'quill';
 import { FileSelection, FilesListDialogComponent } from '../../files-list-dialog/files-list-dialog.component';
 import { Dialog, DialogRef } from '@angular/cdk/dialog';
+import { AccessTokenService } from '../../user/token/accessTokenService';
 
 // minimal shape we need
 type QuillToolbarModule = {
@@ -74,18 +75,26 @@ export class TextPanelComponent implements OnInit, OnDestroy {
   constructor(
     private modelContext: ModelContext,
     private rpcService: RpcService,
-    private dialog: Dialog
+    private dialog: Dialog,
+    private accessTokenService: AccessTokenService,
   ) { }
 
   ngOnInit(): void {
     console.log(`TextPanelComponent.ngOnInit`);
 
+    // 1) Keep the panel updated when selected fragment OR lock owner changes
     this.modelContext.selectedFragment$
       .pipe(
-        // emit again when either id or version changes
-        distinctUntilChanged((a, b) =>
-          (!!a && !!b) ? (a.id === b.id && a.version === b.version) : (a === b)
-        ),
+        distinctUntilChanged((a, b) => {
+          if (a === b) return true;
+          if (!a || !b) return false;
+
+          const aLock = (a as any)?.lock?.lockUserId ?? (a as any)?.lockUserId ?? null;
+          const bLock = (b as any)?.lock?.lockUserId ?? (b as any)?.lockUserId ?? null;
+
+          // IMPORTANT: include lock owner in the equality check so lock updates are not filtered out
+          return a.id === b.id && a.version === b.version && aLock === bLock;
+        }),
         takeUntil(this.destroy$)
       )
       .subscribe(fragment => {
@@ -96,15 +105,15 @@ export class TextPanelComponent implements OnInit, OnDestroy {
         // (re)seed form + date baselines
         let html = '';
         let dateFormatter = new DateFormatter(0, 0, 0);
+
         if (fragment) {
-          // store the “initial” date
           this.originalYear = fragment.year;
           this.originalMonth = fragment.month;
           this.originalDay = fragment.day;
+
           html = fragment.text;
           dateFormatter = new DateFormatter(fragment.year, fragment.month, fragment.day);
-        }
-        else {
+        } else {
           this.originalYear = 0;
           this.originalMonth = 0;
           this.originalDay = 0;
@@ -112,10 +121,84 @@ export class TextPanelComponent implements OnInit, OnDestroy {
 
         this.formattedDate = dateFormatter.formattedDate;
         this.isDateValid = dateFormatter.isDateValid;
+
+        // Seed editor body WITHOUT triggering valueChanges
         this.form.get('body')!.setValue(html, {
-          emitEvent: false,              // don’t re‑trigger value‑change handlers
-          emitModelToViewChange: true    // update the editor UI        
+          emitEvent: false,
+          emitModelToViewChange: true
         });
+      });
+
+    // 2) Watch editing transitions via hasEdits
+    //    - false -> true : acquire lock (via updateFragment$)
+    //    - true -> false : release lock (via updateFragment$ with lockInfo=null)
+    const bodyCtrl = this.form.get('body')!;
+
+    bodyCtrl.valueChanges
+      .pipe(
+        auditTime(0),
+        map(() => this.hasEdits),
+        startWith(this.hasEdits),
+        distinctUntilChanged(),
+        pairwise(), // [prev, curr]
+        takeUntil(this.destroy$)
+      )
+      .subscribe(([prevEdits, currEdits]) => {
+        if (!this.fragment) return;
+
+        // -------- false -> true : user started editing (acquire lock) --------
+        if (!prevEdits && currEdits) {
+          if (this.isLockedByMe) return;
+
+          const requestPayload: Fragment = {
+            ...this.fragment,
+            text: bodyCtrl.value as string,
+            version: this.fragment.version
+          };
+
+          console.log(
+            `TextPanelComponent: edits started -> updateFragment$ to trigger lock, fragmentId=${this.fragment.id}`
+          );
+
+          this.rpcService.updateFragment$(requestPayload)
+            .pipe(takeUntil(this.destroy$))
+            .subscribe({
+              next: (n) => console.log(`TextPanelComponent: updateFragment$ completed (${n})`),
+              error: (err) => console.warn(`TextPanelComponent: updateFragment$ failed`, err)
+            });
+
+          return;
+        }
+
+        // -------- true -> false : user undid back to original (release lock) --------
+        if (prevEdits && !currEdits) {
+          // Only release if I hold the lock (avoid clearing another user's lock)
+          if (!this.isLockedByMe) return;
+
+          // Clear lock info but otherwise do a normal update
+          // NOTE: You said the field is "lockInfo". If your model also uses "lock",
+          // you can clear that too (safe, but remove if it breaks typing).
+          const unlockPayload: any = {
+            ...this.fragment,
+            text: bodyCtrl.value as string,
+            version: this.fragment.version,
+            lockInfo: null,
+            lock: null
+          };
+
+          console.log(
+            `TextPanelComponent: edits undone -> updateFragment$ with lockInfo=null to release lock, fragmentId=${this.fragment.id}`
+          );
+
+          this.rpcService.updateFragment$(unlockPayload as Fragment)
+            .pipe(takeUntil(this.destroy$))
+            .subscribe({
+              next: (n) => console.log(`TextPanelComponent: unlock updateFragment$ completed (${n})`),
+              error: (err) => console.warn(`TextPanelComponent: unlock updateFragment$ failed`, err)
+            });
+
+          return;
+        }
       });
   }
 
@@ -186,6 +269,73 @@ export class TextPanelComponent implements OnInit, OnDestroy {
   }
 
 
+  // ---------------------------------------------------------------------------
+  // Lock button helpers
+  // ---------------------------------------------------------------------------
+
+  /** Current signed-in user id (null if not signed in / not yet known). */
+  get myUserId(): number | null {
+    return this.accessTokenService.userId;
+  }
+
+  /** Current signed-in display name (known-as preferred, else username). */
+  get myDisplayName(): string | null {
+    return this.accessTokenService.knownas ?? this.accessTokenService.username;
+  }
+
+  /** Lock owner userId from the selected fragment (supports nested lock or legacy flattened fields). */
+  get lockUserId(): number | null {
+    if (!this.fragment) return null;
+    const f: any = this.fragment as any;
+    return f?.lock?.lockUserId ?? f?.lockUserId ?? null;
+  }
+
+  get isLockedByMe(): boolean {
+    return this.lockUserId != null && this.myUserId != null && this.lockUserId === this.myUserId;
+  }
+
+  get isLockedByOther(): boolean {
+    return this.lockUserId != null && !this.isLockedByMe;
+  }
+
+  /**
+   * Display name for the lock owner.
+   *
+   * Note: AccessTokenService only knows *me*. If the lock is held by someone
+   * else, we can only show their name if the server includes it in the fragment payload.
+   */
+  get lockOwnerDisplay(): string {
+    console.log(`TextPanelComponent.lockOwnerDisplay: lockUserId: ${this.isLockedByMe}`);
+
+    if (this.lockUserId == null) return '';
+
+    if (this.isLockedByMe) {
+      return this.myDisplayName ?? `user ${this.lockUserId}`;
+    }
+
+    const f: any = this.fragment as any;
+    const lock: any = f?.lock ?? {};
+    const name = lock?.knownas ?? lock?.username ?? lock?.lockKnownas ?? lock?.lockUsername ?? null;
+    return name ? String(name) : `user ${this.lockUserId}`;
+  }
+
+  get lockButtonText(): string {
+    if (this.lockUserId == null) return '';
+    if (this.isLockedByMe) return 'Locked';
+    return `Locked by ${this.lockOwnerDisplay}`;
+  }
+
+
+
+
+
+  isLocked(): void {
+    console.log(`TextPanelComponent.isLocked: fragment: ${JSON.stringify(this.fragment)}`);
+  }
+
+  onLockInfo(): void {
+    console.log(`TextPanelComponent.onLockInfo: fragment: ${JSON.stringify(this.fragment)}`);
+  }
 
   onSave(): void {
     console.log(`TextPanelComponent.onSave: fragment: ${JSON.stringify(this.fragment)}`);
@@ -280,11 +430,11 @@ export class TextPanelComponent implements OnInit, OnDestroy {
     const path$ = new BehaviorSubject<string>('/');
 
     const ref: DialogRef<FileSelection, FilesListDialogComponent> =
-    this.dialog.open(FilesListDialogComponent, {
-      width: '980px',
-      panelClass: 'files-dialog-panel',
-      data: { path$, select: true }          // <-- selection mode
-    });
+      this.dialog.open(FilesListDialogComponent, {
+        width: '980px',
+        panelClass: 'files-dialog-panel',
+        data: { path$, select: true }          // <-- selection mode
+      });
 
     ref.closed.pipe(take(1)).subscribe(res => {
       path$.complete();                       // tidy

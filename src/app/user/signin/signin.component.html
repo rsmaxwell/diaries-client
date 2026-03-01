@@ -10,21 +10,21 @@
 
     <mat-form-field appearance="outline" class="item">
       <mat-label>Username</mat-label>
-      <input matInput [formControl]="username" type="search" required>
-      @if (username.invalid) {
-        <mat-error>{{getErrorMessage(username)}}</mat-error>
+      <input matInput [formControl]="usernameFormControl" type="search" required>
+      @if (usernameFormControl.invalid) {
+        <mat-error>{{getErrorMessage(usernameFormControl)}}</mat-error>
       }
     </mat-form-field>
 
     <mat-form-field appearance="outline" class="item">
       <mat-label>Password</mat-label>
-      <input matInput [formControl]="password" [type]="hide ? 'password' : 'text'" required>
+      <input matInput [formControl]="passwordFormControl" [type]="hide ? 'password' : 'text'" required>
       <button mat-icon-button matSuffix (click)="hide = !hide" [attr.aria-label]="'Hide password'"
         [attr.aria-pressed]="hide">
         <mat-icon>{{hide ? 'visibility_off' : 'visibility'}}</mat-icon>
       </button>
-      @if (password.invalid) {
-        <mat-error>{{getErrorMessage(password)}}</mat-error>
+      @if (passwordFormControl.invalid) {
+        <mat-error>{{getErrorMessage(passwordFormControl)}}</mat-error>
       }
     </mat-form-field>
 

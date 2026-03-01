@@ -3,7 +3,10 @@ import { BehaviorSubject, filter, firstValueFrom, timeout } from "rxjs";
 export class TokenService {
 
   private token: string | null = null;
-  private tokenSubject = new BehaviorSubject<string | null>(null);
+
+  // protected so subclasses (AccessTokenService) can use it if they want
+  protected tokenSubject = new BehaviorSubject<string | null>(null);
+
   private storageKey: string;
 
   constructor(storageKey: string) {
@@ -16,12 +19,21 @@ export class TokenService {
     }
   }
 
+  /** Observable stream of the current token (null when cleared). */
+  get token$() {
+    return this.tokenSubject.asObservable();
+  }
+
   setToken(token: string) {
     this.token = token;
     this.tokenSubject.next(token);
     sessionStorage.setItem(this.storageKey, token);
   }
 
+  /**
+   * Returns token immediately if present; otherwise waits (up to 5s)
+   * for it to be set.
+   */
   getToken(): Promise<string> {
     if (this.token) return Promise.resolve(this.token);
 

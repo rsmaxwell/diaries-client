@@ -17,11 +17,12 @@ import { Signin, SigninReply, SigninRequest } from "../model/signin";
 import { Register, RegisterReply, RegisterRequest } from "../model/register";
 import { Diary, UpdateDiaryRequest } from "../model/diary";
 import { RefreshTokenReply, RefreshTokenRequest } from "../model/refresh.token";
-import { Fragment, NormaliseFragmentsRequest, UpdateFragmentRequest } from "../model/fragment";
+import { Fragment, LockFragmentRequest, NormaliseFragmentsRequest, UpdateFragmentRequest } from "../model/fragment";
 import { AccessTokenService } from "../user/token/accessTokenService";
 import { RefreshTokenService } from "../user/token/refreshTokenService";
 import { FileEntry } from "../model/FileEntry";
 import { FileListResponse } from "../model/FileListResponse";
+import { EditLockInfo } from "../model/EditLockInfo";
 
 
 @Injectable({ providedIn: 'root' })
@@ -357,6 +358,21 @@ export class RpcService {
             switchMap(({ cfg, client, token }) => {
                 const replyTopic = `reply/${cfg.clientId}/updateFragment`;
                 const payload = { function: 'updateFragment', args: UpdateFragmentRequest.fromFragment(fragment) };
+                const deserialize = ReplyHandler.getBufferAsNumber
+                return this.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
+            })
+        );
+    }
+
+    lockFragment(fragment: Fragment, lock: EditLockInfo): Observable<number> {
+        return forkJoin({
+            cfg: this.configService.getConfig(),
+            client: this.mqtt.getConnection(),
+            token: this.accessTokenService.getToken()
+        }).pipe(
+            switchMap(({ cfg, client, token }) => {
+                const replyTopic = `reply/${cfg.clientId}/lockFragment`;
+                const payload = { function: 'lockFragment', args: LockFragmentRequest.fromFragmentAndlock(fragment, lock) };
                 const deserialize = ReplyHandler.getBufferAsNumber
                 return this.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
             })

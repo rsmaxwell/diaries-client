@@ -28,5 +28,7 @@ export interface SigninReply extends Reply {
     accessToken: string
     refreshToken: string
     refreshPeriod: number
-    id: number
+	userId: number
+	username: string
+	knownas: string
 };

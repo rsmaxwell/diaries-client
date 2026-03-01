@@ -1,52 +1,76 @@
 <div class="text-panel-container" *ngIf="fragment; else noFragment">
   <div class="header">
 
-    <span
-      (click)="editDate()"
-      [ngStyle]="{
+    <span (click)="editDate()" [ngStyle]="{
         'background-color': isDateValid ? null : 'red',
         'padding': '2px',
         'border-radius': '2px'
-       }"
-    >
+       }">
       {{ formattedDate }}
     </span>
-    <span
-          [ngStyle]="{
+
+    <span [ngStyle]="{
         'color': 'grey',
         'padding-left': '50px',
         'border-radius': '2px'
-       }"
-    > id: {{ fragment.id }} </span>
+       }"> id: {{ fragment.id }}
+    </span>
 
     <!-- hidden field + picker -->
     <mat-form-field style="width:0; height:0; overflow:hidden; margin:0; padding:0;">
-      <input matInput [matDatepicker]="picker" [value]="date"
-             (dateChange)="onDateSelected($event)">
+      <input matInput [matDatepicker]="picker" [value]="date" (dateChange)="onDateSelected($event)">
       <mat-datepicker #picker></mat-datepicker>
     </mat-form-field>
 
-    <!-- save button -->
-    <button
-      class="save-button"
-      type="button"
-      [disabled]="!hasEdits"
-      [ngClass]="{ 'active': hasEdits }"
-      (click)="onSave()"
-    >
-      Save
-    </button>
+
+
+    <div class="row-actions">
+
+      <span style="margin-left: 10px; color: #999">hasEdits={{ hasEdits }}</span>
+
+      <div style="font-size: 12px; color: #666;">
+        lockUserId={{ lockUserId }}, myUserId={{ myUserId }}
+      </div>
+
+      <span [ngStyle]="{
+        'color': 'grey',
+        'padding-left': '50px',
+        'border-radius': '2px'
+       }"> subscriber count: {{ fragment.id }}
+      </span>
+
+      <!-- lockInfo button -->
+      @if (lockUserId != null) {
+        <button
+          class="lockInfo-button"
+          type="button"
+          [disabled]="!isLockedByMe"
+          [ngClass]="{
+            'locked-by-me': isLockedByMe,
+            'locked-by-other': isLockedByOther
+          }"
+          (click)="onLockInfo()"
+        >
+          {{ lockButtonText }}
+        </button>
+      }
+
+      <!-- save button -->
+      <button class="btn save-button" type="button" [disabled]="!hasEdits" [ngClass]="{ 'active': hasEdits }"
+        (click)="onSave()">
+        Save
+      </button>
+    </div>
   </div>
 
+
+
   <div class="body">
-    <form [formGroup]="form">    
-      <quill-editor
-        formControlName="body"
-        [modules]="editorModules"
-        placeholder="Write something…"
+    <form [formGroup]="form">
+      <quill-editor formControlName="body" [modules]="editorModules" placeholder="Write something…"
         (onEditorCreated)="onEditorCreated($event)">
       </quill-editor>
-      </form>
+    </form>
   </div>
 </div>
 

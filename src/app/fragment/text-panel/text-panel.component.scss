@@ -87,16 +87,38 @@
   gap: 8px; // optional spacing between items
 }
 
-.save-button {
-  margin-left: auto; // pushes it to the right
+.row-actions {
+  align-items: center;
+  margin-left: auto;  // pushes BOTH buttons to the far right
+  display: flex;
+  align-items: center; // vertically centre items in the row  
+  gap: 20px;          // 20px between the two buttons
+}
 
+// common button styling (optional but tidy)
+.row-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 20px;
+}
+
+// common button styling (optional but tidy)
+.btn {
   padding: 6px 16px;
   border: none;
   border-radius: 4px;
-  background-color: #ccc; // default / disabled-ish
+  background-color: #ccc;
   color: #fff;
   cursor: not-allowed;
   transition: background-color .2s ease;
+}
+
+.locked-button.active {
+    background-color: greenyellow;
+    cursor: pointer;
+}
+
+.save-button {
 
   &:hover {
     // only when enabled
@@ -113,4 +135,19 @@
   &:disabled {
     opacity: 0.6;
   }
+}
+
+/* locked by me -> green, clickable */
+.row-actions .lockInfo-button.locked-by-me {
+  background-color: #2e7d32;
+  cursor: pointer;
+  opacity: 1;
+}
+
+/* locked by someone else -> yellow, not clickable */
+.row-actions .lockInfo-button.locked-by-other {
+  background-color: #f9a825;
+  color: #000;
+  cursor: not-allowed;
+  opacity: 1;
 }

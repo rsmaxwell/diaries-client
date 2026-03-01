@@ -1,3 +1,4 @@
+import { EditLockInfo } from "./EditLockInfo";
 import { Marquee } from "./marquee";
 
 export class Fragment {
@@ -46,6 +47,31 @@ export class UpdateFragmentRequest {
       fragment.sequence,
       fragment.version,
       fragment.text,
+    );
+  }
+}
+
+export class LockFragmentRequest {
+  constructor(
+    public fragmentId: number,
+    public lockUserId: number,
+    public lockUserName: string,
+    public lockKnownAs: string,
+    public lockTimestamp: number,
+    public lockSessionId: string
+  ) { };
+
+  static fromFragmentAndlock(fragment: Fragment, lock: EditLockInfo): LockFragmentRequest {
+
+    console.log(`LockFragmentRequest.fromFragmentAndlock: fragment: ${JSON.stringify(fragment)} lock: ${lock}`);
+
+    return new LockFragmentRequest(
+      fragment.id,
+      lock.userId,
+      lock.userName,
+      lock.knownAs,
+      lock.timestamp,
+      lock.sessionId
     );
   }
 };

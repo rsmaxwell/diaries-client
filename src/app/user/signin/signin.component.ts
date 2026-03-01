@@ -44,18 +44,18 @@ export class SigninComponent implements OnDestroy {
 
   hide = true;
 
-  username = new FormControl('', [
+  usernameFormControl = new FormControl('', [
     Validators.required,
     Validators.minLength(3),
     Validators.maxLength(20),
   ])
-  password = new FormControl('', [
+  passwordFormControl = new FormControl('', [
     Validators.required
   ]);
 
   form = new FormGroup({
-    username: this.username,
-    password: this.password
+    username: this.usernameFormControl,
+    password: this.passwordFormControl
   });
 
   constructor(
@@ -68,6 +68,10 @@ export class SigninComponent implements OnDestroy {
     private alertService: AlertService
   ) { }
 
+
+  get userId(): number | null { return this.accessTokenService.userId; }
+  get username(): string | null { return this.accessTokenService.username; }
+  get knownas(): string | null { return this.accessTokenService.knownas; }
 
   onSubmit(): void {
     console.log("SigninComponent.onSubmit")
@@ -85,8 +89,10 @@ export class SigninComponent implements OnDestroy {
     console.log(`SigninComponent - using RpcService`)
     this.rpcService.signin$(value).subscribe({
       next: (reply) => {
-        console.log(`SigninComponent.onSubmit: success`)
+        console.log(`SigninComponent.onSubmit: success: userId: ${reply.userId}, username: ${reply.username},  knownas: ${reply.knownas}`)
         this.accessTokenService.setToken(reply.accessToken);
+        this.accessTokenService.setUserInfo(reply.userId, reply.username, reply.knownas);
+
         this.refreshTokenService.setToken(reply.refreshToken);
         this.tokenRequestor.start(reply.refreshPeriod);
         this.alertService.info(`${value.username} signed in`);
