@@ -1,17 +1,15 @@
-import { EditLockInfo } from "./EditLockInfo";
-import { Marquee } from "./marquee";
 
-export class Fragment {
-  constructor(
-    public id: number,
-    public marqueeId: number | null,
-    public year: number,
-    public month: number,
-    public day: number,
-    public sequence: number,
-    public version: number,
-    public text: string
-  ) { };
+export interface Fragment {
+  id: number;
+  marqueeId: number | null;
+  year: number;
+  month: number;
+  day: number;
+  sequence: number;
+  version: number;
+  text: string;
+
+  lock?: EditLockInfo | null; 
 }
 
 export class NormaliseFragmentsRequest {
@@ -51,27 +49,24 @@ export class UpdateFragmentRequest {
   }
 }
 
+export interface EditLockInfo {
+  lockUserId: number | null;
+  lockUserName: string | null;
+  lockKnownAs: string | null;
+  lockTimeStamp: number | null;    // epoch millis
+  lockSessionId: string | null;
+}
+
 export class LockFragmentRequest {
-  constructor(
-    public fragmentId: number,
-    public lockUserId: number,
-    public lockUserName: string,
-    public lockKnownAs: string,
-    public lockTimestamp: number,
-    public lockSessionId: string
-  ) { };
-
-  static fromFragmentAndlock(fragment: Fragment, lock: EditLockInfo): LockFragmentRequest {
-
-    console.log(`LockFragmentRequest.fromFragmentAndlock: fragment: ${JSON.stringify(fragment)} lock: ${lock}`);
-
-    return new LockFragmentRequest(
-      fragment.id,
-      lock.userId,
-      lock.userName,
-      lock.knownAs,
-      lock.timestamp,
-      lock.sessionId
-    );
+  constructor(public id: number) {}
+  static fromId(id: number): LockFragmentRequest {
+    return new LockFragmentRequest(id);
   }
-};
+}
+
+export class UnlockFragmentRequest {
+  constructor(public id: number) {}
+  static fromId(id: number): UnlockFragmentRequest {
+    return new UnlockFragmentRequest(id);
+  }
+}

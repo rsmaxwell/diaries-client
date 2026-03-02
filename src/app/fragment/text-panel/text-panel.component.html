@@ -26,37 +26,24 @@
 
     <div class="row-actions">
 
-      <span style="margin-left: 10px; color: #999">hasEdits={{ hasEdits }}</span>
-
-      <div style="font-size: 12px; color: #666;">
-        lockUserId={{ lockUserId }}, myUserId={{ myUserId }}
-      </div>
-
-      <span [ngStyle]="{
-        'color': 'grey',
-        'padding-left': '50px',
-        'border-radius': '2px'
-       }"> subscriber count: {{ fragment.id }}
-      </span>
-
       <!-- lockInfo button -->
-      @if (lockUserId != null) {
-        <button
-          class="lockInfo-button"
-          type="button"
-          [disabled]="!isLockedByMe"
-          [ngClass]="{
-            'locked-by-me': isLockedByMe,
-            'locked-by-other': isLockedByOther
-          }"
-          (click)="onLockInfo()"
-        >
-          {{ lockButtonText }}
-        </button>
-      }
+      <button class="btn lockInfo-button"
+        type="button"
+        [disabled]="!isLockedByMe"
+        [ngClass]="{
+          'locked-by-me': isLockedByMe,
+          'locked-by-other': isLockedByOther
+        }"
+        (click)="onLockInfo()"
+      >
+        {{ lockButtonText }}
+      </button>
 
       <!-- save button -->
-      <button class="btn save-button" type="button" [disabled]="!hasEdits" [ngClass]="{ 'active': hasEdits }"
+      <button class="btn save-button" 
+        type="button" 
+        [disabled]="!hasEdits || isLockedByOther || !isLockedByMe" 
+        [ngClass]="{ 'active': hasEdits }"
         (click)="onSave()">
         Save
       </button>

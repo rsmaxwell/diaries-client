@@ -2,7 +2,7 @@ import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ModelContext } from '../../model/model-context';
 import { Fragment } from '../../model/fragment';
-import { auditTime, BehaviorSubject, combineLatest, distinctUntilChanged, distinctUntilKeyChanged, filter, map, pairwise, startWith, Subject, switchMap, take, takeUntil } from 'rxjs';
+import { auditTime, BehaviorSubject, distinctUntilChanged, map, pairwise, startWith, Subject, take, takeUntil } from 'rxjs';
 import { QuillModule } from 'ngx-quill';
 import { FormControl, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { RpcService } from '../../mqtt/rpc.service';
@@ -18,6 +18,9 @@ import Quill from 'quill';
 import { FileSelection, FilesListDialogComponent } from '../../files-list-dialog/files-list-dialog.component';
 import { Dialog, DialogRef } from '@angular/cdk/dialog';
 import { AccessTokenService } from '../../user/token/accessTokenService';
+import { RefreshTokenService } from '../../user/token/refreshTokenService';
+import { HttpStatusCode } from '@angular/common/http';
+import { Router } from '@angular/router';
 
 // minimal shape we need
 type QuillToolbarModule = {
@@ -71,16 +74,22 @@ export class TextPanelComponent implements OnInit, OnDestroy {
   formattedDate = '';
   isDateValid = false;
   private destroy$ = new Subject<void>();
+  private lockRequestedForFragmentId: number | null = null;
+  private quill?: Quill;
 
   constructor(
     private modelContext: ModelContext,
     private rpcService: RpcService,
     private dialog: Dialog,
     private accessTokenService: AccessTokenService,
+    private refreshTokenService: RefreshTokenService,
+    private router: Router
   ) { }
 
   ngOnInit(): void {
     console.log(`TextPanelComponent.ngOnInit`);
+
+    const bodyCtrl = this.form.get('body')!;
 
     // 1) Keep the panel updated when selected fragment OR lock owner changes
     this.modelContext.selectedFragment$
@@ -92,114 +101,166 @@ export class TextPanelComponent implements OnInit, OnDestroy {
           const aLock = (a as any)?.lock?.lockUserId ?? (a as any)?.lockUserId ?? null;
           const bLock = (b as any)?.lock?.lockUserId ?? (b as any)?.lockUserId ?? null;
 
-          // IMPORTANT: include lock owner in the equality check so lock updates are not filtered out
           return a.id === b.id && a.version === b.version && aLock === bLock;
         }),
         takeUntil(this.destroy$)
       )
       .subscribe(fragment => {
-        console.log(`TextPanelComponent.<subscribe fragment>: ${fragment ? fragment.id : 'none'}`);
+        const prevFragment = this.fragment;
 
+        const prevId = prevFragment?.id ?? null;
+        const nextId = fragment?.id ?? null;
+        const switchingFragment = prevId !== nextId;
+
+        // Capture previous server text before we overwrite this.fragment
+        const prevServerText = prevFragment?.text ?? '';
+        const nextServerText = fragment?.text ?? '';
+
+        // now update fragment reference (so getters like isLockedByMe use new lock)
         this.fragment = fragment;
 
-        // (re)seed form + date baselines
-        let html = '';
-        let dateFormatter = new DateFormatter(0, 0, 0);
+        if (switchingFragment) {
+          this.lockRequestedForFragmentId = null;
+        }
 
+        // update baselines from server (important so Save becomes grey after sync)
         if (fragment) {
           this.originalYear = fragment.year;
           this.originalMonth = fragment.month;
           this.originalDay = fragment.day;
-
-          html = fragment.text;
-          dateFormatter = new DateFormatter(fragment.year, fragment.month, fragment.day);
         } else {
           this.originalYear = 0;
           this.originalMonth = 0;
           this.originalDay = 0;
         }
 
-        this.formattedDate = dateFormatter.formattedDate;
-        this.isDateValid = dateFormatter.isDateValid;
+        const serverTextChanged = prevServerText !== nextServerText;
 
-        // Seed editor body WITHOUT triggering valueChanges
-        this.form.get('body')!.setValue(html, {
-          emitEvent: false,
-          emitModelToViewChange: true
-        });
+        if (switchingFragment || serverTextChanged) {
+          const sel = this.quill?.getSelection();
+          bodyCtrl.setValue(nextServerText, { emitEvent: false, emitModelToViewChange: true });
+
+          // Restore cursor only when staying on the same fragment
+          if (sel && this.quill && !switchingFragment) {
+            queueMicrotask(() => this.quill?.setSelection(sel.index, sel.length ?? 0, 'silent'));
+          }
+        }
+
+        const df = fragment
+          ? new DateFormatter(fragment.year, fragment.month, fragment.day)
+          : new DateFormatter(0, 0, 0);
+
+        this.formattedDate = df.formattedDate;
+        this.isDateValid = df.isDateValid;
+
+        if (!this.isLockedByMe) {
+          this.lockRequestedForFragmentId = null;
+        }
+
+        this.updateEditorReadOnlyState();
       });
 
-    // 2) Watch editing transitions via hasEdits
-    //    - false -> true : acquire lock (via updateFragment$)
-    //    - true -> false : release lock (via updateFragment$ with lockInfo=null)
-    const bodyCtrl = this.form.get('body')!;
-
+    // 2) Lock acquisition: trigger off EVERY body change, and use flags to avoid spamming.
+    //    This avoids the "distinctUntilChanged got stuck at true" problem after save.
     bodyCtrl.valueChanges
       .pipe(
         auditTime(0),
-        map(() => this.hasEdits),
-        startWith(this.hasEdits),
-        distinctUntilChanged(),
-        pairwise(), // [prev, curr]
         takeUntil(this.destroy$)
       )
-      .subscribe(([prevEdits, currEdits]) => {
+      .subscribe(() => {
         if (!this.fragment) return;
 
-        // -------- false -> true : user started editing (acquire lock) --------
-        if (!prevEdits && currEdits) {
-          if (this.isLockedByMe) return;
+        // Only attempt lock if there are edits right now
+        if (!this.hasEdits) return;
 
-          const requestPayload: Fragment = {
-            ...this.fragment,
-            text: bodyCtrl.value as string,
-            version: this.fragment.version
-          };
+        // If already locked by me, nothing to do
+        if (this.isLockedByMe) return;
 
-          console.log(
-            `TextPanelComponent: edits started -> updateFragment$ to trigger lock, fragmentId=${this.fragment.id}`
-          );
+        // So user #2 won’t try to lock while it’s locked by user #1.
+        if (this.isLockedByOther) return;
 
-          this.rpcService.updateFragment$(requestPayload)
-            .pipe(takeUntil(this.destroy$))
-            .subscribe({
-              next: (n) => console.log(`TextPanelComponent: updateFragment$ completed (${n})`),
-              error: (err) => console.warn(`TextPanelComponent: updateFragment$ failed`, err)
-            });
+        // Only request once per fragment per edit-session
+        if (this.lockRequestedForFragmentId === this.fragment.id) return;
 
-          return;
-        }
+        this.lockRequestedForFragmentId = this.fragment.id;
 
-        // -------- true -> false : user undid back to original (release lock) --------
-        if (prevEdits && !currEdits) {
-          // Only release if I hold the lock (avoid clearing another user's lock)
+        console.log(`TextPanelComponent: edits detected -> lockFragment$, fragmentId=${this.fragment.id}`);
+
+        // Prefer { id } payload. If your lockFragment$ expects Fragment, adjust it accordingly.
+        this.rpcService.lockFragment$(this.fragment.id)
+          .pipe(takeUntil(this.destroy$))
+          .subscribe({
+            next: () => console.log(`TextPanelComponent: lockFragment$ completed`),
+            error: (err) => {
+              console.warn(`TextPanelComponent: lockFragment$ failed`, err);
+
+              if (err?.status === HttpStatusCode.Unauthorized) {
+                // clear auth
+                this.accessTokenService.clearToken();
+                this.refreshTokenService.clearToken();
+
+                // go to signin; keep current URL so you can return after signing in
+                this.router.navigateByUrl(`/signin?returnUrl=${encodeURIComponent(this.router.url)}`);
+                return;
+              }
+
+              // allow retry if it failed for other reasons
+              this.lockRequestedForFragmentId = null;
+            }
+          });
+      });
+
+    // 3) Unlock-on-undo: watch hasEdits and detect true -> false
+    bodyCtrl.valueChanges
+      .pipe(
+        auditTime(0),
+
+        // project keystrokes -> boolean state
+        map(() => this.hasEdits),
+
+        // seed with current value so pairwise has a "previous"
+        startWith(this.hasEdits),
+
+        // only react when hasEdits changes
+        distinctUntilChanged(),
+
+        // emit [prev, curr]
+        pairwise(),
+
+        takeUntil(this.destroy$)
+      )
+      .subscribe(([wasDirty, isDirty]) => {
+        if (!this.fragment) return;
+
+        // true -> false: user returned to original content
+        if (wasDirty && !isDirty) {
+          // only unlock if I currently hold the lock
           if (!this.isLockedByMe) return;
 
-          // Clear lock info but otherwise do a normal update
-          // NOTE: You said the field is "lockInfo". If your model also uses "lock",
-          // you can clear that too (safe, but remove if it breaks typing).
-          const unlockPayload: any = {
-            ...this.fragment,
-            text: bodyCtrl.value as string,
-            version: this.fragment.version,
-            lockInfo: null,
-            lock: null
-          };
+          console.log(`TextPanelComponent: edits undone -> unlockFragment$, id=${this.fragment.id}`);
 
-          console.log(
-            `TextPanelComponent: edits undone -> updateFragment$ with lockInfo=null to release lock, fragmentId=${this.fragment.id}`
-          );
-
-          this.rpcService.updateFragment$(unlockPayload as Fragment)
+          this.rpcService.unlockFragment$(this.fragment.id)
             .pipe(takeUntil(this.destroy$))
             .subscribe({
-              next: (n) => console.log(`TextPanelComponent: unlock updateFragment$ completed (${n})`),
-              error: (err) => console.warn(`TextPanelComponent: unlock updateFragment$ failed`, err)
+              next: () => console.log(`TextPanelComponent: unlockFragment$ completed`),
+              error: (err) => console.warn(`TextPanelComponent: unlockFragment$ failed`, err),
             });
-
-          return;
         }
       });
+  }
+
+  private updateEditorReadOnlyState(): void {
+    const bodyCtrl = this.form.get('body')!;
+    const readOnly = this.isLockedByOther;
+
+    if (readOnly) {
+      bodyCtrl.disable({ emitEvent: false });
+    } else {
+      bodyCtrl.enable({ emitEvent: false });
+    }
+
+    // Quill UI read-only (prevents typing/cursor edits)
+    this.quill?.enable(!readOnly);
   }
 
   ngOnDestroy(): void {
@@ -285,9 +346,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
 
   /** Lock owner userId from the selected fragment (supports nested lock or legacy flattened fields). */
   get lockUserId(): number | null {
-    if (!this.fragment) return null;
-    const f: any = this.fragment as any;
-    return f?.lock?.lockUserId ?? f?.lockUserId ?? null;
+    return this.fragment?.lock?.lockUserId ?? null;
   }
 
   get isLockedByMe(): boolean {
@@ -305,22 +364,31 @@ export class TextPanelComponent implements OnInit, OnDestroy {
    * else, we can only show their name if the server includes it in the fragment payload.
    */
   get lockOwnerDisplay(): string {
-    console.log(`TextPanelComponent.lockOwnerDisplay: lockUserId: ${this.isLockedByMe}`);
+    if (!this.fragment?.lock?.lockUserId) return '';
 
-    if (this.lockUserId == null) return '';
-
+    // If it's me, show my own display name (from token)
     if (this.isLockedByMe) {
-      return this.myDisplayName ?? `user ${this.lockUserId}`;
+      return this.myDisplayName ?? `user ${this.fragment.lock.lockUserId}`;
     }
 
-    const f: any = this.fragment as any;
-    const lock: any = f?.lock ?? {};
-    const name = lock?.knownas ?? lock?.username ?? lock?.lockKnownas ?? lock?.lockUsername ?? null;
-    return name ? String(name) : `user ${this.lockUserId}`;
+    // Someone else: prefer "known as" if you like, or force username
+    const lock = this.fragment.lock;
+
+    // Option A: force username (as you asked)
+    if (lock.lockUserName && lock.lockUserName.trim().length > 0) {
+      return lock.lockUserName;
+    }
+
+    // Optionally fall back to known-as
+    if (lock.lockKnownAs && lock.lockKnownAs.trim().length > 0) {
+      return lock.lockKnownAs;
+    }
+
+    return `user ${lock.lockUserId}`;
   }
 
   get lockButtonText(): string {
-    if (this.lockUserId == null) return '';
+    if (this.lockUserId == null) return 'Unlocked';
     if (this.isLockedByMe) return 'Locked';
     return `Locked by ${this.lockOwnerDisplay}`;
   }
@@ -394,6 +462,16 @@ export class TextPanelComponent implements OnInit, OnDestroy {
       error: (err) => {
         console.log(`TextPanelComponent.onSave: error -> rolling back: ${err}`);
 
+        if (err?.status === HttpStatusCode.Unauthorized) {
+          // clear auth
+          this.accessTokenService.clearToken();
+          this.refreshTokenService.clearToken();
+
+          // go to signin; keep current URL so you can return after signing in
+          this.router.navigateByUrl(`/signin?returnUrl=${encodeURIComponent(this.router.url)}`);
+          return;
+        }
+
         // ---- ROLLBACK ----
         this.fragment = prevFragment;
         this.originalYear = prevOriginals.y;
@@ -415,6 +493,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
 
   onEditorCreated(quill: Quill) {
     console.log(`TextPanelComponent.onEditorCreated`);
+    this.quill = quill;
     const toolbar = quill.getModule('toolbar') as unknown as QuillToolbarModule | undefined;
 
     if (!toolbar || typeof toolbar.addHandler !== 'function') {
@@ -423,6 +502,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
     }
 
     toolbar.addHandler('image', () => this.openImagePicker(quill));
+    this.updateEditorReadOnlyState(); // apply initial state    
   }
 
   private openImagePicker(quill: any) {
