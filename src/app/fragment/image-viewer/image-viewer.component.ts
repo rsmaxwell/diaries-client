@@ -22,6 +22,10 @@ import { combineLatest, distinctUntilChanged, filter, from, map, Subject, switch
 import { Config, ConfigService } from '../../config/config.service';
 import { ModelContext } from '../../model/model-context';
 
+import { firstValueFrom } from 'rxjs';
+import { Fragment } from '../../model/fragment';
+import { AccessTokenService } from '../../user/token/accessTokenService';
+
 enum ViewMode {
   WithMarquee,
   WithoutMarquee
@@ -47,7 +51,8 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     private rpcService: RpcService,
     private alertService: AlertService,
     private configService: ConfigService,
-    private modelContext: ModelContext
+    private modelContext: ModelContext,
+    private accessTokenService: AccessTokenService
   ) {
   };
 
@@ -465,7 +470,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       p.y >= r.y && p.y <= r.y + r.height;
   }
 
-  onSelectMarquee(marquee: Marquee, event?: MouseEvent) {
+  async onSelectMarquee(marquee: Marquee, event?: MouseEvent) {
     // If user is clicking in an overlap area, prefer keeping the current marquee selected.
     // Allow override with Shift-click.
     if (event && this.mode === ViewMode.WithMarquee && this.marquee && this.marquee.id !== marquee.id) {
@@ -681,5 +686,40 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       return true;
     }
     return false;
+  }
+
+
+  private isLockHeldByThisSession(fragment: Fragment | null): fragment is Fragment {
+    const lock = fragment?.lock as any;
+    const myUserId = this.accessTokenService.userId;
+    const mySessionId = this.accessTokenService.sessionId;
+
+    return !!fragment
+      && !!lock?.locked
+      && lock.lockUserId != null
+      && lock.lockSessionId != null
+      && myUserId != null
+      && mySessionId != null
+      && lock.lockUserId === myUserId
+      && lock.lockSessionId === mySessionId;
+  }
+
+  private async unlockCurrentFragmentIfNeeded(nextFragmentId: number): Promise<void> {
+    // Get the fragment currently selected (the one we're about to leave)
+    const current = await firstValueFrom(this.modelContext.selectedFragment$.pipe(take(1)));
+
+    // No current fragment, or clicking the same fragment -> nothing to do
+    if (!current?.id || current.id === nextFragmentId) return;
+
+    // Only unlock if THIS session holds the lock
+    if (!this.isLockHeldByThisSession(current)) return;
+
+    try {
+      await firstValueFrom(this.rpcService.unlockFragment$(current.id).pipe(take(1)));
+      console.log(`ImageViewer: unlocked fragment ${current.id} before switching`);
+    } catch (err) {
+      // Don’t block navigation; just log.
+      console.warn(`ImageViewer: unlock before switching failed`, err);
+    }
   }
 }

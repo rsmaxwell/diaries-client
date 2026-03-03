@@ -126,34 +126,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
 
         const leaving = this.fragment; // <-- what the UI was showing up to now
 
-        // --- NEW: unlock the fragment we are leaving ---
-        console.log(`TextPanelComponent: unlock the fragment we are leaving, id=${leaving?.id}`);
-
-        console.log(`TextPanelComponent: switchingFragment = ${switchingFragment}`);
-        console.log(`TextPanelComponent: leaving?.id       = ${leaving?.id}`);
-        console.log(`TextPanelComponent: this.isLockedByMe = ${this.isLockedByMe}`);
-
-        if (switchingFragment && leaving?.id != null && this.isLockedByMe) {
-          console.log(`TextPanelComponent: switching away -> unlockFragment$, id=${leaving.id}`);
-          this.rpcService.unlockFragment$(leaving.id)
-            .pipe(takeUntil(this.destroy$))
-            .subscribe({
-              next: () => console.log(`TextPanelComponent: unlockFragment$ (on switch) completed`),
-              error: (err) => {
-                console.log(`TextPanelComponent: unlockFragment$ (on switch) failed`, err)
-
-                if (err?.status === HttpStatusCode.Unauthorized) {
-                  // clear auth
-                  this.accessTokenService.clearToken();
-                  this.refreshTokenService.clearToken();
-
-                  // go to signin; keep current URL so you can return after signing in
-                  this.router.navigateByUrl(`/signin?returnUrl=${encodeURIComponent(this.router.url)}`);
-                  return;
-                }
-              }
-            });
-        }
+        console.log(`TextPanelComponent: we are leaving fragment.id=${leaving?.id}`);
 
         // Track current fragment after any switch logic
         this.currentFragment = fragment;
