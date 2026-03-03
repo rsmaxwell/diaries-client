@@ -2,7 +2,7 @@ import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ModelContext } from '../../model/model-context';
 import { Fragment } from '../../model/fragment';
-import { auditTime, BehaviorSubject, distinctUntilChanged, map, pairwise, startWith, Subject, take, takeUntil } from 'rxjs';
+import { auditTime, BehaviorSubject, distinctUntilChanged, firstValueFrom, map, pairwise, startWith, Subject, take, takeUntil } from 'rxjs';
 import { QuillModule } from 'ngx-quill';
 import { FormControl, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { RpcService } from '../../mqtt/rpc.service';
@@ -49,7 +49,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
   @ViewChild('picker') picker!: MatDatepicker<Date>;
 
   fragment: Fragment | null = null;
-  htmlContent = '';  // two‑way bound HTML
+  htmlContent = '';  // two-way bound HTML
 
   private originalYear = 0;
   private originalMonth = 0;
@@ -77,6 +77,9 @@ export class TextPanelComponent implements OnInit, OnDestroy {
   private lockRequestedForFragmentId: number | null = null;
   private quill?: Quill;
 
+  // Tracks the fragment we are currently "on" so we can unlock when leaving
+  private currentFragment: Fragment | null = null;
+
   constructor(
     private modelContext: ModelContext,
     private rpcService: RpcService,
@@ -98,22 +101,65 @@ export class TextPanelComponent implements OnInit, OnDestroy {
           if (a === b) return true;
           if (!a || !b) return false;
 
-          const aLock = (a as any)?.lock?.lockUserId ?? (a as any)?.lockUserId ?? null;
-          const bLock = (b as any)?.lock?.lockUserId ?? (b as any)?.lockUserId ?? null;
+          const aLockUserId = (a as any)?.lock?.lockUserId ?? null;
+          const bLockUserId = (b as any)?.lock?.lockUserId ?? null;
 
-          return a.id === b.id && a.version === b.version && aLock === bLock;
+          const aLockSessionId = (a as any)?.lock?.lockSessionId ?? null;
+          const bLockSessionId = (b as any)?.lock?.lockSessionId ?? null;
+
+          const aLocked = (a as any)?.lock?.locked ?? false;
+          const bLocked = (b as any)?.lock?.locked ?? false;
+
+          return a.id === b.id
+            && a.version === b.version
+            && aLockUserId === bLockUserId
+            && aLockSessionId === bLockSessionId
+            && aLocked === bLocked;
         }),
         takeUntil(this.destroy$)
       )
       .subscribe(fragment => {
-        const prevFragment = this.fragment;
 
-        const prevId = prevFragment?.id ?? null;
+        const prevId = this.fragment?.id ?? null; // the UI’s current fragment id
         const nextId = fragment?.id ?? null;
         const switchingFragment = prevId !== nextId;
 
+        const leaving = this.fragment; // <-- what the UI was showing up to now
+
+        // --- NEW: unlock the fragment we are leaving ---
+        console.log(`TextPanelComponent: unlock the fragment we are leaving, id=${leaving?.id}`);
+
+        console.log(`TextPanelComponent: switchingFragment = ${switchingFragment}`);
+        console.log(`TextPanelComponent: leaving?.id       = ${leaving?.id}`);
+        console.log(`TextPanelComponent: this.isLockedByMe = ${this.isLockedByMe}`);
+
+        if (switchingFragment && leaving?.id != null && this.isLockedByMe) {
+          console.log(`TextPanelComponent: switching away -> unlockFragment$, id=${leaving.id}`);
+          this.rpcService.unlockFragment$(leaving.id)
+            .pipe(takeUntil(this.destroy$))
+            .subscribe({
+              next: () => console.log(`TextPanelComponent: unlockFragment$ (on switch) completed`),
+              error: (err) => {
+                console.log(`TextPanelComponent: unlockFragment$ (on switch) failed`, err)
+
+                if (err?.status === HttpStatusCode.Unauthorized) {
+                  // clear auth
+                  this.accessTokenService.clearToken();
+                  this.refreshTokenService.clearToken();
+
+                  // go to signin; keep current URL so you can return after signing in
+                  this.router.navigateByUrl(`/signin?returnUrl=${encodeURIComponent(this.router.url)}`);
+                  return;
+                }
+              }
+            });
+        }
+
+        // Track current fragment after any switch logic
+        this.currentFragment = fragment;
+
         // Capture previous server text before we overwrite this.fragment
-        const prevServerText = prevFragment?.text ?? '';
+        const prevServerText = this.fragment?.text ?? '';
         const nextServerText = fragment?.text ?? '';
 
         // now update fragment reference (so getters like isLockedByMe use new lock)
@@ -186,7 +232,6 @@ export class TextPanelComponent implements OnInit, OnDestroy {
 
         console.log(`TextPanelComponent: edits detected -> lockFragment$, fragmentId=${this.fragment.id}`);
 
-        // Prefer { id } payload. If your lockFragment$ expects Fragment, adjust it accordingly.
         this.rpcService.lockFragment$(this.fragment.id)
           .pipe(takeUntil(this.destroy$))
           .subscribe({
@@ -243,10 +288,34 @@ export class TextPanelComponent implements OnInit, OnDestroy {
             .pipe(takeUntil(this.destroy$))
             .subscribe({
               next: () => console.log(`TextPanelComponent: unlockFragment$ completed`),
-              error: (err) => console.warn(`TextPanelComponent: unlockFragment$ failed`, err),
+              error: (err) => {
+                console.log(`TextPanelComponent: unlockFragment$ failed`, err)
+
+                if (err?.status === HttpStatusCode.Unauthorized) {
+                  // clear auth
+                  this.accessTokenService.clearToken();
+                  this.refreshTokenService.clearToken();
+
+                  // go to signin; keep current URL so you can return after signing in
+                  this.router.navigateByUrl(`/signin?returnUrl=${encodeURIComponent(this.router.url)}`);
+                  return;
+                }
+              }
             });
         }
       });
+  }
+
+  private isLockedByMeFragment(f: Fragment): boolean {
+    const lock = (f as any)?.lock;
+    return !!lock
+      && lock.locked === true
+      && lock.lockUserId != null
+      && lock.lockSessionId != null
+      && this.myUserId != null
+      && this.mySessionId != null
+      && lock.lockUserId === this.myUserId
+      && lock.lockSessionId === this.mySessionId;
   }
 
   private updateEditorReadOnlyState(): void {
@@ -265,11 +334,37 @@ export class TextPanelComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     console.log(`TextPanelComponent.ngOnDestroy`);
+
+    // --- NEW: unlock the fragment we are leaving (component destroyed / panel closed) ---
+    const leaving = this.fragment;
+    if (leaving?.id != null && this.isLockedByMe) {
+      console.log(`TextPanelComponent: destroy -> unlockFragment$, id=${leaving.id}`);
+      this.rpcService.unlockFragment$(leaving.id)
+        .pipe(take(1))
+        .subscribe({
+          next: () => console.log(`TextPanelComponent: unlockFragment$ (on destroy) completed`),
+          error: (err) => {
+            console.log(`TextPanelComponent: unlockFragment$ (on destroy) failed`, err)
+
+            if (err?.status === HttpStatusCode.Unauthorized) {
+              // clear auth
+              this.accessTokenService.clearToken();
+              this.refreshTokenService.clearToken();
+
+              // go to signin; keep current URL so you can return after signing in
+              this.router.navigateByUrl(`/signin?returnUrl=${encodeURIComponent(this.router.url)}`);
+              return;
+            }
+          }
+        });
+    }
+
+
     this.destroy$.next();
     this.destroy$.complete();
   }
 
-  /**  
+  /**
    * Returns a real Date if year/month/day are set (>0),
    * otherwise null if they’re still at the 0/0/0 default.
    */
@@ -341,7 +436,12 @@ export class TextPanelComponent implements OnInit, OnDestroy {
 
   /** Current signed-in display name (known-as preferred, else username). */
   get myDisplayName(): string | null {
-    return this.accessTokenService.knownas ?? this.accessTokenService.username;
+    return this.accessTokenService.knownAs ?? this.accessTokenService.username;
+  }
+
+  /** Current signed-in display name (known-as preferred, else username). */
+  get mySessionId(): string | null {
+    return this.accessTokenService.sessionId ?? this.accessTokenService.sessionId;
   }
 
   /** Lock owner userId from the selected fragment (supports nested lock or legacy flattened fields). */
@@ -350,11 +450,23 @@ export class TextPanelComponent implements OnInit, OnDestroy {
   }
 
   get isLockedByMe(): boolean {
-    return this.lockUserId != null && this.myUserId != null && this.lockUserId === this.myUserId;
+    const lock = this.fragment?.lock;
+
+    // console.log(`TextPanelComponent.isLockedByMe: lock: userId: ${lock!.lockUserId}, sessionId: ${lock!.lockSessionId}`);
+    // console.log(`TextPanelComponent.isLockedByMe: this: userId: ${this.myUserId}, sessionId: ${this.mySessionId}`);
+
+    return !!lock
+      && lock.lockUserId != null
+      && this.myUserId != null
+      && lock.lockUserId === this.myUserId
+      && lock.lockSessionId != null
+      && this.mySessionId != null
+      && lock.lockSessionId === this.mySessionId;
   }
 
   get isLockedByOther(): boolean {
-    return this.lockUserId != null && !this.isLockedByMe;
+    const lock = this.fragment?.lock;
+    return !!lock?.locked && !this.isLockedByMe;
   }
 
   /**
@@ -364,27 +476,19 @@ export class TextPanelComponent implements OnInit, OnDestroy {
    * else, we can only show their name if the server includes it in the fragment payload.
    */
   get lockOwnerDisplay(): string {
-    if (!this.fragment?.lock?.lockUserId) return '';
+    const lock = this.fragment?.lock;
+    if (!lock?.locked) return '';
 
-    // If it's me, show my own display name (from token)
-    if (this.isLockedByMe) {
-      return this.myDisplayName ?? `user ${this.fragment.lock.lockUserId}`;
+    // same user, different session -> very common in your setup
+    if (lock.lockUserId === this.myUserId && lock.lockSessionId !== this.mySessionId) {
+      return 'another window';
     }
 
-    // Someone else: prefer "known as" if you like, or force username
-    const lock = this.fragment.lock;
-
-    // Option A: force username (as you asked)
-    if (lock.lockUserName && lock.lockUserName.trim().length > 0) {
-      return lock.lockUserName;
-    }
-
-    // Optionally fall back to known-as
-    if (lock.lockKnownAs && lock.lockKnownAs.trim().length > 0) {
-      return lock.lockKnownAs;
-    }
-
-    return `user ${lock.lockUserId}`;
+    return (
+      lock.lockUserName?.trim() ||
+      lock.lockKnownAs?.trim() ||
+      (lock.lockUserId != null ? `${lock.lockUserId}` : 'someone')
+    );
   }
 
   get lockButtonText(): string {
@@ -392,10 +496,6 @@ export class TextPanelComponent implements OnInit, OnDestroy {
     if (this.isLockedByMe) return 'Locked';
     return `Locked by ${this.lockOwnerDisplay}`;
   }
-
-
-
-
 
   isLocked(): void {
     console.log(`TextPanelComponent.isLocked: fragment: ${JSON.stringify(this.fragment)}`);
@@ -424,8 +524,6 @@ export class TextPanelComponent implements OnInit, OnDestroy {
     const requestPayload: Fragment = {
       ...prevFragment,
       text: currentBody,
-      // year/month/day were already applied locally via onDateSelected()
-      // so use whatever is currently on the fragment for the payload:
       year: this.fragment.year,
       month: this.fragment.month,
       day: this.fragment.day,
@@ -438,6 +536,9 @@ export class TextPanelComponent implements OnInit, OnDestroy {
       ...requestPayload,
       version: (prevFragment.version ?? 0) + 1,
     };
+
+    // keep currentFragment in sync with fragment reference
+    this.currentFragment = this.fragment;
 
     // 2) update baselines & header so hasEdits() becomes false, date header matches
     this.originalYear = this.fragment.year || 0;
@@ -474,6 +575,8 @@ export class TextPanelComponent implements OnInit, OnDestroy {
 
         // ---- ROLLBACK ----
         this.fragment = prevFragment;
+        this.currentFragment = prevFragment;
+
         this.originalYear = prevOriginals.y;
         this.originalMonth = prevOriginals.m;
         this.originalDay = prevOriginals.d;
@@ -502,7 +605,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
     }
 
     toolbar.addHandler('image', () => this.openImagePicker(quill));
-    this.updateEditorReadOnlyState(); // apply initial state    
+    this.updateEditorReadOnlyState(); // apply initial state
   }
 
   private openImagePicker(quill: any) {
