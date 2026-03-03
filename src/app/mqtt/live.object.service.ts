@@ -41,7 +41,8 @@ export class LiveObjectService {
 
     // First time: create ReplaySubject and message handler
     const subject = new ReplaySubject<T | null>(1);
-    const handler = (messageTopic: string, payload: Buffer) => {
+
+    const handler = (messageTopic: string, payload: Buffer, packet?: any) => {
       if (messageTopic !== topic) return;
 
       // retained delete => zero-length payload
@@ -49,6 +50,21 @@ export class LiveObjectService {
         console.log(`LiveObjectService.getObjectById$: zero-length payload => emit null for ${topic}`);
         subject.next(null);      // <— tell subscribers it's gone
         return;                  // keep stream alive for future values
+      }
+
+      if (messageTopic.startsWith('fragments/')) {
+        try {
+          const obj = JSON.parse(payload.toString());
+          console.log(`LiveObjectService.getObjectById$: [MQTT] RX ${messageTopic}`, {
+            id: obj.id,
+            version: obj.version,
+            locked: obj.lock?.locked ?? false,
+            lockSessionId: obj.lock?.lockSessionId ?? '',
+            retain: packet?.retain,
+            qos: packet?.qos,
+            dup: packet?.dup,
+          });
+        } catch { }
       }
 
       try {
@@ -68,20 +84,35 @@ export class LiveObjectService {
 
     // Subscribe to the topic and attach handler
     this.mqtt.getConnection().then(client => {
+      console.log(`LiveObjectService.getObjectById$: [MQTT] SUBSCRIBE -> ${topic} (client.connected=${client.connected})`);
 
       client.subscribe(topic, { qos: 1 }, err => {
+        console.log(`LiveObjectService.getObjectById$: [MQTT] SUBSCRIBE ACK <- ${topic}`, { err });
         if (err) {
           subject.error(err);
           return;
         }
 
         console.log(`LiveObjectService.getObjectById$: SUBSCRIBED to '${topic}'`);
-
         client.on('message', handler);
-
         console.log(`LiveObjectService.getObjectById$: ListenerCount after SUBSCRIBE '${topic}': ${client.listenerCount('message')}`);
       });
+
+      // Hook connect handler once so we can resubscribe after reconnects
+      if (!(client as any).__liveObjectServiceHooked) {
+        (client as any).__liveObjectServiceHooked = true;
+
+        client.on('connect', (connack: any) => {
+          console.log(`LiveObjectService.getObjectById$: [MQTT] connect seen in LiveObjectService sessionPresent=${connack?.sessionPresent}`);
+          this.resubscribeAll(client);
+        });
+
+        client.on('reconnect', () => {
+          console.log(`LiveObjectService.getObjectById$: [MQTT] reconnecting (LiveObjectService)`);
+        });
+      }
     });
+
 
     // Return an observable that tears itself down correctly
     return new Observable<T | null>(observer => {
@@ -140,4 +171,15 @@ export class LiveObjectService {
     }
   }
 
+  private resubscribeAll(client: any) {
+    for (const [topic, entry] of this.subjects.entries()) {
+      // Only resubscribe topics still in use
+      if (entry.refCount <= 0) continue;
+
+      console.log(`LiveObjectService.resubscribeAll: [MQTT] RESUBSCRIBE -> ${topic} refCount=${entry.refCount}`);
+      client.subscribe(topic, { qos: 1 }, (err: any) => {
+        console.log(`LiveObjectService.resubscribeAll: [MQTT] RESUBSCRIBE ACK <- ${topic}`, { err });
+      });
+    }
+  }
 }

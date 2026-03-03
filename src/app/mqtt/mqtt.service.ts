@@ -47,8 +47,16 @@ export class MqttService {
           });
 
           client.on('connect', () => {
-            console.log(`MqttService.getConnection: connected to broker`);
+            console.log(`MqttService.getConnection: [MQTT] connect clientId=${clientId} clean=${config.clean}`);
             resolve(client);
+          });
+
+          client.on('reconnect', () => {
+            console.log(`MqttService.getConnection: [MQTT] reconnecting clientId=${clientId}`);
+          });
+
+          client.on('offline', () => {
+            console.log(`MqttService.getConnection: [MQTT] offline clientId=${clientId}`);
           });
 
           client.on('error', (error: any) => {
@@ -57,8 +65,11 @@ export class MqttService {
           });
 
           client.on('close', () => {
-            console.log(`MqttService.getConnection: connection closed`);
-            reject("Connection closed");
+            console.log(`MqttService.getConnection: [MQTT] close clientId=${clientId}`);
+          });
+
+          client.on('end', () => {
+            console.log(`MqttService.getConnection: [MQTT] end clientId=${clientId}`);
           });
         })
         .catch((error) => {
