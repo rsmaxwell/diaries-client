@@ -3,7 +3,7 @@ import { Diary } from '../model/diary';
 
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { FullheaderComponent } from "../headers/fullheader/fullheader.component";
+import { FullHeaderComponent } from "../headers/fullheader/fullheader.component";
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { ScrollingModule } from '@angular/cdk/scrolling';
 import { FullfooterComponent } from "../headers/fullfooter/fullfooter.component";
@@ -25,7 +25,7 @@ import { ModelContext } from '../model/model-context';
   standalone: true,
   imports: [
     FormsModule,
-    FullheaderComponent,
+    FullHeaderComponent,
     FullfooterComponent,
     MatCardModule,
     MatSelectModule,

@@ -71,7 +71,7 @@ export class SigninComponent implements OnDestroy {
 
   get userId(): number | null { return this.accessTokenService.userId; }
   get username(): string | null { return this.accessTokenService.username; }
-  get knownas(): string | null { return this.accessTokenService.knownas; }
+  get knownas(): string | null { return this.accessTokenService.knownAs; }
 
   onSubmit(): void {
     console.log("SigninComponent.onSubmit")
@@ -89,9 +89,9 @@ export class SigninComponent implements OnDestroy {
     console.log(`SigninComponent - using RpcService`)
     this.rpcService.signin$(value).subscribe({
       next: (reply) => {
-        console.log(`SigninComponent.onSubmit: success: userId: ${reply.userId}, username: ${reply.username},  knownas: ${reply.knownas}`)
+        console.log(`SigninComponent.onSubmit: success: userId: ${reply.userId}, username: ${reply.username}, knownas: ${reply.knownAs}, sessionId: ${reply.sessionId}`)
         this.accessTokenService.setToken(reply.accessToken);
-        this.accessTokenService.setUserInfo(reply.userId, reply.username, reply.knownas);
+        this.accessTokenService.setUserInfo(reply.userId, reply.username, reply.knownAs, reply.sessionId);
 
         this.refreshTokenService.setToken(reply.refreshToken);
         this.tokenRequestor.start(reply.refreshPeriod);

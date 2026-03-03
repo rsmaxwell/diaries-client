@@ -4,7 +4,7 @@ import { Diary } from '../model/diary';
 import { Router } from '@angular/router';
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { ScrollingModule } from '@angular/cdk/scrolling';
-import { FullheaderComponent } from '../headers/fullheader/fullheader.component';
+import { FullHeaderComponent } from '../headers/fullheader/fullheader.component';
 import { FullfooterComponent } from '../headers/fullfooter/fullfooter.component';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -20,7 +20,7 @@ import { ModelContext } from '../model/model-context';
   imports: [
     MatTableModule,
     ScrollingModule,
-    FullheaderComponent,
+    FullHeaderComponent,
     FullfooterComponent,
     MatCardModule,
     MatButtonModule,

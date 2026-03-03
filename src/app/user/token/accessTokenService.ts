@@ -7,11 +7,13 @@ export class AccessTokenService extends TokenService {
 
   private readonly userIdKey = "accessToken.userId";
   private readonly usernameKey = "accessToken.username";
-  private readonly knownasKey = "accessToken.knownas";
+  private readonly knownAsKey = "accessToken.knownAs";
+  private readonly sessionIdKey = "accessToken.sessionId";
 
   private userIdSubject = new BehaviorSubject<number | null>(null);
   private usernameSubject = new BehaviorSubject<string | null>(null);
-  private knownasSubject = new BehaviorSubject<string | null>(null);
+  private knownAsSubject = new BehaviorSubject<string | null>(null);
+  private sessionIdSubject = new BehaviorSubject<string | null>(null);
 
   constructor() {
     super("accessToken");
@@ -19,7 +21,8 @@ export class AccessTokenService extends TokenService {
     // Restore identity from sessionStorage (if available)
     const savedUserId = sessionStorage.getItem(this.userIdKey);
     const savedUsername = sessionStorage.getItem(this.usernameKey);
-    const savedKnownas = sessionStorage.getItem(this.knownasKey);
+    const savedKnownAs = sessionStorage.getItem(this.knownAsKey);
+    const savedSessionId = sessionStorage.getItem(this.sessionIdKey);
 
     if (savedUserId != null && savedUserId !== "") {
       const n = Number(savedUserId);
@@ -30,8 +33,12 @@ export class AccessTokenService extends TokenService {
       this.usernameSubject.next(savedUsername);
     }
 
-    if (savedKnownas != null) {
-      this.knownasSubject.next(savedKnownas);
+    if (savedKnownAs != null) {
+      this.knownAsSubject.next(savedKnownAs);
+    }
+
+    if (savedSessionId != null) {
+      this.sessionIdSubject.next(savedSessionId);
     }
   }
 
@@ -46,7 +53,11 @@ export class AccessTokenService extends TokenService {
   }
 
   get knownas$() {
-    return this.knownasSubject.asObservable();
+    return this.knownAsSubject.asObservable();
+  }
+
+  get mySessionId$() {
+    return this.sessionIdSubject.asObservable();
   }
 
   // ----- Synchronous getters -----
@@ -59,31 +70,42 @@ export class AccessTokenService extends TokenService {
     return this.usernameSubject.value;
   }
 
-  get knownas(): string | null {
-    return this.knownasSubject.value;
+  get knownAs(): string | null {
+    return this.knownAsSubject.value;
+  }
+
+  get sessionId(): string | null {
+    return this.sessionIdSubject.value;
   }
 
   /**
    * Call this after successful sign-in (or token refresh if it returns identity).
    */
-  setUserInfo(userId: number, username: string, knownas: string): void {
+  setUserInfo(userId: number, username: string, knownAs: string, sessionId: string): void {
+
+    console.log(`AccessTokenService.setUserInfo: userId: ${userId}, knownAs: ${knownAs}, sessionId: ${sessionId}`);
+
     this.userIdSubject.next(userId);
     this.usernameSubject.next(username);
-    this.knownasSubject.next(knownas);
+    this.knownAsSubject.next(knownAs);
+    this.sessionIdSubject.next(sessionId);
 
     sessionStorage.setItem(this.userIdKey, String(userId));
     sessionStorage.setItem(this.usernameKey, username ?? "");
-    sessionStorage.setItem(this.knownasKey, knownas ?? "");
+    sessionStorage.setItem(this.knownAsKey, knownAs ?? "");
+    sessionStorage.setItem(this.sessionIdKey, sessionId ?? "");
   }
 
   clearUserInfo(): void {
     this.userIdSubject.next(null);
     this.usernameSubject.next(null);
-    this.knownasSubject.next(null);
+    this.knownAsSubject.next(null);
+    this.sessionIdSubject.next(null);
 
     sessionStorage.removeItem(this.userIdKey);
     sessionStorage.removeItem(this.usernameKey);
-    sessionStorage.removeItem(this.knownasKey);
+    sessionStorage.removeItem(this.knownAsKey);
+    sessionStorage.removeItem(this.sessionIdKey);
   }
 
   override clearToken(): void {

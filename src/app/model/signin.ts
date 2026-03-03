@@ -44,5 +44,6 @@ export interface SigninReply extends Reply {
     refreshPeriod: number;
     userId: number;
     username: string;
-    knownas: string;
+    knownAs: string;
+    sessionId: string;
 }
