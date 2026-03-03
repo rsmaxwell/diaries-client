@@ -26,6 +26,8 @@ import { firstValueFrom } from 'rxjs';
 import { Fragment } from '../../model/fragment';
 import { AccessTokenService } from '../../user/token/accessTokenService';
 
+
+
 enum ViewMode {
   WithMarquee,
   WithoutMarquee
@@ -488,7 +490,13 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     console.log(`ImageViewerComponent.onSelectMarquee: marquee: ${JSON.stringify(marquee)}`);
+    console.log(`ImageViewerComponent.onSelectMarquee: unlock the current fragment`);
 
+    // critical: unlock *while still subscribed to the current fragment*
+    await this.unlockCurrentFragmentIfNeeded(marquee.fragmentId);
+
+    // now switch selection
+    console.log(`ImageViewerComponent.onSelectMarquee: now switch selection: marqueeId: ${marquee.id}, fragmentId: ${marquee.fragmentId}`);    
     this.modelContext.setMarqueeId(marquee.id);
     this.modelContext.setFragmentId(marquee.fragmentId);
 

@@ -52,7 +52,7 @@ export class AccessTokenService extends TokenService {
     return this.usernameSubject.asObservable();
   }
 
-  get knownas$() {
+  get knownAs$() {
     return this.knownAsSubject.asObservable();
   }
 

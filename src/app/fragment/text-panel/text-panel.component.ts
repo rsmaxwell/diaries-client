@@ -201,6 +201,15 @@ export class TextPanelComponent implements OnInit, OnDestroy {
         // Only request once per fragment per edit-session
         if (this.lockRequestedForFragmentId === this.fragment.id) return;
 
+        // ✅ ADD THESE LOGS HERE
+        console.log('mine', {
+          userId: this.accessTokenService.userId,
+          sessionId: this.accessTokenService.sessionId,
+          username: this.accessTokenService.username,
+          knownAs: this.accessTokenService.knownAs,
+        });
+        console.log('lock(before lockFragment$)', this.fragment.lock);
+
         this.lockRequestedForFragmentId = this.fragment.id;
 
         console.log(`TextPanelComponent: edits detected -> lockFragment$, fragmentId=${this.fragment.id}`);
@@ -208,7 +217,38 @@ export class TextPanelComponent implements OnInit, OnDestroy {
         this.rpcService.lockFragment$(this.fragment.id)
           .pipe(takeUntil(this.destroy$))
           .subscribe({
-            next: () => console.log(`TextPanelComponent: lockFragment$ completed`),
+            next: () => {
+              console.log(`TextPanelComponent: lockFragment$ completed`);
+
+              // Optimistically apply the lock locally so UI reflects reality
+              const myUserId = this.myUserId;
+              const mySessionId = this.mySessionId;
+
+              if (this.fragment && myUserId != null && mySessionId != null) {
+                const prevLock = this.fragment.lock ?? ({} as any);
+
+                this.fragment = {
+                  ...this.fragment,
+                  lock: {
+                    ...prevLock,
+                    locked: true,
+                    lockUserId: myUserId,
+                    lockSessionId: mySessionId,
+                    lockUserName: this.accessTokenService.username ?? null,
+                    lockKnownAs: (this.accessTokenService as any).knownas ?? null,
+                    lockTimeStamp: Date.now(),
+                  }
+                } as any;
+
+                // If your Save enablement depends on lock state, update it now
+                this.updateEditorReadOnlyState();
+              } else {
+                console.warn(`TextPanelComponent: lockFragment$ succeeded but myUserId/mySessionId missing`, {
+                  myUserId,
+                  mySessionId
+                });
+              }
+            },
             error: (err) => {
               console.warn(`TextPanelComponent: lockFragment$ failed`, err);
 
@@ -260,7 +300,25 @@ export class TextPanelComponent implements OnInit, OnDestroy {
           this.rpcService.unlockFragment$(this.fragment.id)
             .pipe(takeUntil(this.destroy$))
             .subscribe({
-              next: () => console.log(`TextPanelComponent: unlockFragment$ completed`),
+              next: () => {
+                console.log(`TextPanelComponent: unlockFragment$ completed`);
+                if (this.fragment) {
+                  const prevLock = this.fragment.lock ?? ({} as any);
+                  this.fragment = {
+                    ...this.fragment,
+                    lock: {
+                      ...prevLock,
+                      locked: false,
+                      lockUserId: null,
+                      lockSessionId: null,
+                      lockUserName: null,
+                      lockKnownAs: null,
+                      lockTimeStamp: null,
+                    }
+                  } as any;
+                  this.updateEditorReadOnlyState();
+                }
+              },
               error: (err) => {
                 console.log(`TextPanelComponent: unlockFragment$ failed`, err)
 
@@ -281,6 +339,15 @@ export class TextPanelComponent implements OnInit, OnDestroy {
 
   private isLockedByMeFragment(f: Fragment): boolean {
     const lock = (f as any)?.lock;
+
+    console.log('isLockedByMe check', {
+      lockUserId: lock?.lockUserId,
+      lockSessionId: lock?.lockSessionId,
+      myUserId: this.myUserId,
+      mySessionId: this.mySessionId,
+      locked: lock?.locked
+    });
+
     return !!lock
       && lock.locked === true
       && lock.lockUserId != null
@@ -315,7 +382,25 @@ export class TextPanelComponent implements OnInit, OnDestroy {
       this.rpcService.unlockFragment$(leaving.id)
         .pipe(take(1))
         .subscribe({
-          next: () => console.log(`TextPanelComponent: unlockFragment$ (on destroy) completed`),
+          next: () => {
+            console.log(`TextPanelComponent: unlockFragment$ completed`);
+            if (this.fragment) {
+              const prevLock = this.fragment.lock ?? ({} as any);
+              this.fragment = {
+                ...this.fragment,
+                lock: {
+                  ...prevLock,
+                  locked: false,
+                  lockUserId: null,
+                  lockSessionId: null,
+                  lockUserName: null,
+                  lockKnownAs: null,
+                  lockTimeStamp: null,
+                }
+              } as any;
+              this.updateEditorReadOnlyState();
+            }
+          },
           error: (err) => {
             console.log(`TextPanelComponent: unlockFragment$ (on destroy) failed`, err)
 
@@ -528,10 +613,20 @@ export class TextPanelComponent implements OnInit, OnDestroy {
     // ---- SERVER CALL ----
     this.rpcService.updateFragment$(requestPayload).subscribe({
       next: () => {
-        // Success: nothing else to do. ModelContext will refresh
-        // the selected fragment when it hears from the backend,
-        // but our optimistic state is already correct.
         console.log('TextPanelComponent.onSave: success (optimistic accepted)');
+
+        // ✅ SERVER CLEARS LOCK ON SAVE (Responder publishes lock:null)
+        // Mirror that locally so the next edit will re-lock properly.
+        this.lockRequestedForFragmentId = null;
+
+        if (this.fragment) {
+          this.fragment = {
+            ...this.fragment,
+            lock: null
+          } as any;
+
+          this.updateEditorReadOnlyState();
+        }
       },
       error: (err) => {
         console.log(`TextPanelComponent.onSave: error -> rolling back: ${err}`);

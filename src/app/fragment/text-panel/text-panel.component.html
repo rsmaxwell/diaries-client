@@ -44,7 +44,7 @@
       <button class="btn save-button" 
         type="button" 
         [disabled]="!hasEdits || isLockedByOther || !isLockedByMe" 
-        [ngClass]="{ 'active': hasEdits }"
+        [ngClass]="{ 'active': hasEdits && isLockedByMe && !isLockedByOther }"
         (click)="onSave()">
         Save
       </button>
