@@ -17,8 +17,8 @@ cd "${SUBPROJECT_DIR}"
 # ----------------------------
 
 required_vars=(
-  REPOSITORY
-  VERSION
+  BASEDIR
+  SCRIPT_DIR
 )
 
 for var in "${required_vars[@]}"; do
