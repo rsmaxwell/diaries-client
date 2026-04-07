@@ -43,7 +43,7 @@ fi
 # Build
 # ----------------------------
 echo "Build"
-npm run build -- --configuration production
+npm run build -- --configuration production --base-href /diaries/
 result=$?
 if [ ${result} -ne 0 ]; then
     echo "Error: $0[${LINENO}]"
