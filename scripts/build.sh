@@ -31,13 +31,23 @@ done
 # ----------------------------
 # Install "ci"
 # ----------------------------
-
-npm ci
+echo "Install 'ci'"
+output=$(npm ci 2>&1)
+result=$?
+if [ ${result} -ne 0 ]; then
+    echo "Error: $0[${LINENO}]"
+    echo "${output}"
+    exit 2    
+fi
 
 # ----------------------------
 # Build
 # ----------------------------
-
-npm run build -- --configuration production
-
-
+echo "Build"
+output=$(npm run build -- --configuration production 2>&1)
+result=$?
+if [ ${result} -ne 0 ]; then
+    echo "Error: $0[${LINENO}]"
+    echo "${output}"
+    exit 2    
+fi
