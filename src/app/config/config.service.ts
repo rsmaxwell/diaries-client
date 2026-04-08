@@ -3,10 +3,8 @@ import { Injectable } from '@angular/core';
 import { lastValueFrom } from 'rxjs';
 
 export interface Config {
-  baseUrl: string;
   diaries: string;
   files: string;
-  brokerUrl: string;
   clientId: string;
   username: string;
   password: string;
@@ -16,6 +14,13 @@ export interface Config {
   protocolVersion?: 4 | 5 | 3 | undefined;
   clean: boolean;
 }
+
+const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+
+export const runtimeConfig = {
+  baseUrl: `${window.location.origin}/diaries`,
+  brokerUrl: `${wsProtocol}//${window.location.host}/mosquitto/`,
+};
 
 @Injectable({
   providedIn: 'root'

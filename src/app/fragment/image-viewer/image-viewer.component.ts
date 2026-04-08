@@ -19,7 +19,7 @@ import { RpcService } from '../../mqtt/rpc.service';
 import { AlertService } from '../../alerts/alert.service';
 import { Router } from '@angular/router';
 import { combineLatest, distinctUntilChanged, filter, from, map, Subject, switchMap, take, takeUntil } from 'rxjs';
-import { Config, ConfigService } from '../../config/config.service';
+import { Config, ConfigService, runtimeConfig } from '../../config/config.service';
 import { ModelContext } from '../../model/model-context';
 
 import { firstValueFrom } from 'rxjs';
@@ -92,8 +92,8 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // 1) Cache config and ensure it’s present
     const config$ = from(this.configService.getConfig()).pipe(
-      filter((c): c is Config => !!c && !!c.baseUrl),
-      take(1) // you only need it once here
+      filter((c): c is Config => !!c),
+      take(1)
     );
 
     // 2) Only proceed once diary/page are *resolved* (have names)
@@ -112,9 +112,9 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
         this.diary = diary;
         this.page = page;
 
-        console.log(`ImageViewer.ngOnInit: config.baseUrl:  ${config.baseUrl}`);
+        console.log(`ImageViewer.ngOnInit: config.baseUrl:  ${runtimeConfig.baseUrl}`);
 
-        const url = new URL(`${config.diaries}/${diary.name}/${page.name}${page.extension}`, config.baseUrl);
+        const url = new URL(`${config.diaries}/${diary.name}/${page.name}${page.extension}`, runtimeConfig.baseUrl);
         this.imageURL = url.toString();
         console.log(`ImageViewer.ngOnInit: imageURL updated to ${this.imageURL}`);
       });
@@ -496,7 +496,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     await this.unlockCurrentFragmentIfNeeded(marquee.fragmentId);
 
     // now switch selection
-    console.log(`ImageViewerComponent.onSelectMarquee: now switch selection: marqueeId: ${marquee.id}, fragmentId: ${marquee.fragmentId}`);    
+    console.log(`ImageViewerComponent.onSelectMarquee: now switch selection: marqueeId: ${marquee.id}, fragmentId: ${marquee.fragmentId}`);
     this.modelContext.setMarqueeId(marquee.id);
     this.modelContext.setFragmentId(marquee.fragmentId);
 

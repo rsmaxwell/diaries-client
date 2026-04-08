@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { ConfigService } from '../config/config.service';
+import { ConfigService, runtimeConfig } from '../config/config.service';
 import mqtt from 'mqtt';
 import { delay, Subject } from 'rxjs';
 
@@ -35,7 +35,7 @@ export class MqttService {
           const clientId = `${config.clientId}-${Date.now()}`;
           console.log(`MqttService.getConnection: connecting: ${clientId}`);
 
-          let client: mqtt.MqttClient = mqtt.connect(config.brokerUrl, {
+          let client: mqtt.MqttClient = mqtt.connect(runtimeConfig.brokerUrl, {
             clientId: clientId,
             username: config.username,
             password: config.password,
