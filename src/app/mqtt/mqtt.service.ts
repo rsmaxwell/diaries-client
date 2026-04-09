@@ -10,6 +10,7 @@ import { delay, Subject } from 'rxjs';
 export class MqttService {
 
   connectionPromise: Promise<mqtt.MqttClient> | null = null;
+  private actualClientId: string | null = null;
 
   constructor(
     private configService: ConfigService
@@ -33,6 +34,7 @@ export class MqttService {
         .then((config) => {
 
           const clientId = `${config.clientId}-${Date.now()}`;
+          this.actualClientId = clientId;
           console.log(`MqttService.getConnection: connecting: ${clientId}`);
 
           console.log('MqttService.getConnection: brokerUrl', {
@@ -105,4 +107,11 @@ export class MqttService {
     }
     throw new Error('Unreachable'); // just in case
   }
+
+  getClientId(): string {
+  if (!this.actualClientId) {
+    throw new Error('MqttService.getConnection: MQTT clientId not initialised');
+  }
+  return this.actualClientId;
+}
 }

@@ -219,7 +219,7 @@ export class RpcService {
             // Note: no accessToken needed
         }).pipe(
             switchMap(({ cfg, client }) => {
-                const replyTopic = Constants.replyTopic(cfg.clientId);
+                const replyTopic = Constants.replyTopic(this.mqtt.getClientId());
                 const payload = { function: 'register', args: new RegisterRequest(register) };
                 const deserialize = ReplyHandler.getBufferAsObject as (buffer: Buffer) => RegisterReply;
                 return this.rpcRequest<RegisterReply>(client, Constants.reqTopic, replyTopic, payload, null, deserialize);
@@ -234,7 +234,7 @@ export class RpcService {
             // No need for the access token
         }).pipe(
             switchMap(({ cfg, client }) => {
-                const replyTopic = Constants.replyTopic(cfg.clientId);
+                const replyTopic = Constants.replyTopic(this.mqtt.getClientId());
                 const payload = { function: 'signin', args: new SigninRequest(signin) };
                 const deserialize = ReplyHandler.getBufferAsObject as (buffer: Buffer) => SigninReply;
                 return this.rpcRequest<SigninReply>(client, Constants.reqTopic, replyTopic, payload, null, deserialize);
@@ -250,7 +250,7 @@ export class RpcService {
             refreshToken: this.refreshTokenService.getToken()
         }).pipe(
             switchMap(({ cfg, client, accessToken, refreshToken }) => {
-                const replyTopic = Constants.replyTopic(cfg.clientId);
+                const replyTopic = Constants.replyTopic(this.mqtt.getClientId());
                 const payload = { function: 'refreshToken', args: new RefreshTokenRequest(cfg.username, refreshToken) };
                 const deserialize = ReplyHandler.getBufferAsObject as (buffer: Buffer) => RefreshTokenReply;
                 return this.rpcRequest<RefreshTokenReply>(client, Constants.reqTopic, replyTopic, payload, null, deserialize);
@@ -265,7 +265,7 @@ export class RpcService {
             token: this.accessTokenService.getToken()
         }).pipe(
             switchMap(({ cfg, client, token }) => {
-                const replyTopic = Constants.replyTopic(cfg.clientId);
+                const replyTopic = Constants.replyTopic(this.mqtt.getClientId());
                 const payload = { function: 'updateDiary', args: UpdateDiaryRequest.fromDiary(diary) };
                 const deserialize = ReplyHandler.getBufferAsNumber
                 return this.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
@@ -280,7 +280,7 @@ export class RpcService {
             token: this.accessTokenService.getToken()
         }).pipe(
             switchMap(({ cfg, client, token }) => {
-                const replyTopic = Constants.replyTopic(cfg.clientId);
+                const replyTopic = Constants.replyTopic(this.mqtt.getClientId());
                 const payload = { function: 'normaliseDiaries' };
                 const deserialize = ReplyHandler.getBufferAsNumber
                 return this.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
@@ -295,7 +295,7 @@ export class RpcService {
             token: this.accessTokenService.getToken()
         }).pipe(
             switchMap(({ cfg, client, token }) => {
-                const replyTopic = Constants.replyTopic(cfg.clientId);
+                const replyTopic = Constants.replyTopic(this.mqtt.getClientId());
                 const payload = { function: 'normalisePages' };
                 const deserialize = ReplyHandler.getBufferAsNumber
                 return this.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
@@ -310,7 +310,7 @@ export class RpcService {
             token: this.accessTokenService.getToken()
         }).pipe(
             switchMap(({ cfg, client, token }) => {
-                const replyTopic = Constants.replyTopic(cfg.clientId);
+                const replyTopic = Constants.replyTopic(this.mqtt.getClientId());
                 const payload = { function: 'normaliseFragments', args: new NormaliseFragmentsRequest(year, month, day) };
                 const deserialize = ReplyHandler.getBufferAsNumber
                 return this.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
@@ -325,7 +325,7 @@ export class RpcService {
             token: this.accessTokenService.getToken()
         }).pipe(
             switchMap(({ cfg, client, token }) => {
-                const replyTopic = Constants.replyTopic(cfg.clientId);
+                const replyTopic = Constants.replyTopic(this.mqtt.getClientId());
                 const payload = { function: 'updatePage', args: UpdatePageRequest.fromPage(page) };
                 const deserialize = ReplyHandler.getBufferAsNumber
                 return this.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
@@ -340,7 +340,7 @@ export class RpcService {
             token: this.accessTokenService.getToken()
         }).pipe(
             switchMap(({ cfg, client, token }) => {
-                const replyTopic = Constants.replyTopic(cfg.clientId);
+                const replyTopic = Constants.replyTopic(this.mqtt.getClientId());
                 const payload = { function: 'addMarquee', args: new AddMarqueeRequest(page.id, rect, sequence) };
                 const deserialize = ReplyHandler.getBufferAsNumber
                 return this.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
@@ -355,7 +355,7 @@ export class RpcService {
             token: this.accessTokenService.getToken()
         }).pipe(
             switchMap(({ cfg, client, token }) => {
-                const replyTopic = Constants.replyTopic(cfg.clientId);
+                const replyTopic = Constants.replyTopic(this.mqtt.getClientId());
                 const payload = { function: 'updateFragment', args: UpdateFragmentRequest.fromFragment(fragment) };
                 const deserialize = ReplyHandler.getBufferAsNumber
                 return this.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
@@ -370,7 +370,7 @@ export class RpcService {
             token: this.accessTokenService.getToken()
         }).pipe(
             switchMap(({ cfg, client, token }) => {
-                const replyTopic = Constants.replyTopic(cfg.clientId);
+                const replyTopic = Constants.replyTopic(this.mqtt.getClientId());
                 const payload = { function: 'lockFragment', args: LockFragmentRequest.fromId(id) };
                 const deserialize = ReplyHandler.getBufferAsNumber
                 return this.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
@@ -385,7 +385,7 @@ export class RpcService {
             token: this.accessTokenService.getToken()
         }).pipe(
             switchMap(({ cfg, client, token }) => {
-                const replyTopic = Constants.replyTopic(cfg.clientId);
+                const replyTopic = Constants.replyTopic(this.mqtt.getClientId());
                 const payload = { function: 'unlockFragment', args: UnlockFragmentRequest.fromId(id) };
                 const deserialize = ReplyHandler.getBufferAsNumber
                 return this.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
@@ -400,7 +400,7 @@ export class RpcService {
             token: this.accessTokenService.getToken()
         }).pipe(
             switchMap(({ cfg, client, token }) => {
-                const replyTopic = Constants.replyTopic(cfg.clientId);
+                const replyTopic = Constants.replyTopic(this.mqtt.getClientId());
                 const payload = { function: 'updateMarquee', args: new UpdateMarqueeRequest(marquee) };
                 const deserialize = ReplyHandler.getBufferAsNumber
                 return this.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
@@ -415,7 +415,7 @@ export class RpcService {
             token: this.accessTokenService.getToken()
         }).pipe(
             switchMap(({ cfg, client, token }) => {
-                const replyTopic = Constants.replyTopic(cfg.clientId);
+                const replyTopic = Constants.replyTopic(this.mqtt.getClientId());
                 const payload = { function: 'deleteMarquee', args: new DeleteMarqueeRequest(id) };
                 const deserialize = ReplyHandler.getBufferAsNumber
                 return this.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
@@ -435,7 +435,7 @@ export class RpcService {
             token: this.accessTokenService.getToken()
         }).pipe(
             switchMap(({ cfg, client, token }) => {
-                const replyTopic = Constants.replyTopic(cfg.clientId);
+                const replyTopic = Constants.replyTopic(this.mqtt.getClientId());
                 const payload = { function: 'listFiles', args };
                 const deserialize = ReplyHandler.getBufferAsObject as (buffer: Buffer) => FileListResponse;
                 return this.rpcRequest<FileListResponse>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
@@ -459,7 +459,7 @@ export class RpcService {
                 )
             ),
             switchMap(({ cfg, client, token, b64 }) => {
-                const replyTopic = Constants.replyTopic(cfg.clientId);
+                const replyTopic = Constants.replyTopic(this.mqtt.getClientId());
                 const payload = {
                     function: 'uploadFile',
                     args: {
