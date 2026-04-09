@@ -172,11 +172,11 @@ export class RpcService {
                     properties
                 };
 
-                // console.log(`RpcService.rpcRequest: sending to topic '${requestTopic}'`);
-                // console.log(`RpcService.rpcRequest: ${publishPayload}`);
-                // console.log(`RpcService.rpcRequest: correlationId: '${corr}', replyTopic: '${replyTopic}'`);
-                // console.log(`RpcService.rpcRequest: userProperties: '${JSON.stringify(properties.userProperties)}'`);
-                // console.log(`RpcService.rpcRequest: publishOptions: '${JSON.stringify(publishOptions)}'`);
+                console.log(`RpcService.rpcRequest: sending to topic '${requestTopic}'`);
+                console.log(`RpcService.rpcRequest: ${publishPayload}`);
+                console.log(`RpcService.rpcRequest: correlationId: '${corr}', replyTopic: '${replyTopic}'`);
+                console.log(`RpcService.rpcRequest: userProperties: '${JSON.stringify(properties.userProperties)}'`);
+                console.log(`RpcService.rpcRequest: publishOptions: '${JSON.stringify(publishOptions)}'`);
 
                 client.publish(requestTopic, publishPayload, publishOptions, err => {
                     if (err) {
