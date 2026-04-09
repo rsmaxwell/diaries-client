@@ -35,6 +35,18 @@ export class MqttService {
           const clientId = `${config.clientId}-${Date.now()}`;
           console.log(`MqttService.getConnection: connecting: ${clientId}`);
 
+          console.log('MqttService.getConnection: brokerUrl', {
+            brokerUrl: runtimeConfig.brokerUrl
+          });
+
+          console.log('MqttService.getConnection: clientId', {
+            clientId
+          });
+
+          console.log('MqttService.getConnection: MQTT config', {
+            config: JSON.stringify(config)
+          });
+
           let client: mqtt.MqttClient = mqtt.connect(runtimeConfig.brokerUrl, {
             clientId: clientId,
             username: config.username,
