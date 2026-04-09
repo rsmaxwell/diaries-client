@@ -1,4 +1,5 @@
 
 export const Constants = {
-    reqTopic: 'request'
+    reqTopic: 'diaries/rpc/request',
+    replyTopic: (clientId: string) => `diaries/rpc/${clientId}/response`
 };
