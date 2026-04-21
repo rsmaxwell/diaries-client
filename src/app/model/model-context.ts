@@ -128,7 +128,7 @@ export class ModelContext {
         if (!selected) return of([] as Fragment[]); // nothing selected → clear list
 
         const { year: y, month: m, day: d } = selected;
-        const topicFilters = [`dates/${y}/${m}/${d}/+`];
+        const topicFilters = [`diaries/dates/${y}/${m}/${d}/+`];
         topicFilters.forEach(f => this.activeTopicFilters.add(f));
 
         return from(this.mqtt.getConnection()).pipe(
@@ -182,7 +182,7 @@ export class ModelContext {
 
   getLiveMarquee$(id: number): Observable<Marquee | null> {
     if (!this.liveMarquees.has(id)) {
-      const topic = `marquees/${id}`;
+      const topic = `diaries/marquees/${id}`;
       const observable$ = this.liveObjectService.getObjectById$<Marquee>(topic, buf => JSON.parse(buf.toString()) as Marquee)
         .pipe(
           shareReplay({ bufferSize: 1, refCount: true })
@@ -198,7 +198,7 @@ export class ModelContext {
    * When we know the id of a marquee we want to explicitly stop listening to.
    */
   unsubscribeMarquee(id: number): void {
-    const topic = `marquees/${id}`;
+    const topic = `diaries/marquees/${id}`;
 
     if (this.liveMarquees.has(id)) {
       console.log(`ModelContext.unsubscribeMarquee: unsubscribing from ${topic}`);
@@ -213,7 +213,7 @@ export class ModelContext {
    */
   releaseLiveMarquee(): void {
     this.liveMarquees.forEach((_obs, id) => {
-      const topic = `marquees/${id}`;
+      const topic = `diaries/marquees/${id}`;
       console.log(`ModelContext.releaseLiveMarquee: unsubscribing from ${topic}`);
       this.liveObjectService.unsubscribeTopic(topic);
     });
@@ -228,7 +228,7 @@ export class ModelContext {
 
   getLiveFragment$(id: number): Observable<Fragment | null> {
     if (!this.liveFragments.has(id)) {
-      const topic = `fragments/${id}`;
+      const topic = `diaries/fragments/${id}`;
       const observable$ = this.liveObjectService.getObjectById$<Fragment>(topic, buf => JSON.parse(buf.toString()) as Fragment)
         .pipe(
           shareReplay({ bufferSize: 1, refCount: true })
@@ -244,7 +244,7 @@ export class ModelContext {
    * When we know the id of a fragment we want to explicitly stop listening to.
    */
   unsubscribeFragment(id: number): void {
-    const topic = `fragments/${id}`;
+    const topic = `diaries/fragments/${id}`;
 
     if (this.liveFragments.has(id)) {
       console.log(`ModelContext.unsubscribeFragment: unsubscribing from ${topic}`);
@@ -259,7 +259,7 @@ export class ModelContext {
    */
   releaseLiveFragment(): void {
     this.liveFragments.forEach((_obs, id) => {
-      const topic = `fragments/${id}`;
+      const topic = `diaries/fragments/${id}`;
       console.log(`ModelContext.releaseLiveFragment: unsubscribing from ${topic}`);
       this.liveObjectService.unsubscribeTopic(topic);
     });
@@ -277,7 +277,7 @@ export class ModelContext {
     const cached = this.livePages.get(id);
     if (cached) return cached;
 
-    const topic = `pages/${id}`;
+    const topic = `diaries/pages/${id}`;
 
     const observable$ = this.liveObjectService
       .getObjectById$<Page>(topic, buf => JSON.parse(buf.toString()) as Page) // emits Page | null
@@ -295,7 +295,7 @@ export class ModelContext {
    * When we know the id of a page we want to explicitly stop listening to.
    */
   unsubscribePage(id: number): void {
-    const topic = `pages/${id}`;
+    const topic = `diaries/pages/${id}`;
 
     if (this.livePages.has(id)) {
       console.log(`ModelContext.unsubscribePage: unsubscribing from ${topic}`);
@@ -310,7 +310,7 @@ export class ModelContext {
    */
   releaseLivePage(): void {
     this.livePages.forEach((_obs, id) => {
-      const topic = `pages/${id}`;
+      const topic = `diaries/pages/${id}`;
       console.log(`ModelContext.releaseLivePage: unsubscribing from ${topic}`);
       this.liveObjectService.unsubscribeTopic(topic);
     });

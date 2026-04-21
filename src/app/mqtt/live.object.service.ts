@@ -52,7 +52,7 @@ export class LiveObjectService {
         return;                  // keep stream alive for future values
       }
 
-      if (messageTopic.startsWith('fragments/')) {
+      if (messageTopic.startsWith('diaries/fragments/')) {
         try {
           const obj = JSON.parse(payload.toString());
           console.log(`LiveObjectService.getObjectById$: [MQTT] RX ${messageTopic}`, {
