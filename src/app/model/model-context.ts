@@ -79,7 +79,7 @@ export class ModelContext {
     this.pages$ = this.diaryId$.pipe(
       filter((id): id is number => Number.isFinite(id)),
       switchMap(id => {
-        const topicFilters = [`diaries/${id}/+`];
+        const topicFilters = [`diaries/$diaries/${id}/+`];
         topicFilters.forEach(f => this.activeTopicFilters.add(f));
 
         return from(this.mqtt.getConnection()).pipe(
@@ -328,7 +328,7 @@ export class ModelContext {
     const cached = this.liveDiaries.get(id);
     if (cached) return cached;
 
-    const topic = `diaries/${id}`;
+    const topic = `diaries/diaries/${id}`;
     const observable$ = this.liveObjectService
       .getObjectById$<Diary>(topic, buf => JSON.parse(buf.toString()) as Diary)
       .pipe(
@@ -344,7 +344,7 @@ export class ModelContext {
    * When we know the id of a diary we want to explicitly stop listening to.
    */
   unsubscribeDiary(id: number): void {
-    const topic = `diaries/${id}`;
+    const topic = `diaries/diaries/${id}`;
 
     if (this.liveDiaries.has(id)) {
       console.log(`ModelContext.unsubscribeDiary: unsubscribing from ${topic}`);
@@ -359,7 +359,7 @@ export class ModelContext {
    */
   releaseLiveDiary(): void {
     this.liveDiaries.forEach((_obs, id) => {
-      const topic = `diaries/${id}`;
+      const topic = `diaries/diaries/${id}`;
       console.log(`ModelContext.releaseLiveDiary: unsubscribing from ${topic}`);
       this.liveObjectService.unsubscribeTopic(topic);
     });
@@ -368,7 +368,7 @@ export class ModelContext {
   }
 
   getDiaries$(): Observable<Diary[]> {
-    const topicFilters = [`diaries/+`];
+    const topicFilters = [`diaries/diaries/+`];
     topicFilters.forEach(filter => this.activeTopicFilters.add(filter));
 
     return from(this.mqtt.getConnection()).pipe(
@@ -381,7 +381,7 @@ export class ModelContext {
   }
 
   getMarqueesForPage$(diaryId: number, pageId: number) {
-    const topicFilters = [`diaries/${diaryId}/${pageId}/+`];
+    const topicFilters = [`diaries/diaries/${diaryId}/${pageId}/+`];
     topicFilters.forEach(f => this.activeTopicFilters.add(f));
 
     return from(this.mqtt.getConnection()).pipe(
