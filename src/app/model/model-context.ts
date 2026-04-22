@@ -79,7 +79,7 @@ export class ModelContext {
     this.pages$ = this.diaryId$.pipe(
       filter((id): id is number => Number.isFinite(id)),
       switchMap(id => {
-        const topicFilters = [`diaries/$diaries/${id}/+`];
+        const topicFilters = [`diaries/diaries/${id}/+`];
         topicFilters.forEach(f => this.activeTopicFilters.add(f));
 
         return from(this.mqtt.getConnection()).pipe(
