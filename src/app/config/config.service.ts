@@ -18,7 +18,7 @@ export interface Config {
 const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 
 export const runtimeConfig = {
-  baseUrl: `${window.location.origin}/diaries`,
+  baseUrl: `${window.location.origin}/diaries-responder`,
   brokerUrl: `${wsProtocol}//${window.location.host}/mosquitto/`,
 };
 
