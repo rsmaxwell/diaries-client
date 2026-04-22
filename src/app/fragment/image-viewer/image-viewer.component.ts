@@ -114,8 +114,9 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
 
         console.log(`ImageViewer.ngOnInit: config.baseUrl:  ${runtimeConfig.baseUrl}`);
 
-        const url = new URL(`${config.diaries}/${diary.name}/${page.name}${page.extension}`, runtimeConfig.baseUrl);
-        this.imageURL = url.toString();
+        const base = runtimeConfig.baseUrl.replace(/\/+$/, '');
+        const diariesRoot = config.diaries.replace(/^\/+|\/+$/g, '');
+        this.imageURL = `${base}/${diariesRoot}/${diary.name}/${page.name}${page.extension}`;
         console.log(`ImageViewer.ngOnInit: imageURL updated to ${this.imageURL}`);
       });
 
