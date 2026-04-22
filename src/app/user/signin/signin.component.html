@@ -6,11 +6,17 @@
     <h3>Signin</h3>
   </div>
 
-  <form [formGroup]="form" class="form">
+  <form [formGroup]="form" class="form" autocomplete="on">
 
     <mat-form-field appearance="outline" class="item">
       <mat-label>Username</mat-label>
-      <input matInput [formControl]="usernameFormControl" type="search" required>
+      <input 
+        matInput 
+        formControlName="username"
+        type="text" 
+        name="username"
+        autocomplete="username"
+        required>
       @if (usernameFormControl.invalid) {
         <mat-error>{{getErrorMessage(usernameFormControl)}}</mat-error>
       }
@@ -18,8 +24,14 @@
 
     <mat-form-field appearance="outline" class="item">
       <mat-label>Password</mat-label>
-      <input matInput [formControl]="passwordFormControl" [type]="hide ? 'password' : 'text'" required>
-      <button mat-icon-button matSuffix (click)="hide = !hide" [attr.aria-label]="'Hide password'"
+      <input 
+        matInput 
+        formControlName="password"
+        [type]="hide ? 'password' : 'text'" 
+        name="password"
+        autocomplete="current-password"
+        required>
+      <button type="button" mat-icon-button matSuffix (click)="hide = !hide" [attr.aria-label]="'Hide password'"
         [attr.aria-pressed]="hide">
         <mat-icon>{{hide ? 'visibility_off' : 'visibility'}}</mat-icon>
       </button>
