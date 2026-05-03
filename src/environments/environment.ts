@@ -1,5 +1,7 @@
 export const environment = {
     production: true,
     title: 'Diaries',
-    mqttDebug: false
+    mqttDebug: false,
+    brokerPath: '/mosquitto/',
+    brokerOriginOverride: ''
 };

@@ -1,0 +1,17 @@
+{
+  "brokerMode": "proxy",
+  "brokerProxyUrl": "wss://example.com/mosquitto/",
+  "brokerDirectUrl": "ws://localhost:9001",
+
+  "username": "diaries-client",
+  "password": "CHANGE-ME",
+  "baseUrl": "http://localhost:8081",
+  "diaries": "diaries",
+  "files": "files",
+  "clientId": "client",
+  "keepalive": 60,
+  "reconnectPeriod": 1000,
+  "connectTimeout": 30000,
+  "protocolVersion": 5,
+  "clean": false
+}

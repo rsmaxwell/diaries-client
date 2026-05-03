@@ -56,6 +56,10 @@
 .baseMask16  { fill: black; }                  /* hide everything */
 .selectedMask{ fill: white; }                  /* show selected at 100% */
 
+.selected-outline {
+  fill: none;
+  pointer-events: none;
+}
 
 .other {
   fill: transparent;

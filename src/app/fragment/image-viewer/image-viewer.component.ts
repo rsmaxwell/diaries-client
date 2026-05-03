@@ -19,7 +19,7 @@ import { RpcService } from '../../mqtt/rpc.service';
 import { AlertService } from '../../alerts/alert.service';
 import { Router } from '@angular/router';
 import { combineLatest, distinctUntilChanged, filter, from, map, Subject, switchMap, take, takeUntil } from 'rxjs';
-import { Config, ConfigService, runtimeConfig } from '../../config/config.service';
+import { Config, ConfigService, RuntimeConfig } from '../../config/config.service';
 import { ModelContext } from '../../model/model-context';
 
 import { firstValueFrom } from 'rxjs';
@@ -92,7 +92,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // 1) Cache config and ensure it’s present
     const config$ = from(this.configService.getConfig()).pipe(
-      filter((c): c is Config => !!c),
+      filter((c): c is RuntimeConfig => !!c),
       take(1)
     );
 
@@ -112,9 +112,10 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
         this.diary = diary;
         this.page = page;
 
-        console.log(`ImageViewer.ngOnInit: config.baseUrl:  ${runtimeConfig.baseUrl}`);
 
-        const base = runtimeConfig.baseUrl.replace(/\/+$/, '');
+        console.log(`ImageViewer.ngOnInit: config.baseUrl:  ${config.baseUrl}`);
+
+        const base = config.baseUrl.replace(/\/+$/, '');
         const diariesRoot = config.diaries.replace(/^\/+|\/+$/g, '');
         this.imageURL = `${base}/${diariesRoot}/${diary.name}/${page.name}${page.extension}`;
         console.log(`ImageViewer.ngOnInit: imageURL updated to ${this.imageURL}`);

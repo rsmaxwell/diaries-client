@@ -9,7 +9,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { DomSanitizer } from '@angular/platform-browser';
 import { FileEntry } from '../model/FileEntry';
-import { ConfigService, runtimeConfig } from '../config/config.service';
+import { ConfigService } from '../config/config.service';
 import { RpcService } from '../mqtt/rpc.service';
 import {
   BehaviorSubject, EMPTY, Observable, of
@@ -109,7 +109,7 @@ export class FilesListDialogComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     const cfg = await this.configService.getConfig();
-    this.fileOrigin = new URL(runtimeConfig.baseUrl).origin;
+    this.fileOrigin = new URL(cfg.baseUrl).origin;
 
     this.items$ = this.data.path$.pipe(
       distinctUntilChanged(), // avoid duplicate reloads

@@ -95,5 +95,14 @@
       mask="url(#mask16)"
       style="pointer-events: none"
     />
+
+    <rect
+      *ngIf="marquee"
+      [attr.x]="marquee.rectangle.x"
+      [attr.y]="marquee.rectangle.y"
+      [attr.width]="marquee.rectangle.width"
+      [attr.height]="marquee.rectangle.height"
+      class="selected-outline"
+    />
   </g>
 </svg>

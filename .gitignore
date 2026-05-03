@@ -40,3 +40,7 @@ testem.log
 # System files
 .DS_Store
 Thumbs.db
+public/assets/config.json 
+public/assets/config.direct.json 
+public/assets/config.proxy.json 
+public/assets/config.production.json 
