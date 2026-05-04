@@ -20,7 +20,9 @@ export interface Config {
   brokerProxyPath: string;
   brokerProxyUrl: string;
 
+  baseUrlMode: string;
   baseUrl: string;
+  baseUrlPort: string;
 }
 
 export interface RuntimeConfig extends Config {
@@ -91,13 +93,16 @@ export class ConfigService {
       return config.baseUrl.trim().replace(/\/$/, '');
     }
 
-    const url = new URL(window.location.origin);
+    if (config.baseUrlMode === 'same-origin') {
+      return `${window.location.origin}/diaries-responder`;
+    }
 
-    if (url.port === '4200') {
-      url.port = '8081';
+    if (config.baseUrlMode === 'same-host-port') {
+      const url = new URL(window.location.origin);
+      url.port = String(config.baseUrlPort ?? 8081);
       return url.toString().replace(/\/$/, '');
     }
 
-    return `${window.location.origin}/diaries-responder`;
+    throw new Error('baseUrl or baseUrlMode is required');
   }
 }
