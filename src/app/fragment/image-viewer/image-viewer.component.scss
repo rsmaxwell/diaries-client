@@ -21,23 +21,23 @@
   cursor: default;
 
   &.corner-1-resize {
-    cursor: url('/assets/cursors/corner-1-resize.svg') 16 16, default;
+    cursor: url('assets/cursors/corner-1-resize.svg') 16 16, default;
   }
 
   &.corner-2-resize {
-    cursor: url('/assets/cursors/corner-2-resize.svg') 16 16, default;
+    cursor: url('assets/cursors/corner-2-resize.svg') 16 16, default;
   }
 
   &.horizontal-resize {
-    cursor: url('/assets/cursors/horizontal-resize.svg') 16 16, default;
+    cursor: url('assets/cursors/horizontal-resize.svg') 16 16, ew-resize;
   }
 
   &.vertical-resize {
-    cursor: url('/assets/cursors/vertical-resize.svg') 16 16, default;
+    cursor: url('assets/cursors/vertical-resize.svg') 16 16, ns-resize;
   }
 
   &.move {
-    cursor: url('/assets/cursors/move.svg') 16 16, default;
+    cursor: url('assets/cursors/move.svg') 16 16, move;
   }
 }
 
