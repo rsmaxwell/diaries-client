@@ -3,9 +3,11 @@
   "brokerProxyUrl": "wss://example.com/mosquitto/",
   "brokerDirectUrl": "ws://localhost:9001",
 
-  "username": "diaries-client",
-  "password": "CHANGE-ME",
-  "baseUrl": "http://localhost:8081",
+  "responderBaseUrl": "http://localhost:8081",
+
+  "username": "{{ mqtt_client_user }}",
+  "password": "{{ mqtt_client_password }}",
+
   "diaries": "diaries",
   "files": "files",
   "clientId": "client",

@@ -1,0 +1,19 @@
+{
+  "brokerMode": "direct",
+  "brokerDirectUrl": "ws://localhost:9001",
+
+  "responderBaseUrlMode": "same-host-port",
+  "responderBaseUrlPort": 8081,
+
+  "username": "{{ mqtt_client_user }}",
+  "password": "{{ mqtt_client_password }}",
+
+  "diaries": "diaries",
+  "files": "files",
+  "clientId": "client",
+  "keepalive": 60,
+  "reconnectPeriod": 1000,
+  "connectTimeout": 30000,
+  "protocolVersion": 5,
+  "clean": false
+}

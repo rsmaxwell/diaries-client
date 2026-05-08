@@ -1,28 +1,29 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { lastValueFrom } from 'rxjs';
-import { environment } from '../../environments/environment';
+
 
 export interface Config {
+  brokerMode: 'direct' | 'proxy';
+  brokerDirectUrl?: string;
+  brokerProxyPath?: string;
+  brokerProxyUrl?: string;
+
+  responderBaseUrlMode?: 'same-origin' | 'same-host-port';
+  responderBaseUrl?: string;
+  responderBaseUrlPort?: string;
+
+  username: string;
+  password: string;
+
   diaries: string;
   files: string;
   clientId: string;
-  username: string;
-  password: string;
   keepalive?: number;
   reconnectPeriod?: number;
   connectTimeout?: number;
   protocolVersion?: 4 | 5 | 3 | undefined;
   clean: boolean;
-
-  brokerMode: 'direct' | 'proxy';
-  brokerDirectUrl: string;
-  brokerProxyPath: string;
-  brokerProxyUrl: string;
-
-  baseUrlMode: string;
-  baseUrl: string;
-  baseUrlPort: string;
 }
 
 export interface RuntimeConfig extends Config {
@@ -89,25 +90,28 @@ export class ConfigService {
   }
 
   private buildResponderBaseUrl(config: Config): string {
-    const configured = config.baseUrl?.trim();
 
     // Production/proxied case:
-    // https://pluto.rsmaxwell.co.uk -> https://pluto.rsmaxwell.co.uk/diaries-responder
-    if (!configured || configured === 'same-origin' || config.baseUrlMode === 'same-origin') {
+    // https://pluto.rsmaxwell.co.uk -> https://pluto.rsmaxwell.co.uk/diaries-responder    
+    if (config.responderBaseUrlMode === 'same-origin') {
       return `${window.location.origin}/diaries-responder`;
     }
 
     // Local/direct case:
-    // http://localhost:4200 -> http://localhost:8081
-    if (configured === 'same-host-port' || config.baseUrlMode === 'same-host-port') {
+    // http://localhost:4200 -> http://localhost:8081    
+    if (config.responderBaseUrlMode === 'same-host-port') {
       const url = new URL(window.location.origin);
-      url.port = String(config.baseUrlPort ?? 8081);
+      url.port = String(config.responderBaseUrlPort ?? 8081);
       return url.toString().replace(/\/$/, '');
     }
 
     // Explicit URL:
     // http://localhost:8081
-    // https://pluto.rsmaxwell.co.uk/diaries-responder
+    // https://pluto.rsmaxwell.co.uk/diaries-responder    
+    const configured = config.responderBaseUrl?.trim();
+    if (!configured) {
+      throw new Error('baseUrl is required when baseUrlMode is not set');
+    }
     return configured.replace(/\/$/, '');
   }
 }
