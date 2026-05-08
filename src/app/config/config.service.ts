@@ -89,20 +89,25 @@ export class ConfigService {
   }
 
   private buildResponderBaseUrl(config: Config): string {
-    if (config.baseUrl?.trim()) {
-      return config.baseUrl.trim().replace(/\/$/, '');
-    }
+    const configured = config.baseUrl?.trim();
 
-    if (config.baseUrlMode === 'same-origin') {
+    // Production/proxied case:
+    // https://pluto.rsmaxwell.co.uk -> https://pluto.rsmaxwell.co.uk/diaries-responder
+    if (!configured || configured === 'same-origin' || config.baseUrlMode === 'same-origin') {
       return `${window.location.origin}/diaries-responder`;
     }
 
-    if (config.baseUrlMode === 'same-host-port') {
+    // Local/direct case:
+    // http://localhost:4200 -> http://localhost:8081
+    if (configured === 'same-host-port' || config.baseUrlMode === 'same-host-port') {
       const url = new URL(window.location.origin);
       url.port = String(config.baseUrlPort ?? 8081);
       return url.toString().replace(/\/$/, '');
     }
 
-    throw new Error('baseUrl or baseUrlMode is required');
+    // Explicit URL:
+    // http://localhost:8081
+    // https://pluto.rsmaxwell.co.uk/diaries-responder
+    return configured.replace(/\/$/, '');
   }
 }
