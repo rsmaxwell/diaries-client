@@ -82,6 +82,9 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   draggingMarqueeId: number = 0
   draggingMarqueeVersion: number = 0;
 
+  editMarqueeMode = false;
+  private lastMousePosition?: DOMPoint;
+
   ngOnInit(): void {
     console.log('ImageViewerComponent.ngOnInit');
 
@@ -129,6 +132,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       )
       .subscribe(m => {
         this.marquee = m;
+        this.modelContext.setHasSelectedMarquee(!!this.marquee);
         this.mode = m ? ViewMode.WithMarquee : ViewMode.WithoutMarquee;
       });
 
@@ -168,9 +172,17 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
           { replaceUrl: true }
         );
       });
+
+    this.modelContext.editMarqueeMode$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(value => {
+        this.editMarqueeMode = value;
+
+        if (this.lastMousePosition) {
+          this.calculateCursorStyle(this.lastMousePosition, this.editMarqueeMode);
+        }
+      });
   }
-
-
 
   get width(): number {
     return this.page?.width ?? 0;
@@ -191,6 +203,9 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     console.log(`ImageViewerComponent.ngOnDestroy`);
+
+    this.modelContext.setHasSelectedMarquee(false);
+    this.modelContext.setEditMarqueeMode(false);
 
     window.removeEventListener('mousemove', this.onMouseMoveBound);
     window.removeEventListener('mouseup', this.onMouseUpBound);
@@ -270,13 +285,13 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     window.addEventListener('mousemove', this.onMouseMoveBound);
     window.addEventListener('mouseup', this.onMouseUpBound);
 
+    const isEditMarqueeMode = event.ctrlKey || this.editMarqueeMode;
     const mousePosition = this.getMousePosition(event);
-    const isCtrlKeyDown = event.ctrlKey;
 
     console.log(`ImageViewerComponent.onMouseDown: is viewMode.WithMarquee: ${this.mode === ViewMode.WithMarquee}`);
     console.log(`ImageViewerComponent.onMouseDown: this.marquee: ${JSON.stringify(this.marquee)}`);
-    console.log(`ImageViewerComponent.onMouseDown: isCtrlKeyDown: ${isCtrlKeyDown}`);
-    if (this.mode === ViewMode.WithMarquee && this.marquee && isCtrlKeyDown) {
+    console.log(`ImageViewerComponent.onMouseDown: isEditMarqueeMode: ${isEditMarqueeMode}`);
+    if (this.mode === ViewMode.WithMarquee && this.marquee && isEditMarqueeMode) {
       console.log(`ImageViewerComponent.onMouseDown: with marquee`);
       this.resizeEdge = this.detectResizeEdge(mousePosition);
       this.dragStart = mousePosition;
@@ -313,9 +328,11 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // console.log(`ImageViewerComponent.onMouseMove: mode=${this.mode} isDraggingGlobal=${this.isDraggingGlobal} isDraggingMarquee=${this.isDraggingMarquee}`);
 
-    const isCtrlKeyDown = event.ctrlKey;
-    let mousePosition = this.getMousePosition(event);
-    this.calculateCursorStyle(mousePosition, isCtrlKeyDown)
+    const isEditMarqueeMode = event.ctrlKey || this.editMarqueeMode;
+    const mousePosition = this.getMousePosition(event);
+
+    this.lastMousePosition = mousePosition;
+    this.calculateCursorStyle(mousePosition, isEditMarqueeMode);
   }
 
   onMouseMoveBoundInternal(event: MouseEvent) {
@@ -327,9 +344,11 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // console.log(`ImageViewerComponent.onMouseMoveBoundInternal: mode=${this.mode} isDraggingGlobal=${this.isDraggingGlobal} isDraggingMarquee=${this.isDraggingMarquee}`);
 
-    const isCtrlKeyDown = event.ctrlKey;
-    let mousePosition = this.getMousePosition(event);
-    this.calculateCursorStyle(mousePosition, isCtrlKeyDown)
+    const isEditMarqueeMode = event.ctrlKey || this.editMarqueeMode;
+    const mousePosition = this.getMousePosition(event);
+
+    this.lastMousePosition = mousePosition;
+    this.calculateCursorStyle(mousePosition, isEditMarqueeMode);
 
     if (!this.dragStart) {
       console.log(`ImageViewerComponent.onMouseMoveBoundInternal: skipping as !dragStart`);
@@ -524,7 +543,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
 
 
 
-  calculateCursorStyle(mousePosition: DOMPoint, isCtrlKeyDown: boolean) {
+  calculateCursorStyle(mousePosition: DOMPoint, isEditMarqueeMode: boolean) {
 
     // console.log(`ImageViewerComponent.calculateCursorStyle: mode=${this.mode} isDraggingGlobal=${this.isDraggingGlobal} isDraggingMarquee=${this.isDraggingMarquee}`);
 
@@ -536,7 +555,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    if (!isCtrlKeyDown) {
+    if (!isEditMarqueeMode) {
       // console.log(`ImageViewerComponent.calculateCursorStyle: ctrl key not down --> default cursor style`);
       this.cursorStyle = cursor;
       return;

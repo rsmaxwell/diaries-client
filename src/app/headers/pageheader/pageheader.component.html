@@ -6,6 +6,16 @@
 
     <span class="spacer"></span>
 
+    <button 
+      mat-icon-button 
+      title="Move or resize selected marquee"
+      [disabled]="!hasSelectedMarquee"
+      [class.active]="editMarqueeMode"
+      [attr.aria-pressed]="editMarqueeMode"
+      (click)="onEditMarqueeClick()">
+      <mat-icon svgIcon="edit-marquee"></mat-icon>
+    </button>
+
     <button mat-icon-button class="upload icon" aria-label="upload" (click)="onUploadClick()">
       <mat-icon svgIcon="upload"></mat-icon>
     </button>

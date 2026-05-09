@@ -1,5 +1,5 @@
 
-import { Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, OnDestroy, OnInit, Output } from '@angular/core';
 import { MatIconModule, MatIconRegistry } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatToolbarModule } from '@angular/material/toolbar';
@@ -33,10 +33,14 @@ export class PageheaderComponent implements OnInit, OnDestroy {
   @Output() upload = new EventEmitter<void>();
   @Output() listFiles = new EventEmitter<void>();
   @Output() deleteFile = new EventEmitter<void>();
+  @Output() editMarquee = new EventEmitter<void>();
 
   title: string = 'Diaries';
   diary: Diary | null = null;
   page: Page | null = null;
+
+  editMarqueeMode = false;
+  hasSelectedMarquee = false;
 
   private destroy$ = new Subject<void>();
 
@@ -55,6 +59,7 @@ export class PageheaderComponent implements OnInit, OnDestroy {
     this.iconRegistry.addSvgIcon('upload', this.sanitizer.bypassSecurityTrustResourceUrl('assets/icons/upload.svg'));
     this.iconRegistry.addSvgIcon('files', this.sanitizer.bypassSecurityTrustResourceUrl('assets/icons/files.svg'));
     this.iconRegistry.addSvgIcon('delete', this.sanitizer.bypassSecurityTrustResourceUrl('assets/icons/delete.svg'));
+    this.iconRegistry.addSvgIcon('edit-marquee', this.sanitizer.bypassSecurityTrustResourceUrl('assets/icons/edit-marquee.svg'));
   }
 
   ngOnInit(): void {
@@ -78,6 +83,18 @@ export class PageheaderComponent implements OnInit, OnDestroy {
         console.log(`PageheaderComponent.ngOnInit: page: ${JSON.stringify(page)}`);
         this.page = page;
         this.title = `${this.diary?.name} - ${this.page.name} `;
+      });
+
+    this.modelContext.editMarqueeMode$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(value => {
+        this.editMarqueeMode = value;
+      });
+
+    this.modelContext.hasSelectedMarquee$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(value => {
+        this.hasSelectedMarquee = value;
       });
   }
 
@@ -103,6 +120,11 @@ export class PageheaderComponent implements OnInit, OnDestroy {
   onAddClick() {
     console.log('Add button clicked');
     this.add.emit();
+  }
+
+  onEditMarqueeClick() {
+    console.log('Edit Marquee button clicked');
+    this.editMarquee.emit();
   }
 
   onUploadClick() {
@@ -143,7 +165,7 @@ export class PageheaderComponent implements OnInit, OnDestroy {
     this.listFiles.emit();
   }
 
-  
+
   onDeleteFileClick() {
     console.log('Delete File button clicked');
     this.deleteFile.emit();

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     height="24px"
+     viewBox="0 -960 960 960"
+     width="24px"
+     fill="currentColor">
+  <path d="M160-680v-120h120v80h-40v40h-80Zm520-40v-80h120v120h-80v-40h-40ZM160-160v-120h80v40h40v80H160Zm200-560v-80h240v80H360ZM160-600h80v240h-80v-240Zm560 0h80v160h-80v-160ZM360-160v-80h160v80H360Zm240 0v-86l220-220 86 86-220 220h-86Zm262-262-86-86 28-28q12-12 28.5-12t28.5 12l29 29q12 12 12 28t-12 28l-28 29Z"/>
+</svg>

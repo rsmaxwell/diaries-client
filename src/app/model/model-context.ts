@@ -14,13 +14,17 @@ export class ModelContext {
   private activeTopicFilters = new Set<string>();
 
   // Context state   
-  addButtonClickedSubject = new Subject<void>();
-  diaryIdSubject = new BehaviorSubject<number | null>(null);
-  pageIdSubject = new BehaviorSubject<number | null>(null);
-  fragmentIdSubject = new BehaviorSubject<number | null>(null);
-  marqueeIdSubject = new BehaviorSubject<number | null>(null);  // Can be null
+  private editMarqueeModeSubject = new BehaviorSubject<boolean>(false);
+  private hasSelectedMarqueeSubject = new BehaviorSubject<boolean>(false);
+  private addButtonClickedSubject = new Subject<void>();
+  private diaryIdSubject = new BehaviorSubject<number | null>(null);
+  private pageIdSubject = new BehaviorSubject<number | null>(null);
+  private fragmentIdSubject = new BehaviorSubject<number | null>(null);
+  private marqueeIdSubject = new BehaviorSubject<number | null>(null);  // Can be null
 
   // Exposed observables for IDs
+  readonly editMarqueeMode$ = this.editMarqueeModeSubject.asObservable();
+  readonly hasSelectedMarquee$ = this.hasSelectedMarqueeSubject.asObservable();
   readonly addButtonClicked$ = this.addButtonClickedSubject.asObservable();
   readonly title$ = new BehaviorSubject<string>('Fragment');
   readonly diaryId$ = this.diaryIdSubject.asObservable();
@@ -448,6 +452,27 @@ export class ModelContext {
 
   fireAddButtonClick(): void {
     this.addButtonClickedSubject.next();
+  }
+
+  toggleEditMarqueeMode(): void {
+    this.editMarqueeModeSubject.next(!this.editMarqueeModeSubject.value);
+  }
+
+  setEditMarqueeMode(value: boolean): void {
+    this.editMarqueeModeSubject.next(value);
+  }
+
+  getEditMarqueeMode(): boolean {
+    return this.editMarqueeModeSubject.value;
+  }
+
+  setHasSelectedMarquee(value: boolean): void {
+    this.hasSelectedMarqueeSubject.next(value);
+
+    // Optional: if no marquee is selected, force edit mode off.
+    if (!value) {
+      this.setEditMarqueeMode(false);
+    }
   }
 
   // PUBLIC SYNC GETTERS (used by DayviewComponent.goToFragment)

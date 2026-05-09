@@ -207,6 +207,11 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
     this.modelContext.fireAddButtonClick();
   }
 
+  onEditMarqueeClick() {
+    console.log(`FragmentComponent.onEditMarqueeClick`);
+    this.modelContext.toggleEditMarqueeMode();
+  }
+
   openFilesDialog() {
     const path$ = new BehaviorSubject<string>('/');
 

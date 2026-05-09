@@ -1,4 +1,8 @@
-<app-pageheader (add)="onAddButtonClick()"  (listFiles)="openFilesDialog()"></app-pageheader>
+<app-pageheader
+    (add)="onAddButtonClick()"
+    (listFiles)="openFilesDialog()"
+    (editMarquee)="onEditMarqueeClick()">
+</app-pageheader>
 
 <div #layoutContainer class="layout-container"></div>
 
