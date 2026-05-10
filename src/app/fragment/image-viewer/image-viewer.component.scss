@@ -19,6 +19,9 @@
   display: block;
   background-color: black;
   cursor: default;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 
   &.corner-1-resize {
     cursor: nwse-resize;
