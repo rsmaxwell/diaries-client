@@ -58,8 +58,8 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   ) {
   };
 
-private readonly onPointerMoveBound = this.onPointerMoveBoundInternal.bind(this);
-private readonly onPointerUpBound = this.onPointerUpBoundInternal.bind(this);
+  private readonly onPointerMoveBound = this.onPointerMoveBoundInternal.bind(this);
+  private readonly onPointerUpBound = this.onPointerUpBoundInternal.bind(this);
   private destroy$ = new Subject<void>();
 
   scale = 1;
@@ -253,265 +253,383 @@ private readonly onPointerUpBound = this.onPointerUpBoundInternal.bind(this);
     this.scale = newScale;
   }
 
+  private activePointers = new Map<number, PointerEvent>();
 
-onPointerDown(event: PointerEvent): void {
-  console.log(`ImageViewerComponent.onPointerDown: pointerType=${event.pointerType}`);
+  private pinchStartDistance?: number;
+  private pinchStartScale?: number;
+  private pinchStartCenter?: DOMPoint;
+  private pinchStartOffsetX?: number;
+  private pinchStartOffsetY?: number;
 
-  if (!this.svgRef) {
-    console.log(`ImageViewerComponent.onPointerDown: skipping as !svgRef`);
-    return;
-  }
+  onPointerDown(event: PointerEvent): void {
+    console.log(`ImageViewerComponent.onPointerDown: pointerType=${event.pointerType}`);
 
-  // For mouse, only accept left button.
-  // For touch/pen, button is often 0, but buttons may vary across browsers.
-  if (event.pointerType === 'mouse' && event.button !== 0) {
-    console.log(`ImageViewerComponent.onPointerDown: skipping as wrong mouse button`);
-    return;
-  }
+    if (!this.svgRef) {
+      console.log(`ImageViewerComponent.onPointerDown: skipping as !svgRef`);
+      return;
+    }
 
-  event.preventDefault();
+    event.preventDefault();
 
-  const svg = this.svgRef.nativeElement;
+    this.svgRef.nativeElement.setPointerCapture(event.pointerId);
+    this.activePointers.set(event.pointerId, event);
 
-  try {
-    svg.setPointerCapture(event.pointerId);
-  } catch (e) {
-    console.warn('ImageViewerComponent.onPointerDown: setPointerCapture failed', e);
-  }
+    if (this.activePointers.size === 2) {
+      this.startPinchGesture();
 
-  window.addEventListener('pointermove', this.onPointerMoveBound, { passive: false });
-  window.addEventListener('pointerup', this.onPointerUpBound);
-  window.addEventListener('pointercancel', this.onPointerUpBound);
+      // Important: do not keep a marquee drag/resize active during pinch
+      this.clearPointerInteractionState();
+      return;
+    }
 
-  const isEditMarqueeMode = event.ctrlKey || this.editMarqueeMode;
-  const pointerPosition = this.getPointerPosition(event);
+    if (this.activePointers.size > 1) {
+      return;
+    }
 
-  this.lastMousePosition = pointerPosition;
+    // For mouse, only accept left button.
+    // For touch/pen, button is often 0, but buttons may vary across browsers.
+    if (event.pointerType === 'mouse' && event.button !== 0) {
+      console.log(`ImageViewerComponent.onPointerDown: skipping as wrong mouse button`);
+      return;
+    }
 
-  console.log(`ImageViewerComponent.onPointerDown: is viewMode.WithMarquee: ${this.mode === ViewMode.WithMarquee}`);
-  console.log(`ImageViewerComponent.onPointerDown: this.marquee: ${JSON.stringify(this.marquee)}`);
-  console.log(`ImageViewerComponent.onPointerDown: isEditMarqueeMode: ${isEditMarqueeMode}`);
+    const svg = this.svgRef.nativeElement;
 
-  if (this.mode === ViewMode.WithMarquee && this.marquee && isEditMarqueeMode) {
-    console.log(`ImageViewerComponent.onPointerDown: with marquee`);
+    try {
+      svg.setPointerCapture(event.pointerId);
+    } catch (e) {
+      console.warn('ImageViewerComponent.onPointerDown: setPointerCapture failed', e);
+    }
 
-    this.resizeEdge = this.detectResizeEdge(pointerPosition);
-    this.dragStart = pointerPosition;
-    this.originalRectangle = { ...this.marquee.rectangle };
+    window.addEventListener('pointermove', this.onPointerMoveBound, { passive: false });
+    window.addEventListener('pointerup', this.onPointerUpBound);
+    window.addEventListener('pointercancel', this.onPointerUpBound);
 
-    this.draggingMarqueeId = this.marquee.id;
-    this.draggingMarqueeVersion = this.marquee.version;
+    const isEditMarqueeMode = event.ctrlKey || this.editMarqueeMode;
+    const pointerPosition = this.getPointerPosition(event);
 
-    if (!this.resizeEdge || Object.values(this.resizeEdge).every(v => !v)) {
-      this.isDraggingMarquee = true;
+    this.lastMousePosition = pointerPosition;
 
-      const r = this.marquee.rectangle;
-      this.dragStartMarquee = { x: r.x, y: r.y };
+    console.log(`ImageViewerComponent.onPointerDown: is viewMode.WithMarquee: ${this.mode === ViewMode.WithMarquee}`);
+    console.log(`ImageViewerComponent.onPointerDown: this.marquee: ${JSON.stringify(this.marquee)}`);
+    console.log(`ImageViewerComponent.onPointerDown: isEditMarqueeMode: ${isEditMarqueeMode}`);
+
+    if (this.mode === ViewMode.WithMarquee && this.marquee && isEditMarqueeMode) {
+      console.log(`ImageViewerComponent.onPointerDown: with marquee`);
+
+      this.resizeEdge = this.detectResizeEdge(pointerPosition);
+      this.dragStart = pointerPosition;
+      this.originalRectangle = { ...this.marquee.rectangle };
 
       this.draggingMarqueeId = this.marquee.id;
       this.draggingMarqueeVersion = this.marquee.version;
+
+      if (!this.resizeEdge || Object.values(this.resizeEdge).every(v => !v)) {
+        this.isDraggingMarquee = true;
+
+        const r = this.marquee.rectangle;
+        this.dragStartMarquee = { x: r.x, y: r.y };
+
+        this.draggingMarqueeId = this.marquee.id;
+        this.draggingMarqueeVersion = this.marquee.version;
+      }
+    } else {
+      console.log(`ImageViewerComponent.onPointerDown: global pan`);
+      this.isPanning = true;
+      this.dragStart = pointerPosition;
     }
-  } else {
-    console.log(`ImageViewerComponent.onPointerDown: global pan`);
-    this.isPanning = true;
-    this.dragStart = pointerPosition;
-  }
-}
-
-onPointerMove(event: PointerEvent): void {
-  if (!this.svgRef) {
-    console.log(`ImageViewerComponent.onPointerMove: skipping as !svgRef`);
-    return;
   }
 
-  const isEditMarqueeMode = event.ctrlKey || this.editMarqueeMode;
-  const pointerPosition = this.getPointerPosition(event);
+  private startPinchGesture(): void {
+    const points = Array.from(this.activePointers.values());
+    if (points.length !== 2) return;
 
-  this.lastMousePosition = pointerPosition;
-  this.calculateCursorStyle(pointerPosition, isEditMarqueeMode);
-}
+    const p1 = this.getPointerPosition(points[0]);
+    const p2 = this.getPointerPosition(points[1]);
 
-onPointerMoveBoundInternal(event: PointerEvent): void {
-  event.preventDefault();
-
-  if (!this.svgRef) {
-    console.log(`ImageViewerComponent.onPointerMoveBoundInternal: skipping as !svgRef`);
-    return;
+    this.pinchStartDistance = this.distance(p1, p2);
+    this.pinchStartScale = this.scale;
+    this.pinchStartCenter = this.midpoint(p1, p2);
+    this.pinchStartOffsetX = this.offsetX;
+    this.pinchStartOffsetY = this.offsetY;
   }
 
-  const isEditMarqueeMode = event.ctrlKey || this.editMarqueeMode;
-  const pointerPosition = this.getPointerPosition(event);
-
-  this.lastMousePosition = pointerPosition;
-  this.calculateCursorStyle(pointerPosition, isEditMarqueeMode);
-
-  if (!this.dragStart) {
-    console.log(`ImageViewerComponent.onPointerMoveBoundInternal: skipping as !dragStart`);
-    return;
-  }
-
-  const dx = pointerPosition.x - this.dragStart.x;
-  const dy = pointerPosition.y - this.dragStart.y;
-
-  if (this.isPanning) {
-    this.offsetX += dx;
-    this.offsetY += dy;
-    this.dragStart = pointerPosition;
-    return;
-  }
-
-  if (this.mode !== ViewMode.WithMarquee) {
-    console.log(`ImageViewerComponent.onPointerMoveBoundInternal: skipping as mode != ViewMode.WithMarquee`);
-    return;
-  }
-
-  if (!this.marquee) {
-    console.log(`ImageViewerComponent.onPointerMoveBoundInternal: skipping as !marquee`);
-    return;
-  }
-
-  const r = this.marquee.rectangle;
-
-  if (this.isDraggingMarquee && this.dragStartMarquee) {
-    const dxSvg = dx / this.scale;
-    const dySvg = dy / this.scale;
-
-    r.x = this.dragStartMarquee.x + dxSvg;
-    r.y = this.dragStartMarquee.y + dySvg;
-  }
-
-  if (this.isResizing() && this.originalRectangle) {
-    const { left, right, top, bottom } = this.resizeEdge!;
-    let { x, y, width, height } = this.originalRectangle;
-
-    const dxSvg = (pointerPosition.x - this.dragStart.x) / this.scale;
-    const dySvg = (pointerPosition.y - this.dragStart.y) / this.scale;
-
-    if (left) {
-      x = this.originalRectangle.x + dxSvg;
-      width = this.originalRectangle.width - dxSvg;
+  onPointerMove(event: PointerEvent): void {
+    if (!this.svgRef) {
+      console.log(`ImageViewerComponent.onPointerMove: skipping as !svgRef`);
+      return;
     }
 
-    if (right) {
-      width = this.originalRectangle.width + dxSvg;
-    }
+    const isEditMarqueeMode = event.ctrlKey || this.editMarqueeMode;
+    const pointerPosition = this.getPointerPosition(event);
 
-    if (top) {
-      y = this.originalRectangle.y + dySvg;
-      height = this.originalRectangle.height - dySvg;
-    }
-
-    if (bottom) {
-      height = this.originalRectangle.height + dySvg;
-    }
-
-    const MIN = 5;
-
-    if (width < 0) {
-      x += width;
-      width = Math.abs(width);
-    }
-
-    if (height < 0) {
-      y += height;
-      height = Math.abs(height);
-    }
-
-    width = Math.max(width, MIN);
-    height = Math.max(height, MIN);
-
-    r.x = x;
-    r.y = y;
-    r.width = width;
-    r.height = height;
+    this.lastMousePosition = pointerPosition;
+    this.calculateCursorStyle(pointerPosition, isEditMarqueeMode);
   }
-}
 
-onPointerUpBoundInternal(event: PointerEvent): void {
-  console.log(`ImageViewerComponent.onPointerUpBoundInternal`);
+  onPointerMoveBoundInternal(event: PointerEvent): void {
 
-  window.removeEventListener('pointermove', this.onPointerMoveBound);
-  window.removeEventListener('pointerup', this.onPointerUpBound);
-  window.removeEventListener('pointercancel', this.onPointerUpBound);
 
-  if (this.svgRef?.nativeElement) {
+    if (!this.svgRef) {
+      console.log(`ImageViewerComponent.onPointerMoveBoundInternal: skipping as !svgRef`);
+      return;
+    }
+
+
+    event.preventDefault();
+
+    if (this.activePointers.has(event.pointerId)) {
+      this.activePointers.set(event.pointerId, event);
+    }
+
+    if (this.activePointers.size === 2) {
+      this.updatePinchGesture();
+      return;
+    }
+
+    if (this.activePointers.size > 1) {
+      return;
+    }
+
+    const isEditMarqueeMode = event.ctrlKey || this.editMarqueeMode;
+    const pointerPosition = this.getPointerPosition(event);
+
+    this.lastMousePosition = pointerPosition;
+    this.calculateCursorStyle(pointerPosition, isEditMarqueeMode);
+
+    if (!this.dragStart) {
+      console.log(`ImageViewerComponent.onPointerMoveBoundInternal: skipping as !dragStart`);
+      return;
+    }
+
+    const dx = pointerPosition.x - this.dragStart.x;
+    const dy = pointerPosition.y - this.dragStart.y;
+
+    if (this.isPanning) {
+      this.offsetX += dx;
+      this.offsetY += dy;
+      this.dragStart = pointerPosition;
+      return;
+    }
+
+    if (this.mode !== ViewMode.WithMarquee) {
+      console.log(`ImageViewerComponent.onPointerMoveBoundInternal: skipping as mode != ViewMode.WithMarquee`);
+      return;
+    }
+
+    if (!this.marquee) {
+      console.log(`ImageViewerComponent.onPointerMoveBoundInternal: skipping as !marquee`);
+      return;
+    }
+
+    const r = this.marquee.rectangle;
+
+    if (this.isDraggingMarquee && this.dragStartMarquee) {
+      const dxSvg = dx / this.scale;
+      const dySvg = dy / this.scale;
+
+      r.x = this.dragStartMarquee.x + dxSvg;
+      r.y = this.dragStartMarquee.y + dySvg;
+    }
+
+    if (this.isResizing() && this.originalRectangle) {
+      const { left, right, top, bottom } = this.resizeEdge!;
+      let { x, y, width, height } = this.originalRectangle;
+
+      const dxSvg = (pointerPosition.x - this.dragStart.x) / this.scale;
+      const dySvg = (pointerPosition.y - this.dragStart.y) / this.scale;
+
+      if (left) {
+        x = this.originalRectangle.x + dxSvg;
+        width = this.originalRectangle.width - dxSvg;
+      }
+
+      if (right) {
+        width = this.originalRectangle.width + dxSvg;
+      }
+
+      if (top) {
+        y = this.originalRectangle.y + dySvg;
+        height = this.originalRectangle.height - dySvg;
+      }
+
+      if (bottom) {
+        height = this.originalRectangle.height + dySvg;
+      }
+
+      const MIN = 5;
+
+      if (width < 0) {
+        x += width;
+        width = Math.abs(width);
+      }
+
+      if (height < 0) {
+        y += height;
+        height = Math.abs(height);
+      }
+
+      width = Math.max(width, MIN);
+      height = Math.max(height, MIN);
+
+      r.x = x;
+      r.y = y;
+      r.width = width;
+      r.height = height;
+    }
+  }
+
+  private distance(a: DOMPoint, b: DOMPoint): number {
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  }
+
+  private midpoint(a: DOMPoint, b: DOMPoint): DOMPoint {
+    return new DOMPoint((a.x + b.x) / 2, (a.y + b.y) / 2);
+  }
+
+  private updatePinchGesture(): void {
+    const points = Array.from(this.activePointers.values());
+    if (points.length !== 2) return;
+
+    if (
+      this.pinchStartDistance == null ||
+      this.pinchStartScale == null ||
+      this.pinchStartCenter == null ||
+      this.pinchStartOffsetX == null ||
+      this.pinchStartOffsetY == null
+    ) {
+      this.startPinchGesture();
+      return;
+    }
+
+    const p1 = this.getPointerPosition(points[0]);
+    const p2 = this.getPointerPosition(points[1]);
+
+    const newDistance = this.distance(p1, p2);
+    const newCenter = this.midpoint(p1, p2);
+
+    const factor = newDistance / this.pinchStartDistance;
+    const newScale = this.pinchStartScale * factor;
+
+    // Keep the original pinch center stable while also allowing two-finger pan
+    const svgXBefore =
+      (this.pinchStartCenter.x - this.pinchStartOffsetX) / this.pinchStartScale;
+    const svgYBefore =
+      (this.pinchStartCenter.y - this.pinchStartOffsetY) / this.pinchStartScale;
+
+    this.offsetX = newCenter.x - svgXBefore * newScale;
+    this.offsetY = newCenter.y - svgYBefore * newScale;
+    this.scale = newScale;
+  }
+
+
+  onPointerUpBoundInternal(event: PointerEvent): void {
+    console.log(`ImageViewerComponent.onPointerUpBoundInternal`);
+
+    window.removeEventListener('pointermove', this.onPointerMoveBound);
+    window.removeEventListener('pointerup', this.onPointerUpBound);
+    window.removeEventListener('pointercancel', this.onPointerUpBound);
+
+    this.activePointers.delete(event.pointerId);
+
     try {
-      const svg = this.svgRef.nativeElement;
-      if (svg.hasPointerCapture(event.pointerId)) {
+      const svg = this.svgRef?.nativeElement;
+      if (svg?.hasPointerCapture(event.pointerId)) {
         svg.releasePointerCapture(event.pointerId);
       }
     } catch (e) {
       console.warn('ImageViewerComponent.onPointerUpBoundInternal: releasePointerCapture failed', e);
     }
-  }
 
-  const m = this.marquee;
-  const canUpdate =
-    this.mode === ViewMode.WithMarquee &&
-    !!m &&
-    !this.isPanning &&
-    this.draggingMarqueeId === m.id &&
-    this.draggingMarqueeVersion === m.version &&
-    (this.isResizing() || this.isDraggingMarquee);
+    if (this.activePointers.size < 2) {
+      this.pinchStartDistance = undefined;
+      this.pinchStartScale = undefined;
+      this.pinchStartCenter = undefined;
+      this.pinchStartOffsetX = undefined;
+      this.pinchStartOffsetY = undefined;
+    }
 
-  const changed =
-    this.isResizing() ||
-    (this.isDraggingMarquee &&
-      !!this.marquee &&
-      !!this.dragStartMarquee &&
-      Math.hypot(
-        this.marquee.rectangle.x - this.dragStartMarquee.x,
-        this.marquee.rectangle.y - this.dragStartMarquee.y
-      ) > 0.5);
+    if (this.activePointers.size === 0) {
 
-  if (canUpdate && changed) {
-    const current = this.marquee!;
-    const prevSnapshot: Marquee = { ...current, rectangle: { ...current.rectangle } };
-
-    const requestPayload: Marquee = {
-      ...prevSnapshot,
-      version: prevSnapshot.version
-    };
-
-    current.version = (current.version ?? 0) + 1;
-
-    this.rpcService.updateMarquee$(requestPayload).subscribe({
-      next: () => {
-        console.log('ImageViewer: marquee update succeeded (optimistic).');
-      },
-      error: (err) => {
-        console.log(`ImageViewer: marquee update failed, rolling back.`, err);
-
-        if (this.marquee && this.marquee.id === prevSnapshot.id) {
-          this.marquee.version = prevSnapshot.version;
-          this.marquee.rectangle = { ...prevSnapshot.rectangle };
-        }
-
-        const idx = this.marquees.findIndex(m => m.id === prevSnapshot.id);
-        if (idx >= 0) {
-          this.marquees[idx] = { ...prevSnapshot, rectangle: { ...prevSnapshot.rectangle } };
-        }
-
-        if (!this.handleAuthError(err)) {
-          this.alertService.error(err);
+      if (this.svgRef?.nativeElement) {
+        try {
+          const svg = this.svgRef.nativeElement;
+          if (svg.hasPointerCapture(event.pointerId)) {
+            svg.releasePointerCapture(event.pointerId);
+          }
+        } catch (e) {
+          console.warn('ImageViewerComponent.onPointerUpBoundInternal: releasePointerCapture failed', e);
         }
       }
-    });
+
+      const m = this.marquee;
+      const canUpdate =
+        this.mode === ViewMode.WithMarquee &&
+        !!m &&
+        !this.isPanning &&
+        this.draggingMarqueeId === m.id &&
+        this.draggingMarqueeVersion === m.version &&
+        (this.isResizing() || this.isDraggingMarquee);
+
+      const changed =
+        this.isResizing() ||
+        (this.isDraggingMarquee &&
+          !!this.marquee &&
+          !!this.dragStartMarquee &&
+          Math.hypot(
+            this.marquee.rectangle.x - this.dragStartMarquee.x,
+            this.marquee.rectangle.y - this.dragStartMarquee.y
+          ) > 0.5);
+
+      if (canUpdate && changed) {
+        const current = this.marquee!;
+        const prevSnapshot: Marquee = { ...current, rectangle: { ...current.rectangle } };
+
+        const requestPayload: Marquee = {
+          ...prevSnapshot,
+          version: prevSnapshot.version
+        };
+
+        current.version = (current.version ?? 0) + 1;
+
+        this.rpcService.updateMarquee$(requestPayload).subscribe({
+          next: () => {
+            console.log('ImageViewer: marquee update succeeded (optimistic).');
+          },
+          error: (err) => {
+            console.log(`ImageViewer: marquee update failed, rolling back.`, err);
+
+            if (this.marquee && this.marquee.id === prevSnapshot.id) {
+              this.marquee.version = prevSnapshot.version;
+              this.marquee.rectangle = { ...prevSnapshot.rectangle };
+            }
+
+            const idx = this.marquees.findIndex(m => m.id === prevSnapshot.id);
+            if (idx >= 0) {
+              this.marquees[idx] = { ...prevSnapshot, rectangle: { ...prevSnapshot.rectangle } };
+            }
+
+            if (!this.handleAuthError(err)) {
+              this.alertService.error(err);
+            }
+          }
+        });
+      }
+
+      this.clearPointerInteractionState();
+    }
   }
 
-  this.clearPointerInteractionState();
-}
-
-private clearPointerInteractionState(): void {
-  this.isPanning = false;
-  this.isDraggingMarquee = false;
-  this.resizeEdge = undefined;
-  this.dragStart = undefined;
-  this.dragStartMarquee = undefined;
-  this.originalRectangle = undefined;
-  this.draggingMarqueeId = 0;
-  this.draggingMarqueeVersion = 0;
-}
+  private clearPointerInteractionState(): void {
+    this.isPanning = false;
+    this.isDraggingMarquee = false;
+    this.resizeEdge = undefined;
+    this.dragStart = undefined;
+    this.dragStartMarquee = undefined;
+    this.originalRectangle = undefined;
+    this.draggingMarqueeId = 0;
+    this.draggingMarqueeVersion = 0;
+  }
 
 
 
@@ -524,7 +642,7 @@ private clearPointerInteractionState(): void {
     // If user is clicking in an overlap area, prefer keeping the current marquee selected.
     // Allow override with Shift-click.
     if (event && this.mode === ViewMode.WithMarquee && this.marquee && this.marquee.id !== marquee.id) {
-      const p = this.getPointerPosition(event) 
+      const p = this.getPointerPosition(event)
       const currentRect = this.marquee.rectangle;
 
       const insideCurrent = this.pointInRect(p, currentRect);
@@ -652,25 +770,25 @@ private clearPointerInteractionState(): void {
   }
 
   // Get the mouse position relative to the SVG element in screen/pixel space.
-getPointerPosition(event: MouseEvent | PointerEvent): DOMPoint {
-  if (!this.svgRef?.nativeElement) {
-    console.warn('ImageViewerComponent.getPointerPosition: svgRef is not yet available');
-    return new DOMPoint(0, 0);
+  getPointerPosition(event: MouseEvent | PointerEvent): DOMPoint {
+    if (!this.svgRef?.nativeElement) {
+      console.warn('ImageViewerComponent.getPointerPosition: svgRef is not yet available');
+      return new DOMPoint(0, 0);
+    }
+
+    const svg = this.svgRef.nativeElement;
+    const pt = svg.createSVGPoint();
+
+    pt.x = event.clientX;
+    pt.y = event.clientY;
+
+    const ctm = svg.getScreenCTM();
+    if (!ctm) {
+      return pt;
+    }
+
+    return pt.matrixTransform(ctm.inverse());
   }
-
-  const svg = this.svgRef.nativeElement;
-  const pt = svg.createSVGPoint();
-
-  pt.x = event.clientX;
-  pt.y = event.clientY;
-
-  const ctm = svg.getScreenCTM();
-  if (!ctm) {
-    return pt;
-  }
-
-  return pt.matrixTransform(ctm.inverse());
-}
 
   private isResizing(): boolean {
     const e = this.resizeEdge;
@@ -779,17 +897,17 @@ getPointerPosition(event: MouseEvent | PointerEvent): DOMPoint {
   }
 
   onPointerLeave(event: PointerEvent): void {
-  console.log(`ImageViewer.onPointerLeave`);
+    console.log(`ImageViewer.onPointerLeave`);
 
-  window.removeEventListener('pointermove', this.onPointerMoveBound);
-  window.removeEventListener('pointerup', this.onPointerUpBound);
-  window.removeEventListener('pointercancel', this.onPointerUpBound);
+    window.removeEventListener('pointermove', this.onPointerMoveBound);
+    window.removeEventListener('pointerup', this.onPointerUpBound);
+    window.removeEventListener('pointercancel', this.onPointerUpBound);
 
-  this.clearPointerInteractionState();
-}
+    this.clearPointerInteractionState();
+  }
 
-onPointerCancel(event: PointerEvent): void {
-  console.log(`ImageViewer.onPointerCancel`);
-  this.onPointerLeave(event);
-}
+  onPointerCancel(event: PointerEvent): void {
+    console.log(`ImageViewer.onPointerCancel`);
+    this.onPointerLeave(event);
+  }
 }
