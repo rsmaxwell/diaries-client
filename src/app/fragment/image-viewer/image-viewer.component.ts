@@ -524,7 +524,29 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
 
 
   onPointerUpBoundInternal(event: PointerEvent): void {
-    console.log(`ImageViewerComponent.onPointerUpBoundInternal`);
+    console.log(`ImageViewerComponent.onPointerUpBoundInternal: pointerId=${event.pointerId}`);
+
+    this.activePointers.delete(event.pointerId);
+
+    try {
+      const svg = this.svgRef?.nativeElement;
+      if (svg?.hasPointerCapture(event.pointerId)) {
+        svg.releasePointerCapture(event.pointerId);
+      }
+    } catch (e) {
+      console.warn('ImageViewerComponent.onPointerUpBoundInternal: releasePointerCapture failed', e);
+    }
+
+    // If we have gone from 2 fingers to 1, end the pinch state,
+    // but do not yet remove the listeners.
+    if (this.activePointers.size < 2) {
+      this.clearPinchState();
+    }
+
+    // If another finger is still down, wait for its pointerup.
+    if (this.activePointers.size > 0) {
+      return;
+    }
 
     window.removeEventListener('pointermove', this.onPointerMoveBound);
     window.removeEventListener('pointerup', this.onPointerUpBound);
@@ -620,6 +642,14 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  private clearPinchState(): void {
+    this.pinchStartDistance = undefined;
+    this.pinchStartScale = undefined;
+    this.pinchStartCenter = undefined;
+    this.pinchStartOffsetX = undefined;
+    this.pinchStartOffsetY = undefined;
+  }
+
   private clearPointerInteractionState(): void {
     this.isPanning = false;
     this.isDraggingMarquee = false;
@@ -629,6 +659,8 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.originalRectangle = undefined;
     this.draggingMarqueeId = 0;
     this.draggingMarqueeVersion = 0;
+
+    this.clearPinchState();
   }
 
 
@@ -896,18 +928,32 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  onPointerCancel(event: PointerEvent): void {
+    console.log(`ImageViewer.onPointerCancel: pointerId=${event.pointerId}`);
+
+    this.activePointers.delete(event.pointerId);
+
+    if (this.activePointers.size === 0) {
+      this.cleanupAllPointers();
+    }
+  }
+
   onPointerLeave(event: PointerEvent): void {
     console.log(`ImageViewer.onPointerLeave`);
 
+    // With pointer capture, pointerleave during a drag is not necessarily fatal.
+    // But if you do treat it as fatal, clear the activePointers map too.
+    if (this.activePointers.size === 0) {
+      this.cleanupAllPointers();
+    }
+  }
+
+  private cleanupAllPointers(): void {
     window.removeEventListener('pointermove', this.onPointerMoveBound);
     window.removeEventListener('pointerup', this.onPointerUpBound);
     window.removeEventListener('pointercancel', this.onPointerUpBound);
 
+    this.activePointers.clear();
     this.clearPointerInteractionState();
-  }
-
-  onPointerCancel(event: PointerEvent): void {
-    console.log(`ImageViewer.onPointerCancel`);
-    this.onPointerLeave(event);
   }
 }
