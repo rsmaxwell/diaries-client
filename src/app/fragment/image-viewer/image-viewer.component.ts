@@ -121,7 +121,41 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private pinchInteraction: PinchInteraction = {};
 
+  private marqueeBoundsInSvgFor(marquee: Marquee) {
+    const r = marquee.rectangle;
 
+    const x = r.x * this.scale + this.offsetX;
+    const y = r.y * this.scale + this.offsetY;
+    const w = r.width * this.scale;
+    const h = r.height * this.scale;
+
+    return {
+      left: x,
+      right: x + w,
+      top: y,
+      bottom: y + h
+    };
+  }
+
+  private pointInBounds(
+    p: DOMPoint,
+    b: { left: number; right: number; top: number; bottom: number }
+  ): boolean {
+    return p.x >= b.left && p.x <= b.right &&
+      p.y >= b.top && p.y <= b.bottom;
+  }
+
+  private marqueeAtPointer(pointerPosition: DOMPoint): Marquee | undefined {
+    for (let i = this.marquees.length - 1; i >= 0; i--) {
+      const m = this.marquees[i];
+
+      if (this.pointInBounds(pointerPosition, this.marqueeBoundsInSvgFor(m))) {
+        return m;
+      }
+    }
+
+    return undefined;
+  }
 
 
   private isResizeEdgeActive(edge?: ResizeEdge): boolean {
@@ -187,17 +221,23 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
         this.marquees = ms;
       });
 
-    // Auto-select first marquee if URL has no fragmentId
+    // Auto-select first marquee only if there is no fragmentId AND no selected marquee.
     this.modelContext.selectedPage$
       .pipe(
-        filter(p => !!p), // run once per concrete page
+        filter(p => !!p),
         switchMap(() =>
           combineLatest([
-            this.modelContext.marquees$,   // marquees for the current page
-            this.modelContext.fragmentId$, // current fragment (null if none in URL)
+            this.modelContext.marquees$,
+            this.modelContext.fragmentId$,
+            this.modelContext.selectedMarquee$,
           ]).pipe(
-            filter(([ms, fid]) => fid == null && Array.isArray(ms) && ms.length > 0),
-            take(1) // only once per page activation
+            filter(([ms, fid, selected]) =>
+              fid == null &&
+              selected == null &&
+              Array.isArray(ms) &&
+              ms.length > 0
+            ),
+            take(1)
           )
         ),
         takeUntil(this.destroy$)
@@ -205,11 +245,9 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       .subscribe(([ms]) => {
         const first = ms[0];
 
-        // keep global state in sync
         this.modelContext.setMarqueeId(first.id);
         this.modelContext.setFragmentId(first.fragmentId);
 
-        // use the already-known diary/page to canonicalise the URL
         this.router.navigate(
           ['/diary', this.diary!.id, this.page!.id, first.fragmentId],
           { replaceUrl: true }
@@ -303,7 +341,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.marqueeInteraction = {};
   }
 
-  onPointerDown(event: PointerEvent): void {
+  async onPointerDown(event: PointerEvent): Promise<void> {
     console.log(`ImageViewerComponent.onPointerDown: pointerType=${event.pointerType}`);
 
     if (!this.svgRef) {
@@ -319,6 +357,42 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     event.preventDefault();
+
+    const isEditMarqueeMode = event.ctrlKey || this.editMarqueeMode;
+    const pointerPosition = this.getPointerPosition(event);
+
+    const selectedResizeEdge =
+      this.mode === ViewMode.WithMarquee && this.marquee && isEditMarqueeMode
+        ? this.detectResizeEdge(pointerPosition)
+        : undefined;
+
+    const pointerIsOnSelectedMarquee =
+      this.mode === ViewMode.WithMarquee &&
+      !!this.marquee &&
+      isEditMarqueeMode &&
+      (
+        this.isResizeEdgeActive(selectedResizeEdge) ||
+        this.pointInBounds(pointerPosition, this.marqueeBoundsInSvg())
+      );
+
+    const clickedMarquee = this.marqueeAtPointer(pointerPosition);
+
+    console.log(
+      `clickedMarquee=${clickedMarquee?.id}, selected=${this.marquee?.id}, activePointers=${this.pointerInteraction.activePointers.size}`
+    );
+
+    // Plain click/tap on a different marquee selects it.
+    // Do this before pointer capture / activePointers setup.
+    if (
+      !pointerIsOnSelectedMarquee &&
+      this.pointerInteraction.activePointers.size === 0 &&
+      clickedMarquee &&
+      clickedMarquee.id !== this.marquee?.id
+    ) {
+      console.log(`ImageViewerComponent.onPointerDown: selecting clicked marquee ${clickedMarquee.id}`);
+      await this.onSelectMarquee(clickedMarquee, event);
+      return;
+    }
 
     const svg = this.svgRef.nativeElement;
 
@@ -345,8 +419,6 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     window.addEventListener('pointerup', this.onPointerUpBound);
     window.addEventListener('pointercancel', this.onPointerUpBound);
 
-    const isEditMarqueeMode = event.ctrlKey || this.editMarqueeMode;
-    const pointerPosition = this.getPointerPosition(event);
 
     this.pointerInteraction.startPoint = pointerPosition;
     this.pointerInteraction.lastPoint = pointerPosition;
@@ -359,7 +431,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       console.log(`ImageViewerComponent.onPointerDown: with marquee`);
 
       this.marqueeInteraction.startRect = { ...this.marquee.rectangle };
-      this.marqueeInteraction.resizeEdge = this.detectResizeEdge(pointerPosition);
+      this.marqueeInteraction.resizeEdge = selectedResizeEdge ?? this.detectResizeEdge(pointerPosition);
       this.marqueeInteraction.marqueeId = this.marquee.id;
       this.marqueeInteraction.marqueeVersion = this.marquee.version;
 
@@ -682,21 +754,6 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async onSelectMarquee(marquee: Marquee, event?: MouseEvent | PointerEvent) {
-    // If user is clicking in an overlap area, prefer keeping the current marquee selected.
-    // Allow override with Shift-click.
-    if (event && this.mode === ViewMode.WithMarquee && this.marquee && this.marquee.id !== marquee.id) {
-      const p = this.getPointerPosition(event)
-      const currentRect = this.marquee.rectangle;
-
-      const insideCurrent = this.pointInRect(p, currentRect);
-      const override = event.shiftKey; // optional: shift-click to select the other one
-
-      if (insideCurrent && !override) {
-        // Keep focus on the current marquee
-        event.stopPropagation();
-        return;
-      }
-    }
 
     console.log(`ImageViewerComponent.onSelectMarquee: marquee: ${JSON.stringify(marquee)}`);
     console.log(`ImageViewerComponent.onSelectMarquee: unlock the current fragment`);
