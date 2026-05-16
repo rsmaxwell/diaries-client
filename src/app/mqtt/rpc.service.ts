@@ -333,7 +333,7 @@ export class RpcService {
         );
     }
 
-    addMarquee$(page: Page, rect: Rectangle, sequence: number): Observable<number> {
+    addMarquee$(page: Page, rect: Rectangle, sequence: number): Observable<Marquee> {
         return forkJoin({
             cfg: this.configService.getConfig(),
             client: this.mqtt.getConnection(),
@@ -341,9 +341,21 @@ export class RpcService {
         }).pipe(
             switchMap(({ cfg, client, token }) => {
                 const replyTopic = Constants.replyTopic(this.mqtt.getClientId());
-                const payload = { function: 'addMarquee', args: new AddMarqueeRequest(page.id, rect, sequence) };
-                const deserialize = ReplyHandler.getBufferAsNumber
-                return this.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
+                const payload = {
+                    function: 'addMarquee',
+                    args: new AddMarqueeRequest(page.id, rect, sequence)
+                };
+
+                const deserialize = ReplyHandler.getBufferAsObject<Marquee>;
+
+                return this.rpcRequest<Marquee>(
+                    client,
+                    Constants.reqTopic,
+                    replyTopic,
+                    payload,
+                    token,
+                    deserialize
+                );
             })
         );
     }

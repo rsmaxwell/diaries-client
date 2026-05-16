@@ -11,13 +11,8 @@ export class ReplyHandler {
   constructor(public alertService: AlertService
   ) { }
 
-  static getBufferAsObject(buffer: Buffer): object {
-    if (!Buffer.isBuffer(buffer)) {
-      throw new Error('Payload is not a Buffer.');
-    }
-
-    const jsonString = buffer.toString();
-    return JSON.parse(jsonString);
+  static getBufferAsObject<T>(buffer: Buffer): T {
+    return JSON.parse(buffer.toString()) as T;
   }
 
   static getBufferAsNumber(buffer: Buffer): number {

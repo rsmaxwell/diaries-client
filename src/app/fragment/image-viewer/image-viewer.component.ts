@@ -219,6 +219,14 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       .subscribe(ms => {
         console.log('ImageViewerComponent.<subscribe marquees>: ids=', ms.map(m => m.id));
         this.marquees = ms;
+
+        // ensure the selected marquee is derived from the current list when the list updates
+        if (this.marquee) {
+          const refreshed = ms.find(m => m.id === this.marquee!.id);
+          if (refreshed) {
+            this.marquee = refreshed;
+          }
+        }
       });
 
     // Auto-select first marquee only if there is no fragmentId AND no selected marquee.
@@ -706,6 +714,15 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
 
       current.version = (current.version ?? 0) + 1;
 
+      // Keep local list in sync immediately, even before MQTT echoes the update.
+      const idx = this.marquees.findIndex(m => m.id === current.id);
+      if (idx >= 0) {
+        this.marquees[idx] = {
+          ...current,
+          rectangle: { ...current.rectangle }
+        };
+      }
+
       this.rpcService.updateMarquee$(requestPayload).subscribe({
         next: () => {
           console.log('ImageViewer: marquee update succeeded (optimistic).');
@@ -918,26 +935,41 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onAddButtonClick() {
-    const rectangle = new Rectangle(this.width / 5, this.height / 5, (3 * this.width) / 5, (3 * this.height) / 5);
+    const rectangle = new Rectangle(
+      this.width / 5,
+      this.height / 5,
+      (3 * this.width) / 5,
+      (3 * this.height) / 5
+    );
+
     const sequence = 123;
 
-    this.rpcService.addMarquee$(this.page, rectangle, sequence).pipe(
-      switchMap((newId: number) =>
-        this.modelContext.marquees$.pipe(
-          map(ms => ms.find(m => m.id === newId) ?? null),
-          filter((m): m is Marquee => !!m && m.fragmentId > 0),
-          take(1)
-        )
-      )
-    ).subscribe({
-      next: (m) => {
+    this.rpcService.addMarquee$(this.page, rectangle, sequence).subscribe({
+      next: (m: Marquee) => {
         this.alertService.info(`marquee: id: ${m.id} added`);
+
+        // Optional but useful: make the local list immediately consistent,
+        // instead of waiting for the MQTT retained topic update to arrive.
+        this.marquees = [
+          ...this.marquees.filter(existing => existing.id !== m.id),
+          m
+        ];
+
         this.modelContext.setMarqueeId(m.id);
         this.modelContext.setFragmentId(m.fragmentId);
-        this.router.navigate(['/diary', this.diary.id, this.page.id, m.fragmentId]);
+
+        this.router.navigate([
+          '/diary',
+          this.diary.id,
+          this.page.id,
+          m.fragmentId
+        ]);
       },
+
       error: (err) => {
-        if (!this.handleAuthError(err)) this.alertService.error(err);
+        if (!this.handleAuthError(err)) {
+          this.alertService.error(err);
+        }
       }
     });
   }
