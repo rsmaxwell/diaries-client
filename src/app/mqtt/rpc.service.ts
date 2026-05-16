@@ -405,7 +405,7 @@ export class RpcService {
         );
     }
 
-    updateMarquee$(marquee: Marquee): Observable<number> {
+    updateMarquee$(marquee: Marquee): Observable<Marquee> {
         return forkJoin({
             cfg: this.configService.getConfig(),
             client: this.mqtt.getConnection(),
@@ -414,8 +414,8 @@ export class RpcService {
             switchMap(({ cfg, client, token }) => {
                 const replyTopic = Constants.replyTopic(this.mqtt.getClientId());
                 const payload = { function: 'updateMarquee', args: new UpdateMarqueeRequest(marquee) };
-                const deserialize = ReplyHandler.getBufferAsNumber
-                return this.rpcRequest<number>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
+                const deserialize = ReplyHandler.getBufferAsObject<Marquee>;
+                return this.rpcRequest<Marquee>(client, Constants.reqTopic, replyTopic, payload, token, deserialize);
             })
         );
     }

@@ -84,19 +84,16 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @ViewChild('svgRef') svgRef!: ElementRef<SVGSVGElement>;
 
-  constructor(
-    private router: Router,
-    private rpcService: RpcService,
-    private alertService: AlertService,
-    private configService: ConfigService,
-    private modelContext: ModelContext,
-    private accessTokenService: AccessTokenService
-  ) {
-  };
-
   private readonly onPointerMoveBound = this.onPointerMoveBoundInternal.bind(this);
   private readonly onPointerUpBound = this.onPointerUpBoundInternal.bind(this);
   private destroy$ = new Subject<void>();
+
+  private pointerInteraction: PointerInteraction = {
+    mode: 'idle',
+    activePointers: new Map<number, PointerEvent>()
+  };
+  private marqueeInteraction: MarqueeInteraction = {};
+  private pinchInteraction: PinchInteraction = {};
 
   scale = 1;
   offsetX = 0;
@@ -111,56 +108,17 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   config: Config | null = null;
   editMarqueeMode = false;
 
-  // interactionMode: InteractionMode = 'idle';
-  private pointerInteraction: PointerInteraction = {
-    mode: 'idle',
-    activePointers: new Map<number, PointerEvent>()
+
+
+  constructor(
+    private router: Router,
+    private rpcService: RpcService,
+    private alertService: AlertService,
+    private configService: ConfigService,
+    private modelContext: ModelContext,
+    private accessTokenService: AccessTokenService
+  ) {
   };
-
-  private marqueeInteraction: MarqueeInteraction = {};
-
-  private pinchInteraction: PinchInteraction = {};
-
-  private marqueeBoundsInSvgFor(marquee: Marquee) {
-    const r = marquee.rectangle;
-
-    const x = r.x * this.scale + this.offsetX;
-    const y = r.y * this.scale + this.offsetY;
-    const w = r.width * this.scale;
-    const h = r.height * this.scale;
-
-    return {
-      left: x,
-      right: x + w,
-      top: y,
-      bottom: y + h
-    };
-  }
-
-  private pointInBounds(
-    p: DOMPoint,
-    b: { left: number; right: number; top: number; bottom: number }
-  ): boolean {
-    return p.x >= b.left && p.x <= b.right &&
-      p.y >= b.top && p.y <= b.bottom;
-  }
-
-  private marqueeAtPointer(pointerPosition: DOMPoint): Marquee | undefined {
-    for (let i = this.marquees.length - 1; i >= 0; i--) {
-      const m = this.marquees[i];
-
-      if (this.pointInBounds(pointerPosition, this.marqueeBoundsInSvgFor(m))) {
-        return m;
-      }
-    }
-
-    return undefined;
-  }
-
-
-  private isResizeEdgeActive(edge?: ResizeEdge): boolean {
-    return !!edge && (edge.left || edge.right || edge.top || edge.bottom);
-  }
 
   ngOnInit(): void {
     console.log('ImageViewerComponent.ngOnInit');
@@ -273,21 +231,11 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       });
   }
 
-  get width(): number {
-    return this.page?.width ?? 0;
-  }
-
-  get height(): number {
-    return this.page?.height ?? 0;
-  }
-
-  get otherMarquees(): Marquee[] {
-    const selectedId = this.marquee?.id;
-    return this.marquees.filter(m => m.id !== selectedId);
-  }
-
-  trackById(index: number, m: Marquee) {
-    return m.id;
+  ngAfterViewInit(): void {
+    if (this.svgRef?.nativeElement) {
+      this.svgRef.nativeElement.focus();
+      console.log('ImageViewerComponent.ngAfterViewInit: svg focused');
+    }
   }
 
   ngOnDestroy(): void {
@@ -304,50 +252,22 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  ngAfterViewInit(): void {
-    if (this.svgRef?.nativeElement) {
-      this.svgRef.nativeElement.focus();
-      console.log('ImageViewerComponent.ngAfterViewInit: svg focused');
-    }
+  // -----------------------------------------------------------------------------
+  // template/view helpers
+  // -----------------------------------------------------------------------------
+
+  trackById(index: number, m: Marquee) {
+    return m.id;
   }
 
-  get transformStyle(): string {
-    return `translate(${this.offsetX}, ${this.offsetY}) scale(${this.scale})`;
+  get otherMarquees(): Marquee[] {
+    const selectedId = this.marquee?.id;
+    return this.marquees.filter(m => m.id !== selectedId);
   }
 
-  onWheel(event: WheelEvent) {
-    event.preventDefault();
-
-    // This increases (scroll up) or decreases (scroll down) the scale.
-    const factor = event.deltaY < 0 ? 1.1 : 0.9;
-    const newScale = this.scale * factor;
-
-    // This computes the mouse position relative to the SVG element in screen/pixel space.
-    const pt = this.svgRef.nativeElement.createSVGPoint();
-    pt.x = event.clientX;
-    pt.y = event.clientY;
-
-    // Transform to SVG coordinates
-    const ctm = this.svgRef.nativeElement.getScreenCTM();
-    if (!ctm) return;
-    const svgPoint = pt.matrixTransform(ctm.inverse());
-
-    // Get mouse position in SVG logical coordinates before zoom
-    const svgXBefore = (svgPoint.x - this.offsetX) / this.scale;
-    const svgYBefore = (svgPoint.y - this.offsetY) / this.scale;
-
-    // Recalculate offset so the same point stays under the mouse
-    this.offsetX = svgPoint.x - svgXBefore * newScale;
-    this.offsetY = svgPoint.y - svgYBefore * newScale;
-    this.scale = newScale;
-  }
-
-
-
-
-  private clearMarqueeInteractionState(): void {
-    this.marqueeInteraction = {};
-  }
+  // -----------------------------------------------------------------------------
+  // pointer-down group:
+  // -----------------------------------------------------------------------------
 
   async onPointerDown(event: PointerEvent): Promise<void> {
     console.log(`ImageViewerComponent.onPointerDown: pointerType=${event.pointerType}`);
@@ -357,8 +277,6 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    // For mouse, only accept left button.
-    // For touch/pen, button is often 0, but buttons may vary across browsers.
     if (event.pointerType === 'mouse' && event.button !== 0) {
       console.log(`ImageViewerComponent.onPointerDown: skipping as wrong mouse button`);
       return;
@@ -366,8 +284,31 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
 
     event.preventDefault();
 
+    this.capturePointer(event);
+    this.pointerInteraction.activePointers.set(event.pointerId, event);
+
+    if (this.pointerInteraction.activePointers.size === 2) {
+      this.beginPinchInteraction();
+      return;
+    }
+
+    if (this.pointerInteraction.activePointers.size > 1) {
+      return;
+    }
+
+    await this.beginSinglePointerInteraction(event);
+  }
+
+  private async beginSinglePointerInteraction(event: PointerEvent): Promise<void> {
+    window.addEventListener('pointermove', this.onPointerMoveBound, { passive: false });
+    window.addEventListener('pointerup', this.onPointerUpBound);
+    window.addEventListener('pointercancel', this.onPointerUpBound);
+
     const isEditMarqueeMode = event.ctrlKey || this.editMarqueeMode;
     const pointerPosition = this.getPointerPosition(event);
+
+    this.pointerInteraction.startPoint = pointerPosition;
+    this.pointerInteraction.lastPoint = pointerPosition;
 
     const selectedResizeEdge =
       this.mode === ViewMode.WithMarquee && this.marquee && isEditMarqueeMode
@@ -385,92 +326,71 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
 
     const clickedMarquee = this.marqueeAtPointer(pointerPosition);
 
-    console.log(
-      `clickedMarquee=${clickedMarquee?.id}, selected=${this.marquee?.id}, activePointers=${this.pointerInteraction.activePointers.size}`
-    );
-
-    // Plain click/tap on a different marquee selects it.
-    // Do this before pointer capture / activePointers setup.
     if (
       !pointerIsOnSelectedMarquee &&
-      this.pointerInteraction.activePointers.size === 0 &&
       clickedMarquee &&
       clickedMarquee.id !== this.marquee?.id
     ) {
-      console.log(`ImageViewerComponent.onPointerDown: selecting clicked marquee ${clickedMarquee.id}`);
+      console.log(`ImageViewerComponent.beginSinglePointerInteraction: selecting clicked marquee ${clickedMarquee.id}`);
       await this.onSelectMarquee(clickedMarquee, event);
+      this.cleanupAllPointers();
       return;
     }
-
-    const svg = this.svgRef.nativeElement;
-
-    try {
-      svg.setPointerCapture(event.pointerId);
-    } catch (e) {
-      console.warn('ImageViewerComponent.onPointerDown: setPointerCapture failed', e);
-    }
-
-    this.pointerInteraction.activePointers.set(event.pointerId, event);
-
-    if (this.pointerInteraction.activePointers.size === 2) {
-      this.clearMarqueeInteractionState();
-      this.pointerInteraction.mode = 'pinching';
-      this.startPinchGesture();
-      return;
-    }
-
-    if (this.pointerInteraction.activePointers.size > 1) {
-      return;
-    }
-
-    window.addEventListener('pointermove', this.onPointerMoveBound, { passive: false });
-    window.addEventListener('pointerup', this.onPointerUpBound);
-    window.addEventListener('pointercancel', this.onPointerUpBound);
-
-
-    this.pointerInteraction.startPoint = pointerPosition;
-    this.pointerInteraction.lastPoint = pointerPosition;
-
-    console.log(`ImageViewerComponent.onPointerDown: is viewMode.WithMarquee: ${this.mode === ViewMode.WithMarquee}`);
-    console.log(`ImageViewerComponent.onPointerDown: this.marquee: ${JSON.stringify(this.marquee)}`);
-    console.log(`ImageViewerComponent.onPointerDown: isEditMarqueeMode: ${isEditMarqueeMode}`);
 
     if (this.mode === ViewMode.WithMarquee && this.marquee && isEditMarqueeMode) {
-      console.log(`ImageViewerComponent.onPointerDown: with marquee`);
+      this.beginMarqueeInteraction(pointerPosition, selectedResizeEdge);
+      return;
+    }
 
-      this.marqueeInteraction.startRect = { ...this.marquee.rectangle };
-      this.marqueeInteraction.resizeEdge = selectedResizeEdge ?? this.detectResizeEdge(pointerPosition);
-      this.marqueeInteraction.marqueeId = this.marquee.id;
-      this.marqueeInteraction.marqueeVersion = this.marquee.version;
+    this.beginPanInteraction(pointerPosition);
+  }
 
-      if (!this.isResizeEdgeActive(this.marqueeInteraction.resizeEdge)) {
-        this.pointerInteraction.mode = 'moving-marquee';
+  private beginMarqueeInteraction(pointerPosition: DOMPoint, resizeEdge?: ResizeEdge): void {
+    if (!this.marquee) {
+      return;
+    }
 
-        const r = this.marquee.rectangle;
-        this.marqueeInteraction.startMarqueePoint = { x: r.x, y: r.y };
-      } else {
-        this.pointerInteraction.mode = 'resizing-marquee';
-      }
+    this.marqueeInteraction.startRect = { ...this.marquee.rectangle };
+    this.marqueeInteraction.resizeEdge = resizeEdge ?? this.detectResizeEdge(pointerPosition);
+    this.marqueeInteraction.marqueeId = this.marquee.id;
+    this.marqueeInteraction.marqueeVersion = this.marquee.version;
 
+    if (this.isResizeEdgeActive(this.marqueeInteraction.resizeEdge)) {
+      this.pointerInteraction.mode = 'resizing-marquee';
     } else {
-      console.log(`ImageViewerComponent.onPointerDown: global pan`);
-      this.pointerInteraction.mode = 'panning';
+      this.pointerInteraction.mode = 'moving-marquee';
+
+      const r = this.marquee.rectangle;
+      this.marqueeInteraction.startMarqueePoint = { x: r.x, y: r.y };
     }
   }
 
-  private startPinchGesture(): void {
-    const points = Array.from(this.pointerInteraction.activePointers.values());
-    if (points.length !== 2) return;
-
-    const p1 = this.getPointerPosition(points[0]);
-    const p2 = this.getPointerPosition(points[1]);
-
-    this.pinchInteraction.startDistance = this.distance(p1, p2);
-    this.pinchInteraction.startScale = this.scale;
-    this.pinchInteraction.startCenter = this.midpoint(p1, p2);
-    this.pinchInteraction.startOffsetX = this.offsetX;
-    this.pinchInteraction.startOffsetY = this.offsetY;
+  private beginPanInteraction(pointerPosition: DOMPoint): void {
+    console.log(`ImageViewerComponent.beginPanInteraction`);
+    this.pointerInteraction.mode = 'panning';
+    this.pointerInteraction.startPoint = pointerPosition;
+    this.pointerInteraction.lastPoint = pointerPosition;
   }
+
+  private beginPinchInteraction(): void {
+    console.log(`ImageViewerComponent.beginPinchInteraction`);
+
+    this.clearMarqueeInteractionState();
+    this.pointerInteraction.mode = 'pinching';
+    this.startPinchGesture();
+  }
+
+  private capturePointer(event: PointerEvent): void {
+    try {
+      this.svgRef.nativeElement.setPointerCapture(event.pointerId);
+    } catch (e) {
+      console.warn('ImageViewerComponent.capturePointer: setPointerCapture failed', e);
+    }
+  }
+
+  // -----------------------------------------------------------------------------
+  // pointer-move group:
+  // -----------------------------------------------------------------------------
 
   onPointerMove(event: PointerEvent): void {
     if (!this.svgRef) {
@@ -486,22 +406,17 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onPointerMoveBoundInternal(event: PointerEvent): void {
-
-
     if (!this.svgRef) {
       console.log(`ImageViewerComponent.onPointerMoveBoundInternal: skipping as !svgRef`);
       return;
     }
 
-
     event.preventDefault();
 
-    if (this.pointerInteraction.activePointers.has(event.pointerId)) {
-      this.pointerInteraction.activePointers.set(event.pointerId, event);
-    }
+    this.trackPointerMove(event);
 
     if (this.pointerInteraction.activePointers.size === 2) {
-      this.updatePinchGesture();
+      this.updatePinchInteraction();
       return;
     }
 
@@ -509,105 +424,144 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    const isEditMarqueeMode = event.ctrlKey || this.editMarqueeMode;
     const pointerPosition = this.getPointerPosition(event);
+    const isEditMarqueeMode = event.ctrlKey || this.editMarqueeMode;
 
     this.pointerInteraction.lastPoint = pointerPosition;
     this.calculateCursorStyle(pointerPosition, isEditMarqueeMode);
 
+    this.updateSinglePointerInteraction(pointerPosition);
+  }
+
+  private trackPointerMove(event: PointerEvent): void {
+    if (this.pointerInteraction.activePointers.has(event.pointerId)) {
+      this.pointerInteraction.activePointers.set(event.pointerId, event);
+    }
+  }
+
+  private updatePinchInteraction(): void {
+    this.updatePinchGesture();
+  }
+
+  private updateSinglePointerInteraction(pointerPosition: DOMPoint): void {
     if (!this.pointerInteraction.startPoint) {
-      console.log(`ImageViewerComponent.onPointerMoveBoundInternal: skipping as !dragStart`);
+      console.log(`ImageViewerComponent.updateSinglePointerInteraction: skipping as !startPoint`);
       return;
     }
 
-    const dx = pointerPosition.x - this.pointerInteraction.startPoint.x;
-    const dy = pointerPosition.y - this.pointerInteraction.startPoint.y;
+    switch (this.pointerInteraction.mode) {
+      case 'panning':
+        this.updatePanInteraction(pointerPosition);
+        return;
 
-    if (this.pointerInteraction.mode == 'panning') {
-      this.offsetX += dx;
-      this.offsetY += dy;
-      this.pointerInteraction.startPoint = pointerPosition;
-      return;
-    }
+      case 'moving-marquee':
+        this.updateMoveMarqueeInteraction(pointerPosition);
+        return;
 
-    if (this.mode !== ViewMode.WithMarquee) {
-      console.log(`ImageViewerComponent.onPointerMoveBoundInternal: skipping as mode != ViewMode.WithMarquee`);
-      return;
-    }
+      case 'resizing-marquee':
+        this.updateResizeMarqueeInteraction(pointerPosition);
+        return;
 
-    if (!this.marquee) {
-      console.log(`ImageViewerComponent.onPointerMoveBoundInternal: skipping as !marquee`);
-      return;
-    }
-
-    const r = this.marquee.rectangle;
-
-    if (this.pointerInteraction.mode === 'moving-marquee' && this.marqueeInteraction.startMarqueePoint) {
-      const dxSvg = dx / this.scale;
-      const dySvg = dy / this.scale;
-
-      r.x = this.marqueeInteraction.startMarqueePoint.x + dxSvg;
-      r.y = this.marqueeInteraction.startMarqueePoint.y + dySvg;
-    }
-
-    if (this.pointerInteraction.mode === 'resizing-marquee' &&
-      this.marqueeInteraction.startRect
-      && this.isResizeEdgeActive(this.marqueeInteraction.resizeEdge)) {
-      const left = this.marqueeInteraction.resizeEdge?.left;
-      const right = this.marqueeInteraction.resizeEdge?.right;
-      const top = this.marqueeInteraction.resizeEdge?.top;
-      const bottom = this.marqueeInteraction.resizeEdge?.bottom;
-      let { x, y, width, height } = this.marqueeInteraction.startRect;
-
-      const dxSvg = (pointerPosition.x - this.pointerInteraction.startPoint.x) / this.scale;
-      const dySvg = (pointerPosition.y - this.pointerInteraction.startPoint.y) / this.scale;
-
-      if (left) {
-        x = this.marqueeInteraction.startRect.x + dxSvg;
-        width = this.marqueeInteraction.startRect.width - dxSvg;
-      }
-
-      if (right) {
-        width = this.marqueeInteraction.startRect.width + dxSvg;
-      }
-
-      if (top) {
-        y = this.marqueeInteraction.startRect.y + dySvg;
-        height = this.marqueeInteraction.startRect.height - dySvg;
-      }
-
-      if (bottom) {
-        height = this.marqueeInteraction.startRect.height + dySvg;
-      }
-
-      const MIN = 5;
-
-      if (width < 0) {
-        x += width;
-        width = Math.abs(width);
-      }
-
-      if (height < 0) {
-        y += height;
-        height = Math.abs(height);
-      }
-
-      width = Math.max(width, MIN);
-      height = Math.max(height, MIN);
-
-      r.x = x;
-      r.y = y;
-      r.width = width;
-      r.height = height;
+      case 'idle':
+      case 'pinching':
+        return;
     }
   }
 
-  private distance(a: DOMPoint, b: DOMPoint): number {
-    return Math.hypot(a.x - b.x, a.y - b.y);
+  private updatePanInteraction(pointerPosition: DOMPoint): void {
+    const startPoint = this.pointerInteraction.startPoint;
+    if (!startPoint) {
+      return;
+    }
+
+    const dx = pointerPosition.x - startPoint.x;
+    const dy = pointerPosition.y - startPoint.y;
+
+    this.offsetX += dx;
+    this.offsetY += dy;
+
+    this.pointerInteraction.startPoint = pointerPosition;
   }
 
-  private midpoint(a: DOMPoint, b: DOMPoint): DOMPoint {
-    return new DOMPoint((a.x + b.x) / 2, (a.y + b.y) / 2);
+  private updateMoveMarqueeInteraction(pointerPosition: DOMPoint): void {
+    if (this.mode !== ViewMode.WithMarquee || !this.marquee) {
+      return;
+    }
+
+    const startPoint = this.pointerInteraction.startPoint;
+    const startMarqueePoint = this.marqueeInteraction.startMarqueePoint;
+
+    if (!startPoint || !startMarqueePoint) {
+      return;
+    }
+
+    const dx = pointerPosition.x - startPoint.x;
+    const dy = pointerPosition.y - startPoint.y;
+
+    const dxSvg = dx / this.scale;
+    const dySvg = dy / this.scale;
+
+    this.marquee.rectangle.x = startMarqueePoint.x + dxSvg;
+    this.marquee.rectangle.y = startMarqueePoint.y + dySvg;
+  }
+
+  private updateResizeMarqueeInteraction(pointerPosition: DOMPoint): void {
+    if (this.mode !== ViewMode.WithMarquee || !this.marquee) {
+      return;
+    }
+
+    const startPoint = this.pointerInteraction.startPoint;
+    const startRect = this.marqueeInteraction.startRect;
+    const resizeEdge = this.marqueeInteraction.resizeEdge;
+
+    if (!startPoint || !startRect || !this.isResizeEdgeActive(resizeEdge)) {
+      return;
+    }
+
+    const dxSvg = (pointerPosition.x - startPoint.x) / this.scale;
+    const dySvg = (pointerPosition.y - startPoint.y) / this.scale;
+
+    const { left, right, top, bottom } = resizeEdge!;
+
+    let { x, y, width, height } = startRect;
+
+    if (left) {
+      x = startRect.x + dxSvg;
+      width = startRect.width - dxSvg;
+    }
+
+    if (right) {
+      width = startRect.width + dxSvg;
+    }
+
+    if (top) {
+      y = startRect.y + dySvg;
+      height = startRect.height - dySvg;
+    }
+
+    if (bottom) {
+      height = startRect.height + dySvg;
+    }
+
+    const MIN = 5;
+
+    if (width < 0) {
+      x += width;
+      width = Math.abs(width);
+    }
+
+    if (height < 0) {
+      y += height;
+      height = Math.abs(height);
+    }
+
+    width = Math.max(width, MIN);
+    height = Math.max(height, MIN);
+
+    this.marquee.rectangle.x = x;
+    this.marquee.rectangle.y = y;
+    this.marquee.rectangle.width = width;
+    this.marquee.rectangle.height = height;
   }
 
   private updatePinchGesture(): void {
@@ -645,113 +599,119 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.scale = newScale;
   }
 
+  private startPinchGesture(): void {
+    const points = Array.from(this.pointerInteraction.activePointers.values());
+    if (points.length !== 2) return;
+
+    const p1 = this.getPointerPosition(points[0]);
+    const p2 = this.getPointerPosition(points[1]);
+
+    this.pinchInteraction.startDistance = this.distance(p1, p2);
+    this.pinchInteraction.startScale = this.scale;
+    this.pinchInteraction.startCenter = this.midpoint(p1, p2);
+    this.pinchInteraction.startOffsetX = this.offsetX;
+    this.pinchInteraction.startOffsetY = this.offsetY;
+  }
+
+  // -----------------------------------------------------------------------------
+  // pointer-up/cancel group:
+  // -----------------------------------------------------------------------------
 
   onPointerUpBoundInternal(event: PointerEvent): void {
     console.log(`ImageViewerComponent.onPointerUpBoundInternal: pointerId=${event.pointerId}`);
 
-    this.pointerInteraction.activePointers.delete(event.pointerId);
+    this.endPointer(event);
 
-    try {
-      const svg = this.svgRef?.nativeElement;
-      if (svg?.hasPointerCapture(event.pointerId)) {
-        svg.releasePointerCapture(event.pointerId);
-      }
-    } catch (e) {
-      console.warn('ImageViewerComponent.onPointerUpBoundInternal: releasePointerCapture failed', e);
+    if (this.pointerInteraction.activePointers.size > 0) {
+      this.handlePartialPointerEnd();
+      return;
     }
 
-    // If we have gone from 2 fingers to 1, end the pinch state,
-    // but do not yet remove the listeners.
+    this.endFinalPointer();
+  }
+
+  private endPointer(event: PointerEvent): void {
+    this.releasePointer(event);
+    this.pointerInteraction.activePointers.delete(event.pointerId);
+  }
+
+  private handlePartialPointerEnd(): void {
     if (this.pointerInteraction.activePointers.size < 2) {
       this.clearPinchState();
     }
 
-    // If another finger is still down, wait for its pointerup.
-    // Do not persist/clear the gesture yet.
-    if (this.pointerInteraction.activePointers.size > 0) {
-      return;
+    // Do not complete/persist anything yet.
+    // Another pointer is still down.
+  }
+
+  private endFinalPointer(): void {
+    this.removePointerWindowListeners();
+
+    this.completePointerInteraction();
+
+    this.clearPointerInteractionState();
+  }
+
+  onPointerCancel(event: PointerEvent): void {
+    console.log(`ImageViewer.onPointerCancel: pointerId=${event.pointerId}`);
+    this.releasePointer(event);
+    this.cleanupAllPointers();
+  }
+
+  onPointerLeave(event: PointerEvent): void {
+    console.log(`ImageViewer.onPointerLeave`);
+
+    // With pointer capture, pointerleave during a drag is not necessarily fatal.
+    // But if you do treat it as fatal, clear the activePointers map too.
+    if (this.pointerInteraction.activePointers.size === 0) {
+      this.releasePointer(event);
+      this.cleanupAllPointers();
+    }
+  }
+
+  private cleanupAllPointers(): void {
+    const svg = this.svgRef?.nativeElement;
+
+    if (svg) {
+      for (const pointerId of this.pointerInteraction.activePointers.keys()) {
+        try {
+          if (svg.hasPointerCapture(pointerId)) {
+            svg.releasePointerCapture(pointerId);
+          }
+        } catch (e) {
+          console.warn(`ImageViewerComponent.cleanupAllPointers: releasePointerCapture failed for ${pointerId}`, e);
+        }
+      }
     }
 
     window.removeEventListener('pointermove', this.onPointerMoveBound);
     window.removeEventListener('pointerup', this.onPointerUpBound);
     window.removeEventListener('pointercancel', this.onPointerUpBound);
 
-    const m = this.marquee;
-
-    const wasMarqueeEdit =
-      this.pointerInteraction.mode === 'moving-marquee' ||
-      this.pointerInteraction.mode === 'resizing-marquee';
-
-    const canUpdate =
-      this.mode === ViewMode.WithMarquee &&
-      !!m &&
-      wasMarqueeEdit &&
-      this.marqueeInteraction.marqueeId === m.id &&
-      this.marqueeInteraction.marqueeVersion === m.version;
-
-    const moved =
-      this.pointerInteraction.mode === 'moving-marquee' &&
-      !!this.marquee &&
-      !!this.marqueeInteraction.startMarqueePoint &&
-      Math.hypot(
-        this.marquee.rectangle.x - this.marqueeInteraction.startMarqueePoint.x,
-        this.marquee.rectangle.y - this.marqueeInteraction.startMarqueePoint.y
-      ) > 0.5;
-
-    const resized =
-      this.pointerInteraction.mode === 'resizing-marquee';
-
-    const changed = moved || resized;
-
-    if (canUpdate && changed) {
-      const current = this.marquee!;
-      const prevSnapshot: Marquee = { ...current, rectangle: { ...current.rectangle } };
-
-      const requestPayload: Marquee = {
-        ...prevSnapshot,
-        version: prevSnapshot.version
-      };
-
-      current.version = (current.version ?? 0) + 1;
-
-      // Keep local list in sync immediately, even before MQTT echoes the update.
-      const idx = this.marquees.findIndex(m => m.id === current.id);
-      if (idx >= 0) {
-        this.marquees[idx] = {
-          ...current,
-          rectangle: { ...current.rectangle }
-        };
-      }
-
-      this.rpcService.updateMarquee$(requestPayload).subscribe({
-        next: () => {
-          console.log('ImageViewer: marquee update succeeded (optimistic).');
-        },
-        error: (err) => {
-          console.log(`ImageViewer: marquee update failed, rolling back.`, err);
-
-          if (this.marquee && this.marquee.id === prevSnapshot.id) {
-            this.marquee.version = prevSnapshot.version;
-            this.marquee.rectangle = { ...prevSnapshot.rectangle };
-          }
-
-          const idx = this.marquees.findIndex(m => m.id === prevSnapshot.id);
-          if (idx >= 0) {
-            this.marquees[idx] = { ...prevSnapshot, rectangle: { ...prevSnapshot.rectangle } };
-          }
-
-          if (!this.handleAuthError(err)) {
-            this.alertService.error(err);
-          }
-        }
-      });
-    }
-
+    this.pointerInteraction.activePointers.clear();
     this.clearPointerInteractionState();
   }
 
-  private clearPinchState(): void {
-    this.pinchInteraction = {};
+  private releasePointer(event: PointerEvent): void {
+    try {
+      const svg = this.svgRef?.nativeElement;
+
+      if (svg?.hasPointerCapture(event.pointerId)) {
+        svg.releasePointerCapture(event.pointerId);
+      }
+    } catch (e) {
+      console.warn('ImageViewerComponent.releasePointer: releasePointerCapture failed', e);
+    }
+  }
+
+  private removePointerWindowListeners(): void {
+    window.removeEventListener('pointermove', this.onPointerMoveBound);
+    window.removeEventListener('pointerup', this.onPointerUpBound);
+    window.removeEventListener('pointercancel', this.onPointerUpBound);
+  }
+
+  private clearMarqueeInteractionState(): void {
+    this.marqueeInteraction = {};
   }
 
   private clearPointerInteractionState(): void {
@@ -763,12 +723,13 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.clearPinchState();
   }
 
-
-
-  private pointInRect(p: Point, r: Rectangle): boolean {
-    return p.x >= r.x && p.x <= r.x + r.width &&
-      p.y >= r.y && p.y <= r.y + r.height;
+  private clearPinchState(): void {
+    this.pinchInteraction = {};
   }
+
+  // -----------------------------------------------------------------------------
+  // selection/cursor/hit-testing:
+  // -----------------------------------------------------------------------------
 
   async onSelectMarquee(marquee: Marquee, event?: MouseEvent | PointerEvent) {
 
@@ -786,12 +747,17 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.router.navigate(['/diary', this.diary.id, this.page.id, marquee.fragmentId]);
   }
 
-  arraysEqual(a: Marquee[], b: Marquee[]): boolean {
-    if (a.length !== b.length) return false;
-    return a.every((m, i) => m.id === b[i].id);
+  private marqueeAtPointer(pointerPosition: DOMPoint): Marquee | undefined {
+    for (let i = this.marquees.length - 1; i >= 0; i--) {
+      const m = this.marquees[i];
+
+      if (this.pointInBounds(pointerPosition, this.marqueeBoundsInSvgFor(m))) {
+        return m;
+      }
+    }
+
+    return undefined;
   }
-
-
 
   private marqueeBoundsInSvg() {
     const m = this.marquee!.rectangle;
@@ -802,8 +768,39 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     return { left: x, right: x + w, top: y, bottom: y + h, w, h };
   }
 
+  private marqueeBoundsInSvgFor(marquee: Marquee) {
+    const r = marquee.rectangle;
+
+    const x = r.x * this.scale + this.offsetX;
+    const y = r.y * this.scale + this.offsetY;
+    const w = r.width * this.scale;
+    const h = r.height * this.scale;
+
+    return {
+      left: x,
+      right: x + w,
+      top: y,
+      bottom: y + h
+    };
+  }
 
 
+  private pointInBounds(
+    p: DOMPoint,
+    b: { left: number; right: number; top: number; bottom: number }
+  ): boolean {
+    return p.x >= b.left && p.x <= b.right &&
+      p.y >= b.top && p.y <= b.bottom;
+  }
+
+  private pointInRect(p: Point, r: Rectangle): boolean {
+    return p.x >= r.x && p.x <= r.x + r.width &&
+      p.y >= r.y && p.y <= r.y + r.height;
+  }
+
+  private isResizeEdgeActive(edge?: ResizeEdge): boolean {
+    return !!edge && (edge.left || edge.right || edge.top || edge.bottom);
+  }
 
   calculateCursorStyle(pointerPosition: DOMPoint, isEditMarqueeMode: boolean) {
 
@@ -907,32 +904,9 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     return pt.matrixTransform(ctm.inverse());
   }
 
-  onKeyDown(event: KeyboardEvent) {
-    if (this.mode !== ViewMode.WithMarquee) return;
-    if (!this.marquee) return;
-
-    if (event.key === 'Delete' && event.ctrlKey) {
-      console.log('ImageViewerComponent.onKeyDown: Control + Delete pressed');
-
-      console.log(`ImageViewerComponent.onKeyDown: deleting marquee id: ${this.marquee.id}`);
-      this.rpcService.deleteMarquee$(this.marquee.id).subscribe({
-        next: (id: number) => {
-          console.log(`ImageViewerComponent.onKeyDown: delete succeeded: id: ${id}`);
-        },
-        error: (err) => {
-          if (!this.handleAuthError(err)) {
-            this.alertService.error(err);
-          }
-        }
-
-      });
-
-      this.router.navigate(['/diary', this.diary.id, this.page.id]);
-    }
-  }
-
-  onRightClick(e: MouseEvent) {
-  }
+  // -----------------------------------------------------------------------------
+  // add/update persistence:
+  // -----------------------------------------------------------------------------
 
   onAddButtonClick() {
     const rectangle = new Rectangle(
@@ -974,6 +948,161 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  private completePointerInteraction(): void {
+    if (this.shouldPersistMarqueeUpdate()) {
+      this.persistMarqueeUpdate();
+    }
+  }
+
+  private shouldPersistMarqueeUpdate(): boolean {
+    const m = this.marquee;
+
+    const wasMarqueeEdit =
+      this.pointerInteraction.mode === 'moving-marquee' ||
+      this.pointerInteraction.mode === 'resizing-marquee';
+
+    if (
+      this.mode !== ViewMode.WithMarquee ||
+      !m ||
+      !wasMarqueeEdit ||
+      this.marqueeInteraction.marqueeId !== m.id ||
+      this.marqueeInteraction.marqueeVersion !== m.version
+    ) {
+      return false;
+    }
+
+    return this.hasMarqueeChanged();
+  }
+
+  private hasMarqueeChanged(): boolean {
+    if (!this.marquee) {
+      return false;
+    }
+
+    if (this.pointerInteraction.mode === 'moving-marquee') {
+      const start = this.marqueeInteraction.startMarqueePoint;
+
+      if (!start) {
+        return false;
+      }
+
+      return Math.hypot(
+        this.marquee.rectangle.x - start.x,
+        this.marquee.rectangle.y - start.y
+      ) > 0.5;
+    }
+
+    if (this.pointerInteraction.mode === 'resizing-marquee') {
+      const start = this.marqueeInteraction.startRect;
+
+      if (!start) {
+        return false;
+      }
+
+      const r = this.marquee.rectangle;
+
+      return (
+        Math.abs(r.x - start.x) > 0.5 ||
+        Math.abs(r.y - start.y) > 0.5 ||
+        Math.abs(r.width - start.width) > 0.5 ||
+        Math.abs(r.height - start.height) > 0.5
+      );
+    }
+
+    return false;
+  }
+
+  private persistMarqueeUpdate(): void {
+    const current = this.marquee!;
+
+    const prevSnapshot: Marquee = {
+      ...current,
+      rectangle: { ...current.rectangle }
+    };
+
+    const requestPayload: Marquee = {
+      ...prevSnapshot,
+      version: prevSnapshot.version
+    };
+
+    const updated: Marquee = {
+      ...current,
+      version: (current.version ?? 0) + 1,
+      rectangle: { ...current.rectangle }
+    };
+
+    this.marquee = updated;
+
+    const idx = this.marquees.findIndex(m => m.id === updated.id);
+    if (idx >= 0) {
+      this.marquees[idx] = updated;
+    }
+
+    this.rpcService.updateMarquee$(requestPayload).subscribe({
+      next: () => {
+        console.log('ImageViewer: marquee update succeeded (optimistic).');
+      },
+
+      error: (err) => {
+        console.log(`ImageViewer: marquee update failed, rolling back.`, err);
+
+        this.rollbackMarqueeUpdate(prevSnapshot);
+
+        if (!this.handleAuthError(err)) {
+          this.alertService.error(err);
+        }
+      }
+    });
+  }
+
+  private rollbackMarqueeUpdate(prevSnapshot: Marquee): void {
+    if (this.marquee && this.marquee.id === prevSnapshot.id) {
+      this.marquee = {
+        ...prevSnapshot,
+        rectangle: { ...prevSnapshot.rectangle }
+      };
+    }
+
+    const idx = this.marquees.findIndex(m => m.id === prevSnapshot.id);
+    if (idx >= 0) {
+      this.marquees[idx] = {
+        ...prevSnapshot,
+        rectangle: { ...prevSnapshot.rectangle }
+      };
+    }
+  }
+
+  // -----------------------------------------------------------------------------
+  // keyboard/context/auth/lock:
+  // -----------------------------------------------------------------------------
+
+  onKeyDown(event: KeyboardEvent) {
+    if (this.mode !== ViewMode.WithMarquee) return;
+    if (!this.marquee) return;
+
+    if (event.key === 'Delete' && event.ctrlKey) {
+      console.log('ImageViewerComponent.onKeyDown: Control + Delete pressed');
+
+      console.log(`ImageViewerComponent.onKeyDown: deleting marquee id: ${this.marquee.id}`);
+      this.rpcService.deleteMarquee$(this.marquee.id).subscribe({
+        next: (id: number) => {
+          console.log(`ImageViewerComponent.onKeyDown: delete succeeded: id: ${id}`);
+        },
+        error: (err) => {
+          if (!this.handleAuthError(err)) {
+            this.alertService.error(err);
+          }
+        }
+
+      });
+
+      this.router.navigate(['/diary', this.diary.id, this.page.id]);
+    }
+  }
+
+  onRightClick(e: MouseEvent) {
+  }
+
   private handleAuthError(err: any): boolean {
     if (err?.status === 401) {
       const returnUrl = this.router.url;
@@ -982,7 +1111,6 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     return false;
   }
-
 
   private isLockHeldByThisSession(fragment: Fragment | null): fragment is Fragment {
     const lock = fragment?.lock as any;
@@ -1018,27 +1146,62 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  onPointerCancel(event: PointerEvent): void {
-    console.log(`ImageViewer.onPointerCancel: pointerId=${event.pointerId}`);
-    this.cleanupAllPointers();
+  // -----------------------------------------------------------------------------
+  // tiny generic geometry helpers
+  // -----------------------------------------------------------------------------
+  private distance(a: DOMPoint, b: DOMPoint): number {
+    return Math.hypot(a.x - b.x, a.y - b.y);
   }
 
-  onPointerLeave(event: PointerEvent): void {
-    console.log(`ImageViewer.onPointerLeave`);
-
-    // With pointer capture, pointerleave during a drag is not necessarily fatal.
-    // But if you do treat it as fatal, clear the activePointers map too.
-    if (this.pointerInteraction.activePointers.size === 0) {
-      this.cleanupAllPointers();
-    }
+  private midpoint(a: DOMPoint, b: DOMPoint): DOMPoint {
+    return new DOMPoint((a.x + b.x) / 2, (a.y + b.y) / 2);
   }
 
-  private cleanupAllPointers(): void {
-    window.removeEventListener('pointermove', this.onPointerMoveBound);
-    window.removeEventListener('pointerup', this.onPointerUpBound);
-    window.removeEventListener('pointercancel', this.onPointerUpBound);
+  arraysEqual(a: Marquee[], b: Marquee[]): boolean {
+    if (a.length !== b.length) return false;
+    return a.every((m, i) => m.id === b[i].id);
+  }
 
-    this.pointerInteraction.activePointers.clear();
-    this.clearPointerInteractionState();
+  // -----------------------------------------------------------------------------
+  // Methods used in the template
+  // -----------------------------------------------------------------------------
+
+  get width(): number {
+    return this.page?.width ?? 0;
+  }
+
+  get height(): number {
+    return this.page?.height ?? 0;
+  }
+
+  get transformStyle(): string {
+    return `translate(${this.offsetX}, ${this.offsetY}) scale(${this.scale})`;
+  }
+
+  onWheel(event: WheelEvent) {
+    event.preventDefault();
+
+    // This increases (scroll up) or decreases (scroll down) the scale.
+    const factor = event.deltaY < 0 ? 1.1 : 0.9;
+    const newScale = this.scale * factor;
+
+    // This computes the mouse position relative to the SVG element in screen/pixel space.
+    const pt = this.svgRef.nativeElement.createSVGPoint();
+    pt.x = event.clientX;
+    pt.y = event.clientY;
+
+    // Transform to SVG coordinates
+    const ctm = this.svgRef.nativeElement.getScreenCTM();
+    if (!ctm) return;
+    const svgPoint = pt.matrixTransform(ctm.inverse());
+
+    // Get mouse position in SVG logical coordinates before zoom
+    const svgXBefore = (svgPoint.x - this.offsetX) / this.scale;
+    const svgYBefore = (svgPoint.y - this.offsetY) / this.scale;
+
+    // Recalculate offset so the same point stays under the mouse
+    this.offsetX = svgPoint.x - svgXBefore * newScale;
+    this.offsetY = svgPoint.y - svgYBefore * newScale;
+    this.scale = newScale;
   }
 }
