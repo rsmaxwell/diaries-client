@@ -34,8 +34,6 @@ export class ModelContext {
 
   private destroy$ = new Subject<void>();
 
-  private liveMarquees = new Map<number, Observable<Marquee | null>>();
-  private liveFragments = new Map<number, Observable<Fragment | null>>();
   private livePages = new Map<number, Observable<Page>>();
   private liveDiaries = new Map<number, Observable<Diary>>();
 
@@ -185,45 +183,19 @@ export class ModelContext {
 
 
   getLiveMarquee$(id: number): Observable<Marquee | null> {
-    if (!this.liveMarquees.has(id)) {
-      const topic = `diaries/marquees/${id}`;
-      const observable$ = this.liveObjectService.getObjectById$<Marquee>(topic, buf => JSON.parse(buf.toString()) as Marquee)
-        .pipe(
-          shareReplay({ bufferSize: 1, refCount: true })
-        );
-
-      this.liveMarquees.set(id, observable$);
-    }
-
-    return this.liveMarquees.get(id)!;
-  }
-
-  /*
-   * When we know the id of a marquee we want to explicitly stop listening to.
-   */
-  unsubscribeMarquee(id: number): void {
     const topic = `diaries/marquees/${id}`;
 
-    if (this.liveMarquees.has(id)) {
-      console.log(`ModelContext.unsubscribeMarquee: unsubscribing from ${topic}`);
-      this.liveMarquees.delete(id);
-      this.liveObjectService.unsubscribeTopic(topic);
-    }
+    return this.liveObjectService
+      .getObjectById$<Marquee>(
+        topic,
+        buf => JSON.parse(buf.toString()) as Marquee
+      )
+      .pipe(
+        shareReplay({ bufferSize: 1, refCount: true })
+      );
   }
 
-  /* 
-   * Unsubscribe from all active marquee topics and clear the entire liveMarquee map.
-   * To be when we know we're done with a particular marquee.
-   */
-  releaseLiveMarquee(): void {
-    this.liveMarquees.forEach((_obs, id) => {
-      const topic = `diaries/marquees/${id}`;
-      console.log(`ModelContext.releaseLiveMarquee: unsubscribing from ${topic}`);
-      this.liveObjectService.unsubscribeTopic(topic);
-    });
 
-    this.liveMarquees.clear();
-  }
 
 
 
@@ -231,45 +203,19 @@ export class ModelContext {
 
 
   getLiveFragment$(id: number): Observable<Fragment | null> {
-    if (!this.liveFragments.has(id)) {
-      const topic = `diaries/fragments/${id}`;
-      const observable$ = this.liveObjectService.getObjectById$<Fragment>(topic, buf => JSON.parse(buf.toString()) as Fragment)
-        .pipe(
-          shareReplay({ bufferSize: 1, refCount: true })
-        );
-
-      this.liveFragments.set(id, observable$);
-    }
-
-    return this.liveFragments.get(id)!;
-  }
-
-  /*
-   * When we know the id of a fragment we want to explicitly stop listening to.
-   */
-  unsubscribeFragment(id: number): void {
     const topic = `diaries/fragments/${id}`;
 
-    if (this.liveFragments.has(id)) {
-      console.log(`ModelContext.unsubscribeFragment: unsubscribing from ${topic}`);
-      this.liveFragments.delete(id);
-      this.liveObjectService.unsubscribeTopic(topic);
-    }
+    return this.liveObjectService
+      .getObjectById$<Fragment>(
+        topic,
+        buf => JSON.parse(buf.toString()) as Fragment
+      )
+      .pipe(
+        shareReplay({ bufferSize: 1, refCount: true })
+      );
   }
 
-  /* 
-   * Unsubscribe from all active fragment topics and clear the entire liveFragments map.
-   * To be when we know we're done with a particular fragment.
-   */
-  releaseLiveFragment(): void {
-    this.liveFragments.forEach((_obs, id) => {
-      const topic = `diaries/fragments/${id}`;
-      console.log(`ModelContext.releaseLiveFragment: unsubscribing from ${topic}`);
-      this.liveObjectService.unsubscribeTopic(topic);
-    });
 
-    this.liveFragments.clear();
-  }
 
 
 
