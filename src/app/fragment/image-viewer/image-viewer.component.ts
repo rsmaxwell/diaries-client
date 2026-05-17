@@ -53,6 +53,9 @@ interface MarqueeInteraction {
   startRect?: Rectangle;
   startMarqueePoint?: Point;
   resizeEdge?: ResizeEdge;
+
+  lockedFragmentId?: number;
+  lockAcquired?: boolean;
 }
 
 interface PinchInteraction {
@@ -329,23 +332,39 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    if (hasSelectedMarquee && isEditMarqueeMode) {
-      this.beginMarqueeInteraction(pointerPosition, selectedResizeEdge);
+    if (pointerCanEditSelectedMarquee) {
+      const started = await this.beginMarqueeInteraction(pointerPosition, selectedResizeEdge);
+
+      if (!started) {
+        this.cleanupAllPointers();
+      }
+
       return;
     }
 
     this.beginPanInteraction(pointerPosition);
   }
 
-  private beginMarqueeInteraction(pointerPosition: DOMPoint, resizeEdge?: ResizeEdge): void {
+  private async beginMarqueeInteraction(
+    pointerPosition: DOMPoint,
+    resizeEdge?: ResizeEdge
+  ): Promise<boolean> {
+
     if (!this.marquee) {
-      return;
+      return false;
+    }
+
+    const locked = await this.lockFragmentForMarqueeEdit(this.marquee.fragmentId);
+    if (!locked) {
+      return false;
     }
 
     this.marqueeInteraction.startRect = { ...this.marquee.rectangle };
     this.marqueeInteraction.resizeEdge = resizeEdge ?? this.detectResizeEdge(pointerPosition);
     this.marqueeInteraction.marqueeId = this.marquee.id;
     this.marqueeInteraction.marqueeVersion = this.marquee.version;
+    this.marqueeInteraction.lockedFragmentId = this.marquee.fragmentId;
+    this.marqueeInteraction.lockAcquired = true;
 
     if (this.isResizeEdgeActive(this.marqueeInteraction.resizeEdge)) {
       this.pointerInteraction.mode = 'resizing-marquee';
@@ -355,6 +374,8 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       const r = this.marquee.rectangle;
       this.marqueeInteraction.startMarqueePoint = { x: r.x, y: r.y };
     }
+
+    return true;
   }
 
   private beginPanInteraction(pointerPosition: DOMPoint): void {
@@ -605,6 +626,53 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.pinchInteraction.startOffsetY = this.offsetY;
   }
 
+  private async lockFragmentForMarqueeEdit(fragmentId: number): Promise<boolean> {
+    try {
+      console.log(`ImageViewer: locking fragment ${fragmentId} for marquee edit`);
+
+      await firstValueFrom(
+        this.rpcService.lockFragment$(fragmentId).pipe(take(1))
+      );
+
+      console.log(`ImageViewer: locked fragment ${fragmentId} for marquee edit`);
+      return true;
+
+    } catch (err) {
+      console.warn(`ImageViewer: failed to lock fragment ${fragmentId} for marquee edit`, err);
+
+      if (!this.handleAuthError(err)) {
+        this.alertService.error('Could not lock the fragment for marquee editing');
+      }
+
+      return false;
+    }
+  }
+
+  private unlockMarqueeEditFragmentIfNeeded(): void {
+    const fragmentId = this.marqueeInteraction.lockedFragmentId;
+
+    if (!fragmentId || !this.marqueeInteraction.lockAcquired) {
+      return;
+    }
+
+    console.log(`ImageViewer: unlocking fragment ${fragmentId} after abandoned marquee edit`);
+
+    this.rpcService.unlockFragment$(fragmentId)
+      .pipe(take(1))
+      .subscribe({
+        next: () => {
+          console.log(`ImageViewer: unlocked fragment ${fragmentId}`);
+        },
+        error: (err) => {
+          console.warn(`ImageViewer: failed to unlock fragment ${fragmentId}`, err);
+
+          if (!this.handleAuthError(err)) {
+            this.alertService.error(err);
+          }
+        }
+      });
+  }
+
   // -----------------------------------------------------------------------------
   // pointer-up/cancel group:
   // -----------------------------------------------------------------------------
@@ -681,6 +749,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     window.removeEventListener('pointercancel', this.onPointerUpBound);
 
     this.pointerInteraction.activePointers.clear();
+    this.unlockMarqueeEditFragmentIfNeeded();
     this.clearPointerInteractionState();
   }
 
@@ -942,7 +1011,12 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   private completePointerInteraction(): void {
     if (this.shouldPersistMarqueeUpdate()) {
       this.persistMarqueeUpdate();
+      return;
     }
+
+    // We locked the fragment but did not actually move/resize enough to save.
+    // Since updateMarquee will not be called, the responder will not release the lock.
+    this.unlockMarqueeEditFragmentIfNeeded();
   }
 
   private shouldPersistMarqueeUpdate(): boolean {
@@ -1014,6 +1088,9 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
+    const lockedFragmentId = this.marqueeInteraction.lockedFragmentId;
+    const lockAcquired = this.marqueeInteraction.lockAcquired === true;
+
     this.marqueeUpdateInFlight = true;
 
     const prevSnapshot: Marquee = {
@@ -1060,6 +1137,12 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
         this.marqueeUpdateInFlight = false;
         this.rollbackMarqueeUpdate(prevSnapshot);
 
+        // updateMarquee failed, so the responder did not release the lock.
+        // Because the client is rolling back/abandoning this edit, release it here.
+        if (lockAcquired && lockedFragmentId != null) {
+          this.unlockFragmentIdAfterFailedMarqueeEdit(lockedFragmentId);
+        }
+
         if (!this.handleAuthError(err)) {
           this.alertService.error(err);
         }
@@ -1082,6 +1165,25 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
         rectangle: { ...prevSnapshot.rectangle }
       };
     }
+  }
+
+  private unlockFragmentIdAfterFailedMarqueeEdit(fragmentId: number): void {
+    console.log(`ImageViewer: unlocking fragment ${fragmentId} after failed marquee update`);
+
+    this.rpcService.unlockFragment$(fragmentId)
+      .pipe(take(1))
+      .subscribe({
+        next: () => {
+          console.log(`ImageViewer: unlocked fragment ${fragmentId}`);
+        },
+        error: (err) => {
+          console.warn(`ImageViewer: failed to unlock fragment ${fragmentId}`, err);
+
+          if (!this.handleAuthError(err)) {
+            this.alertService.error(err);
+          }
+        }
+      });
   }
 
   // -----------------------------------------------------------------------------
