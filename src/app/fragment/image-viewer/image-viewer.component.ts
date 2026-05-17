@@ -64,11 +64,6 @@ interface PinchInteraction {
 }
 
 
-enum ViewMode {
-  WithMarquee,
-  WithoutMarquee
-}
-
 @Component({
   selector: 'app-image-viewer',
   standalone: true,
@@ -95,20 +90,18 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   private marqueeInteraction: MarqueeInteraction = {};
   private pinchInteraction: PinchInteraction = {};
 
-  scale = 1;
-  offsetX = 0;
-  offsetY = 0;
+  private scale = 1;
+  private offsetX = 0;
+  private offsetY = 0;
+  private marquees: Marquee[] = [];
+  private diary: Diary = Diary.default;
+  private page: Page = Page.default;
+  private editMarqueeMode = false;
+  private marqueeUpdateInFlight = false;
+
   imageURL: string = '';
   marquee: Marquee | null = null;
-  marquees: Marquee[] = [];
-  mode: ViewMode = ViewMode.WithoutMarquee;
   cursorStyle = '';
-  diary: Diary = Diary.default;
-  page: Page = Page.default;
-  config: Config | null = null;
-  editMarqueeMode = false;
-
-
 
   constructor(
     private router: Router,
@@ -146,7 +139,6 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     combineLatest([config$, diary$, page$])
       .pipe(takeUntil(this.destroy$))
       .subscribe(([config, diary, page]) => {
-        this.config = config;
         this.diary = diary;
         this.page = page;
 
@@ -168,7 +160,6 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       .subscribe(m => {
         this.marquee = m;
         this.modelContext.setHasSelectedMarquee(!!this.marquee);
-        this.mode = m ? ViewMode.WithMarquee : ViewMode.WithoutMarquee;
       });
 
     // 5) Marquees list
@@ -310,14 +301,15 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.pointerInteraction.startPoint = pointerPosition;
     this.pointerInteraction.lastPoint = pointerPosition;
 
+    const hasSelectedMarquee = this.marquee != null;
+
     const selectedResizeEdge =
-      this.mode === ViewMode.WithMarquee && this.marquee && isEditMarqueeMode
+      hasSelectedMarquee && isEditMarqueeMode
         ? this.detectResizeEdge(pointerPosition)
         : undefined;
 
-    const pointerIsOnSelectedMarquee =
-      this.mode === ViewMode.WithMarquee &&
-      !!this.marquee &&
+    const pointerCanEditSelectedMarquee =
+      hasSelectedMarquee &&
       isEditMarqueeMode &&
       (
         this.isResizeEdgeActive(selectedResizeEdge) ||
@@ -327,7 +319,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     const clickedMarquee = this.marqueeAtPointer(pointerPosition);
 
     if (
-      !pointerIsOnSelectedMarquee &&
+      !pointerCanEditSelectedMarquee &&
       clickedMarquee &&
       clickedMarquee.id !== this.marquee?.id
     ) {
@@ -337,7 +329,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    if (this.mode === ViewMode.WithMarquee && this.marquee && isEditMarqueeMode) {
+    if (hasSelectedMarquee && isEditMarqueeMode) {
       this.beginMarqueeInteraction(pointerPosition, selectedResizeEdge);
       return;
     }
@@ -484,7 +476,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private updateMoveMarqueeInteraction(pointerPosition: DOMPoint): void {
-    if (this.mode !== ViewMode.WithMarquee || !this.marquee) {
+    if (this.marquee == null) {
       return;
     }
 
@@ -506,7 +498,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private updateResizeMarqueeInteraction(pointerPosition: DOMPoint): void {
-    if (this.mode !== ViewMode.WithMarquee || !this.marquee) {
+    if (this.marquee == null) {
       return;
     }
 
@@ -859,8 +851,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
 
   detectResizeEdge(pointerPosition: DOMPoint): { left: boolean, right: boolean, top: boolean, bottom: boolean } {
     const edges = { left: false, right: false, top: false, bottom: false };
-    if (this.mode !== ViewMode.WithMarquee) return edges;
-    if (!this.marquee) return edges;
+    if (this.marquee == null) return edges;
 
     const m = this.marquee.rectangle;
     const margin = 40;
@@ -962,8 +953,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       this.pointerInteraction.mode === 'resizing-marquee';
 
     if (
-      this.mode !== ViewMode.WithMarquee ||
-      !m ||
+      m == null ||
       !wasMarqueeEdit ||
       this.marqueeInteraction.marqueeId !== m.id ||
       this.marqueeInteraction.marqueeVersion !== m.version
@@ -1013,7 +1003,18 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private persistMarqueeUpdate(): void {
+
+    if (this.marqueeUpdateInFlight) {
+      console.log('ImageViewer: skipping update as there is a marquee Update In Flight');
+      return;
+    }
+
     const current = this.marquee!;
+    if (current == null) {
+      return;
+    }
+
+    this.marqueeUpdateInFlight = true;
 
     const prevSnapshot: Marquee = {
       ...current,
@@ -1039,13 +1040,24 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     this.rpcService.updateMarquee$(requestPayload).subscribe({
-      next: () => {
-        console.log('ImageViewer: marquee update succeeded (optimistic).');
+      next: (saved: Marquee) => {
+        console.log('ImageViewer: marquee update succeeded.', saved);
+
+        this.marqueeUpdateInFlight = false;
+
+        if (this.marquee?.id === saved.id) {
+          this.marquee = saved;
+        }
+
+        const idx = this.marquees.findIndex(m => m.id === saved.id);
+        if (idx >= 0) {
+          this.marquees[idx] = saved;
+        }
       },
 
       error: (err) => {
         console.log(`ImageViewer: marquee update failed, rolling back.`, err);
-
+        this.marqueeUpdateInFlight = false;
         this.rollbackMarqueeUpdate(prevSnapshot);
 
         if (!this.handleAuthError(err)) {
@@ -1077,8 +1089,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   // -----------------------------------------------------------------------------
 
   onKeyDown(event: KeyboardEvent) {
-    if (this.mode !== ViewMode.WithMarquee) return;
-    if (!this.marquee) return;
+    if (this.marquee == null) return;
 
     if (event.key === 'Delete' && event.ctrlKey) {
       console.log('ImageViewerComponent.onKeyDown: Control + Delete pressed');
