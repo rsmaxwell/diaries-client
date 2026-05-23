@@ -1,7 +1,10 @@
 <app-pageheader
     (add)="onAddButtonClick()"
+    (delete)="onDeleteButtonClick()"
     (listFiles)="openFilesDialog()"
-    (editMarquee)="onEditMarqueeClick()">
+    (createMarquee)="onCreateMarqueeClick()"
+    (editMarquee)="onEditMarqueeClick()"
+    (deleteMarquee)="onDeleteMarqueeClick()">
 </app-pageheader>
 
 <div #layoutContainer class="layout-container"></div>

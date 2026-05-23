@@ -20,6 +20,21 @@ export class NormaliseFragmentsRequest {
   ) { };
 }
 
+export class AddFragmentRequest {
+  constructor(
+    public pageId: number,
+    public year: number,
+    public month: number,
+    public day: number,
+    public sequence: number,
+    public text: string,
+    public x: number,
+    public y: number,
+    public width: number,
+    public height: number
+  ) { }
+}
+
 export class UpdateFragmentRequest {
   constructor(
     public id: number,
@@ -47,6 +62,10 @@ export class UpdateFragmentRequest {
       fragment.text,
     );
   }
+}
+
+export class DeleteFragmentRequest {
+  constructor(public id: number) { }
 }
 
 export interface EditLockInfo {

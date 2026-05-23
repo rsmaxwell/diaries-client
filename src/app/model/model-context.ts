@@ -17,6 +17,7 @@ export class ModelContext {
   private editMarqueeModeSubject = new BehaviorSubject<boolean>(false);
   private hasSelectedMarqueeSubject = new BehaviorSubject<boolean>(false);
   private addButtonClickedSubject = new Subject<void>();
+  private deleteButtonClickedSubject = new Subject<void>();
   private diaryIdSubject = new BehaviorSubject<number | null>(null);
   private pageIdSubject = new BehaviorSubject<number | null>(null);
   private fragmentIdSubject = new BehaviorSubject<number | null>(null);
@@ -24,13 +25,23 @@ export class ModelContext {
 
   // Exposed observables for IDs
   readonly editMarqueeMode$ = this.editMarqueeModeSubject.asObservable();
-  readonly hasSelectedMarquee$ = this.hasSelectedMarqueeSubject.asObservable();
   readonly addButtonClicked$ = this.addButtonClickedSubject.asObservable();
+  readonly deleteButtonClicked$ = this.deleteButtonClickedSubject.asObservable();
   readonly title$ = new BehaviorSubject<string>('Fragment');
   readonly diaryId$ = this.diaryIdSubject.asObservable();
   readonly pageId$ = this.pageIdSubject.asObservable();
   readonly fragmentId$ = this.fragmentIdSubject.asObservable();
   readonly marqueeId$ = this.marqueeIdSubject.asObservable();
+
+  readonly hasSelectedFragment$ = this.fragmentId$.pipe(
+    map(id => Number.isFinite(id)),
+    distinctUntilChanged()
+  );
+
+  readonly hasSelectedMarquee$ = this.marqueeId$.pipe(
+    map(id => Number.isFinite(id)),
+    distinctUntilChanged()
+  );
 
   private destroy$ = new Subject<void>();
 
@@ -57,15 +68,19 @@ export class ModelContext {
   ) {
 
     this.selectedMarquee$ = this.marqueeId$.pipe(
+      distinctUntilChanged(),
       switchMap(id =>
         Number.isFinite(id) ? this.getLiveMarquee$(id as number) : of(null)
-      )
+      ),
+      shareReplay({ bufferSize: 1, refCount: true })
     );
 
     this.selectedFragment$ = this.fragmentId$.pipe(
+      distinctUntilChanged(),
       switchMap(id =>
         Number.isFinite(id) ? this.getLiveFragment$(id as number) : of(null)
-      )
+      ),
+      shareReplay({ bufferSize: 1, refCount: true })
     );
 
     this.selectedPage$ = this.pageId$.pipe(
@@ -118,11 +133,6 @@ export class ModelContext {
       )
       .subscribe((marqueeId) => this.setMarqueeId(marqueeId));
 
-
-    // selectedFragment$ should emit Fragment | null
-    this.selectedFragment$ = this.fragmentId$.pipe(
-      switchMap(id => Number.isFinite(id) ? this.getLiveFragment$(id as number) : of(null))
-    );
 
     // Build the Dayview list for the selected date
     this.fragments$ = this.selectedFragment$.pipe(
@@ -398,6 +408,10 @@ export class ModelContext {
 
   fireAddButtonClick(): void {
     this.addButtonClickedSubject.next();
+  }
+
+  fireDeleteButtonClick(): void {
+    this.deleteButtonClickedSubject.next();
   }
 
   toggleEditMarqueeMode(): void {

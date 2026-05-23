@@ -13,7 +13,7 @@ export class LiveObjectListService {
     private mqtt: MqttService
   ) { }
 
-  subscribeToTopicTree$<R extends { id: number; sequence: number }>(
+  subscribeToTopicTree$<R extends { id: number }>(
     client: mqtt.MqttClient,
     topicFilters: string[],
     deserialize: (buf: Buffer) => R
@@ -57,7 +57,17 @@ export class LiveObjectListService {
           updated.push(value);
         }
 
-        updated.sort((a, b) => a.sequence - b.sequence);
+        updated.sort((a, b) => {
+          const aSeq = (a as any).sequence;
+          const bSeq = (b as any).sequence;
+
+          if (typeof aSeq === 'number' && typeof bSeq === 'number') {
+            return aSeq - bSeq;
+          }
+
+          return a.id - b.id;
+        });
+
         subject.next(updated);
 
       } catch (err) {
@@ -155,7 +165,7 @@ export class LiveObjectListService {
         this.topicSubscriptionMap.delete(mapKey);
 
         console.log(
-            `LiveObjectListService.getObjectById$: ListenerCount after UNSUBSCRIBE '${topicFilters}': ${client.listenerCount('message')}`
+          `LiveObjectListService.getObjectById$: ListenerCount after UNSUBSCRIBE '${topicFilters}': ${client.listenerCount('message')}`
         );
 
       }

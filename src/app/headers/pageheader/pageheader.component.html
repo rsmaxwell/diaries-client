@@ -1,31 +1,64 @@
 <mat-toolbar class="header">
-    <button mat-icon-button class="menu icon" aria-label="menu">
-      <mat-icon>menu</mat-icon>
-    </button>
-    <span>{{title}}</span>
+  <button mat-icon-button class="menu icon" aria-label="menu">
+    <mat-icon>menu</mat-icon>
+  </button>
+  <span>{{title}}</span>
 
-    <span class="spacer"></span>
+  <span class="spacer"></span>
 
-    <button 
-      mat-icon-button 
-      title="Move or resize selected marquee"
-      [disabled]="!hasSelectedMarquee"
-      [class.active]="editMarqueeMode"
-      [attr.aria-pressed]="editMarqueeMode"
-      (click)="onEditMarqueeClick()">
-      <mat-icon svgIcon="edit-marquee"></mat-icon>
-    </button>
+  <button mat-icon-button title="add marquee to selected fragment" aria-label="add marquee to selected fragment"
+    [disabled]="!(hasSelectedFragment$ | async)" (click)="onCreateMarqueeClick()">
+    <mat-icon svgIcon="create-marquee"></mat-icon>
+  </button>
 
-    <button mat-icon-button class="upload icon" aria-label="upload" (click)="onUploadClick()">
-      <mat-icon svgIcon="upload"></mat-icon>
-    </button>
+  <button mat-icon-button title="Move or resize selected marquee" aria-label="Move or resize selected marquee"
+    [disabled]="!(hasSelectedMarquee$ | async)" [class.active]="editMarqueeMode" [attr.aria-pressed]="editMarqueeMode"
+    (click)="onEditMarqueeClick()">
+    <mat-icon svgIcon="edit-marquee"></mat-icon>
+  </button>
 
-    <button mat-icon-button class="list-files icon" aria-label="list-files" (click)="onListFilesClick()">
-      <mat-icon svgIcon="files"></mat-icon>
-    </button>
+  <button mat-icon-button title="delete marquee from selected fragment"
+    aria-label="delete marquee from selected fragment" [disabled]="!(hasSelectedFragment$ | async)"
+    (click)="onDeleteMarqueeClick()">
+    <mat-icon svgIcon="delete-marquee"></mat-icon>
+  </button>
 
-    <button mat-icon-button class="add icon" aria-label="add" (click)="onAddClick()">
-      <mat-icon svgIcon="cross"></mat-icon>
-    </button>
+  <button
+    mat-icon-button
+    title="add fragment with default marquee"
+    class="add icon"
+    aria-label="add fragment with default marquee"
+    [disabled]="!(hasSelectedFragment$ | async)"
+    (click)="onAddClick()">
+    <mat-icon svgIcon="cross"></mat-icon>
+  </button>
 
-  </mat-toolbar>
+  <button 
+    mat-icon-button 
+    title="delete the whole fragment" 
+    class="delete icon" 
+    aria-label="delete" 
+    [disabled]="!(hasSelectedFragment$ | async)"
+    (click)="onDeleteClick()">
+    <mat-icon svgIcon="delete"></mat-icon>
+  </button>
+
+  <button 
+    mat-icon-button 
+    title="upload file" 
+    class="upload icon" 
+    aria-label="upload" 
+    (click)="onUploadClick()">
+    <mat-icon svgIcon="upload"></mat-icon>
+  </button>
+
+  <button 
+    mat-icon-button 
+    title="list files" 
+    class="list-files icon" 
+    aria-label="list-files"
+    (click)="onListFilesClick()">
+    <mat-icon svgIcon="files"></mat-icon>
+  </button>
+
+</mat-toolbar>

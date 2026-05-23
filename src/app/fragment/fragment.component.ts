@@ -7,12 +7,17 @@ import { GoldenLayout, RowOrColumnItemConfig, Side, LayoutConfig } from 'golden-
 import { ImageViewerComponent } from './image-viewer/image-viewer.component';
 import { TextPanelComponent } from './text-panel/text-panel.component';
 import { ModelContext } from '../model/model-context';
-import { BehaviorSubject, distinctUntilChanged, map, Observable, Subject, take, takeUntil } from 'rxjs';
+import { BehaviorSubject, combineLatest, distinctUntilChanged, firstValueFrom, map, Observable, Subject, take, takeUntil } from 'rxjs';
 import { ActivatedRoute, Router } from '@angular/router';
 import { DayviewComponent } from '../dayview/dayview.component';
 import { Page } from '../model/page';
 import { FileSelection, FilesListDialogComponent } from '../files-list-dialog/files-list-dialog.component';
 import { Dialog, DialogModule, DialogRef } from '@angular/cdk/dialog';
+import { Rectangle } from '../utilities/rectangle';
+import { Marquee } from '../model/marquee';
+import { RpcService } from '../mqtt/rpc.service';
+import { AlertService } from '../alerts/alert.service';
+
 
 @Component({
   selector: 'app-fragment',
@@ -40,7 +45,9 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
     private appRef: ApplicationRef,
     private environmentInjector: EnvironmentInjector,
     private modelContext: ModelContext,
-    private dialog: Dialog
+    private dialog: Dialog,
+    private rpcService: RpcService,
+    private alertService: AlertService
   ) { }
 
   // Number (or null) with safe parsing
@@ -207,6 +214,11 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
     this.modelContext.fireAddButtonClick();
   }
 
+  onDeleteButtonClick(): void {
+    console.log(`FragmentComponent.onDeleteButtonClick`);
+    this.modelContext.fireDeleteButtonClick();
+  }
+
   onEditMarqueeClick() {
     console.log(`FragmentComponent.onEditMarqueeClick`);
     this.modelContext.toggleEditMarqueeMode();
@@ -251,5 +263,109 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
       console.log(`FragmentComponent.onForwardPressed: diaryId: ${diaryId}, next.id:/${next.id}`);
       this.router.navigate(['/diary', diaryId, next.id]);
     }
+  }
+
+  async onCreateMarqueeClick(): Promise<void> {
+    console.log(`FragmentComponent.onCreateMarqueeClick`);
+
+    const [fragment, page, diary, marquees] = await firstValueFrom(
+      combineLatest([
+        this.modelContext.selectedFragment$,
+        this.modelContext.selectedPage$,
+        this.modelContext.selectedDiary$,
+        this.modelContext.marquees$
+      ]).pipe(take(1))
+    );
+
+    if (!fragment) {
+      this.alertService.error('No fragment is currently selected');
+      return;
+    }
+
+    const existing = marquees.find(m => m.fragmentId === fragment.id);
+    if (existing) {
+      this.modelContext.setMarqueeId(existing.id);
+      this.router.navigate(['/diary', diary.id, page.id, fragment.id]);
+      this.alertService.info('This fragment already has a marquee');
+      return;
+    }
+
+    const rectangle = new Rectangle(
+      page.width / 5,
+      page.height / 5,
+      (3 * page.width) / 5,
+      (3 * page.height) / 5
+    );
+
+    this.rpcService.addMarquee$(page, fragment.id, rectangle)
+      .pipe(take(1))
+      .subscribe({
+        next: (m: Marquee) => {
+          this.alertService.info(`Marquee ${m.id} added`);
+
+          this.modelContext.setFragmentId(fragment.id);
+          this.modelContext.setMarqueeId(m.id);
+
+          this.router.navigate([
+            '/diary',
+            diary.id,
+            page.id,
+            fragment.id
+          ]);
+        },
+
+        error: err => {
+          console.warn('FragmentComponent.onCreateMarqueeClick failed', err);
+          this.alertService.error('Could not add marquee');
+        }
+      });
+  }
+
+  async onDeleteMarqueeClick(): Promise<void> {
+    console.log(`FragmentComponent.onDeleteMarqueeClick`);
+
+    const [fragment, page, diary, marquees] = await firstValueFrom(
+      combineLatest([
+        this.modelContext.selectedFragment$,
+        this.modelContext.selectedPage$,
+        this.modelContext.selectedDiary$,
+        this.modelContext.marquees$
+      ]).pipe(take(1))
+    );
+
+    if (!fragment) {
+      this.alertService.error('No fragment is currently selected');
+      return;
+    }
+
+    const marquee = marquees.find(m => m.fragmentId === fragment.id);
+
+    if (!marquee) {
+      this.alertService.info('The selected fragment does not have a marquee');
+      return;
+    }
+
+    this.rpcService.deleteMarquee$(marquee.id)
+      .pipe(take(1))
+      .subscribe({
+        next: id => {
+          this.alertService.info(`Marquee ${id} deleted`);
+
+          this.modelContext.setMarqueeId(null);
+          this.modelContext.setFragmentId(fragment.id);
+
+          this.router.navigate([
+            '/diary',
+            diary.id,
+            page.id,
+            fragment.id
+          ]);
+        },
+
+        error: err => {
+          console.warn('FragmentComponent.onDeleteMarqueeClick failed', err);
+          this.alertService.error('Could not delete marquee');
+        }
+      });
   }
 }

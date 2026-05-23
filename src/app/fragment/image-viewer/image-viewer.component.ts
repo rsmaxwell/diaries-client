@@ -22,7 +22,7 @@ import { Config, ConfigService, RuntimeConfig } from '../../config/config.servic
 import { ModelContext } from '../../model/model-context';
 
 import { firstValueFrom } from 'rxjs';
-import { Fragment } from '../../model/fragment';
+import { AddFragmentRequest, Fragment } from '../../model/fragment';
 import { AccessTokenService } from '../../user/token/accessTokenService';
 
 
@@ -105,6 +105,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   imageURL: string = '';
   marquee: Marquee | null = null;
   cursorStyle = '';
+  hasSelectedFragment = false;
 
   constructor(
     private router: Router,
@@ -181,39 +182,6 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
         }
       });
 
-    // Auto-select first marquee only if there is no fragmentId AND no selected marquee.
-    this.modelContext.selectedPage$
-      .pipe(
-        filter(p => !!p),
-        switchMap(() =>
-          combineLatest([
-            this.modelContext.marquees$,
-            this.modelContext.fragmentId$,
-            this.modelContext.selectedMarquee$,
-          ]).pipe(
-            filter(([ms, fid, selected]) =>
-              fid == null &&
-              selected == null &&
-              Array.isArray(ms) &&
-              ms.length > 0
-            ),
-            take(1)
-          )
-        ),
-        takeUntil(this.destroy$)
-      )
-      .subscribe(([ms]) => {
-        const first = ms[0];
-
-        this.modelContext.setMarqueeId(first.id);
-        this.modelContext.setFragmentId(first.fragmentId);
-
-        this.router.navigate(
-          ['/diary', this.diary!.id, this.page!.id, first.fragmentId],
-          { replaceUrl: true }
-        );
-      });
-
     this.modelContext.editMarqueeMode$
       .pipe(takeUntil(this.destroy$))
       .subscribe(value => {
@@ -223,6 +191,10 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
           this.calculateCursorStyle(this.pointerInteraction.lastPoint, this.editMarqueeMode);
         }
       });
+
+    this.modelContext.deleteButtonClicked$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => this.deleteSelectedFragment());
   }
 
   ngAfterViewInit(): void {
@@ -667,7 +639,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
           console.warn(`ImageViewer: failed to unlock fragment ${fragmentId}`, err);
 
           if (!this.handleAuthError(err)) {
-            this.alertService.error(err);
+            this.alertService.error('Could not unlock the fragment');
           }
         }
       });
@@ -968,43 +940,65 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   // add/update persistence:
   // -----------------------------------------------------------------------------
 
-  onAddButtonClick() {
-    const rectangle = new Rectangle(
-      this.width / 5,
-      this.height / 5,
-      (3 * this.width) / 5,
-      (3 * this.height) / 5
-    );
+  private onAddButtonClick(): void {
+    console.log(`ImageViewerComponent.onAddButtonClick`);
 
-    const sequence = 123;
-
-    this.rpcService.addMarquee$(this.page, rectangle, sequence).subscribe({
-      next: (m: Marquee) => {
-        this.alertService.info(`marquee: id: ${m.id} added`);
-
-        // Optional but useful: make the local list immediately consistent,
-        // instead of waiting for the MQTT retained topic update to arrive.
-        this.marquees = [
-          ...this.marquees.filter(existing => existing.id !== m.id),
-          m
-        ];
-
-        this.modelContext.setMarqueeId(m.id);
-        this.modelContext.setFragmentId(m.fragmentId);
-
-        this.router.navigate([
-          '/diary',
-          this.diary.id,
-          this.page.id,
-          m.fragmentId
-        ]);
-      },
-
-      error: (err) => {
-        if (!this.handleAuthError(err)) {
-          this.alertService.error(err);
-        }
+    firstValueFrom(
+      combineLatest([
+        this.modelContext.selectedFragment$,
+        this.modelContext.fragments$
+      ]).pipe(take(1))
+    ).then(([selectedFragment, fragments]) => {
+      if (!selectedFragment) {
+        this.alertService.error('Select an existing fragment first, so the new fragment has a date');
+        return;
       }
+
+      const sequence = this.nextFragmentSequence(fragments, selectedFragment.sequence);
+      const rectangle = this.defaultMarqueeRectangle();
+
+      const request = new AddFragmentRequest(
+        this.page.id,
+        selectedFragment.year,
+        selectedFragment.month,
+        selectedFragment.day,
+        sequence,
+        '',
+        rectangle.x,
+        rectangle.y,
+        rectangle.width,
+        rectangle.height
+      );
+
+      this.rpcService.addFragment$(request)
+        .pipe(take(1))
+        .subscribe({
+          next: (fragment: Fragment) => {
+            console.log(
+              `ImageViewerComponent.onAddButtonClick: fragment ${fragment.id} added`
+            );
+
+            this.alertService.info(`Fragment ${fragment.id} added`);
+
+            this.modelContext.setFragmentId(fragment.id);
+            this.modelContext.setMarqueeId(fragment.marqueeId);
+
+            this.router.navigate([
+              '/diary',
+              this.diary.id,
+              this.page.id,
+              fragment.id
+            ]);
+          },
+
+          error: err => {
+            console.warn('ImageViewerComponent.onAddButtonClick failed', err);
+
+            if (!this.handleAuthError(err)) {
+              this.alertService.error('Could not add fragment');
+            }
+          }
+        });
     });
   }
 
@@ -1140,7 +1134,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
         // updateMarquee failed, so the responder did not release the lock.
         // Because the client is rolling back/abandoning this edit, release it here.
         if (lockAcquired && lockedFragmentId != null) {
-          this.unlockFragmentIdAfterFailedMarqueeEdit(lockedFragmentId);
+          this.unlockFragmentIdAfterFailedMarqueeOperation(lockedFragmentId);
         }
 
         if (!this.handleAuthError(err)) {
@@ -1167,7 +1161,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  private unlockFragmentIdAfterFailedMarqueeEdit(fragmentId: number): void {
+  private unlockFragmentIdAfterFailedMarqueeOperation(fragmentId: number): void {
     console.log(`ImageViewer: unlocking fragment ${fragmentId} after failed marquee update`);
 
     this.rpcService.unlockFragment$(fragmentId)
@@ -1190,26 +1184,16 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   // keyboard/context/auth/lock:
   // -----------------------------------------------------------------------------
 
-  onKeyDown(event: KeyboardEvent) {
-    if (this.marquee == null) return;
+  onKeyDown(event: KeyboardEvent): void {
+    if (this.marquee == null) {
+      return;
+    }
 
     if (event.key === 'Delete' && event.ctrlKey) {
+      event.preventDefault();
+
       console.log('ImageViewerComponent.onKeyDown: Control + Delete pressed');
-
-      console.log(`ImageViewerComponent.onKeyDown: deleting marquee id: ${this.marquee.id}`);
-      this.rpcService.deleteMarquee$(this.marquee.id).subscribe({
-        next: (id: number) => {
-          console.log(`ImageViewerComponent.onKeyDown: delete succeeded: id: ${id}`);
-        },
-        error: (err) => {
-          if (!this.handleAuthError(err)) {
-            this.alertService.error(err);
-          }
-        }
-
-      });
-
-      this.router.navigate(['/diary', this.diary.id, this.page.id]);
+      this.deleteSelectedFragment();
     }
   }
 
@@ -1257,6 +1241,105 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       // Don’t block navigation; just log.
       console.warn(`ImageViewer: unlock before switching failed`, err);
     }
+  }
+
+  private async deleteSelectedFragment(): Promise<void> {
+    const fragment = await firstValueFrom(
+      this.modelContext.selectedFragment$.pipe(take(1))
+    );
+
+    if (!fragment) {
+      this.alertService.error('No fragment is currently selected');
+      return;
+    }
+
+    console.log(
+      `ImageViewerComponent.deleteSelectedFragment: deleting fragment ${fragment.id}, marquee ${fragment.marqueeId}`
+    );
+
+    this.rpcService.lockFragment$(fragment.id)
+      .pipe(
+        switchMap(() => this.rpcService.deleteFragment$(fragment.id)),
+        take(1)
+      )
+      .subscribe({
+        next: (id: number) => {
+          console.log(`ImageViewerComponent.deleteSelectedFragment: delete succeeded: id: ${id}`);
+
+          this.modelContext.setMarqueeId(null);
+          this.modelContext.setFragmentId(null);
+
+          this.router.navigate([
+            '/diary',
+            this.diary.id,
+            this.page.id
+          ]);
+        },
+
+        error: (err: unknown) => {
+          console.warn(`ImageViewerComponent.deleteSelectedFragment: delete failed`, err);
+
+          if (!this.handleAuthError(err)) {
+            this.alertService.error('Could not delete fragment');
+          }
+        }
+      });
+  }
+
+  private async deleteSelectedMarquee(): Promise<void> {
+    const marquee = this.marquee;
+
+    if (!marquee) {
+      return;
+    }
+
+    const fragmentId = marquee.fragmentId;
+    const marqueeId = marquee.id;
+
+    console.log(
+      `ImageViewerComponent.deleteSelectedMarquee: locking fragment ${fragmentId} before deleting marquee ${marqueeId}`
+    );
+
+    const locked = await this.lockFragmentForMarqueeEdit(fragmentId);
+
+    if (!locked) {
+      console.warn(
+        `ImageViewerComponent.deleteSelectedMarquee: could not lock fragment ${fragmentId}; delete abandoned`
+      );
+      return;
+    }
+
+    this.rpcService.deleteMarquee$(marqueeId)
+      .pipe(take(1))
+      .subscribe({
+        next: (id: number) => {
+          console.log(`ImageViewerComponent.deleteSelectedMarquee: delete succeeded: id: ${id}`);
+
+          /*
+           * Do not call unlockFragment$ here if DeleteMarquee clears the lock
+           * on the responder side after a successful delete.
+           */
+
+          this.marquee = null;
+          this.modelContext.setMarqueeId(null);
+
+          this.router.navigate(['/diary', this.diary.id, this.page.id]);
+        },
+
+        error: (err: unknown) => {
+          console.warn(`ImageViewerComponent.deleteSelectedMarquee: delete failed`, err);
+
+          /*
+           * The delete failed. The responder may have rolled back before clearing
+           * the lock, so unlock as a client-side fallback.
+           */
+          this.unlockFragmentIdAfterFailedMarqueeOperation(fragmentId);
+
+          if (!this.handleAuthError(err)) {
+            this.alertService.error('Could not delete marquee');
+          }
+        }
+      });
   }
 
   // -----------------------------------------------------------------------------
@@ -1316,5 +1399,38 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.offsetX = svgPoint.x - svgXBefore * newScale;
     this.offsetY = svgPoint.y - svgYBefore * newScale;
     this.scale = newScale;
+  }
+
+  private defaultMarqueeRectangle(): Rectangle {
+    return new Rectangle(
+      this.page.width / 5,
+      this.page.height / 5,
+      (3 * this.page.width) / 5,
+      (3 * this.page.height) / 5
+    );
+  }
+
+  private nextFragmentSequence(fragments: Fragment[], selectedSequence: number): number {
+    const sorted = fragments
+      .slice()
+      .sort((a, b) => a.sequence - b.sequence);
+
+    const selectedIndex = sorted.findIndex(f => f.sequence === selectedSequence);
+    const selected = selectedIndex >= 0 ? sorted[selectedIndex] : null;
+    const next = selectedIndex >= 0 ? sorted[selectedIndex + 1] : null;
+
+    if (selected && next) {
+      return (selected.sequence + next.sequence) / 2;
+    }
+
+    if (selected) {
+      return selected.sequence + 1000;
+    }
+
+    if (sorted.length > 0) {
+      return sorted[sorted.length - 1].sequence + 1000;
+    }
+
+    return 1000;
   }
 }

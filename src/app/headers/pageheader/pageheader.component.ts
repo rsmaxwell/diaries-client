@@ -5,7 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { DomSanitizer } from '@angular/platform-browser';
 import { ModelContext } from '../../model/model-context';
-import { Subject, switchMap, take, takeUntil } from 'rxjs';
+import { asapScheduler, map, observeOn, Observable, Subject, switchMap, take, takeUntil, startWith, distinctUntilChanged } from 'rxjs';
 import { Diary } from '../../model/diary';
 import { Page } from '../../model/page';
 import { Dialog } from '@angular/cdk/dialog';
@@ -13,6 +13,8 @@ import { RpcService } from '../../mqtt/rpc.service';
 import { FilesListDialogComponent } from '../../files-list-dialog/files-list-dialog.component';
 import { Router } from '@angular/router';
 import { AlertService } from '../../alerts/alert.service';
+import { AsyncPipe } from '@angular/common';
+
 
 @Component({
   selector: 'app-pageheader',
@@ -20,7 +22,8 @@ import { AlertService } from '../../alerts/alert.service';
   imports: [
     MatToolbarModule,
     MatButtonModule,
-    MatIconModule
+    MatIconModule,
+    AsyncPipe
   ],
   templateUrl: './pageheader.component.html',
   styleUrl: './pageheader.component.scss'
@@ -28,19 +31,23 @@ import { AlertService } from '../../alerts/alert.service';
 export class PageheaderComponent implements OnInit, OnDestroy {
 
   @Output() add = new EventEmitter<void>();
+  @Output() delete = new EventEmitter<void>();
   @Output() view = new EventEmitter<void>();
   @Output() select = new EventEmitter<void>();
   @Output() upload = new EventEmitter<void>();
   @Output() listFiles = new EventEmitter<void>();
   @Output() deleteFile = new EventEmitter<void>();
+  @Output() createMarquee = new EventEmitter<void>();
   @Output() editMarquee = new EventEmitter<void>();
+  @Output() deleteMarquee = new EventEmitter<void>();
 
   title: string = 'Diaries';
   diary: Diary | null = null;
   page: Page | null = null;
 
   editMarqueeMode = false;
-  hasSelectedMarquee = false;
+  hasSelectedFragment$: Observable<boolean>;
+  hasSelectedMarquee$: Observable<boolean>;
 
   private destroy$ = new Subject<void>();
 
@@ -55,11 +62,23 @@ export class PageheaderComponent implements OnInit, OnDestroy {
   ) {
     this.iconRegistry.addSvgIcon('hand-pointer', this.sanitizer.bypassSecurityTrustResourceUrl('assets/icons/hand-pointer.svg'));
     this.iconRegistry.addSvgIcon('select', this.sanitizer.bypassSecurityTrustResourceUrl('assets/icons/select.svg'));
-    this.iconRegistry.addSvgIcon('cross', this.sanitizer.bypassSecurityTrustResourceUrl('assets/icons/cross.svg'));
+    this.iconRegistry.addSvgIcon('cross', this.sanitizer.bypassSecurityTrustResourceUrl('assets/icons/plus.svg'));
     this.iconRegistry.addSvgIcon('upload', this.sanitizer.bypassSecurityTrustResourceUrl('assets/icons/upload.svg'));
     this.iconRegistry.addSvgIcon('files', this.sanitizer.bypassSecurityTrustResourceUrl('assets/icons/files.svg'));
-    this.iconRegistry.addSvgIcon('delete', this.sanitizer.bypassSecurityTrustResourceUrl('assets/icons/delete.svg'));
+    this.iconRegistry.addSvgIcon('delete', this.sanitizer.bypassSecurityTrustResourceUrl('assets/icons/trash.svg'));
+    this.iconRegistry.addSvgIcon('create-marquee', this.sanitizer.bypassSecurityTrustResourceUrl('assets/icons/create-marquee.svg'));
     this.iconRegistry.addSvgIcon('edit-marquee', this.sanitizer.bypassSecurityTrustResourceUrl('assets/icons/edit-marquee.svg'));
+    this.iconRegistry.addSvgIcon('delete-marquee', this.sanitizer.bypassSecurityTrustResourceUrl('assets/icons/trash-marquee.svg'));
+
+    this.hasSelectedFragment$ = this.modelContext.hasSelectedFragment$.pipe(
+      startWith(false),
+      observeOn(asapScheduler)
+    );
+
+    this.hasSelectedMarquee$ = this.modelContext.hasSelectedMarquee$.pipe(
+      startWith(false),
+      observeOn(asapScheduler)
+    );
   }
 
   ngOnInit(): void {
@@ -90,12 +109,6 @@ export class PageheaderComponent implements OnInit, OnDestroy {
       .subscribe(value => {
         this.editMarqueeMode = value;
       });
-
-    this.modelContext.hasSelectedMarquee$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(value => {
-        this.hasSelectedMarquee = value;
-      });
   }
 
   ngOnDestroy(): void {
@@ -122,9 +135,24 @@ export class PageheaderComponent implements OnInit, OnDestroy {
     this.add.emit();
   }
 
+  onDeleteClick() {
+    console.log('Delete button clicked');
+    this.delete.emit();
+  }
+
+  onCreateMarqueeClick() {
+    console.log('Create Marquee button clicked');
+    this.createMarquee.emit();
+  }
+
   onEditMarqueeClick() {
     console.log('Edit Marquee button clicked');
     this.editMarquee.emit();
+  }
+
+  onDeleteMarqueeClick() {
+    console.log('Delete Marquee button clicked');
+    this.deleteMarquee.emit();
   }
 
   onUploadClick() {
