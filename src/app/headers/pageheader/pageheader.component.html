@@ -6,19 +6,29 @@
 
   <span class="spacer"></span>
 
-  <button mat-icon-button title="add marquee to selected fragment" aria-label="add marquee to selected fragment"
-    [disabled]="!(hasSelectedFragment$ | async)" (click)="onCreateMarqueeClick()">
+  <button 
+    mat-icon-button 
+    title="add marquee to selected fragment" 
+    aria-label="add marquee to selected fragment"
+    [disabled]="!(canCreateMarquee$ | async)" 
+    (click)="onCreateMarqueeClick()">
     <mat-icon svgIcon="create-marquee"></mat-icon>
   </button>
 
-  <button mat-icon-button title="Move or resize selected marquee" aria-label="Move or resize selected marquee"
-    [disabled]="!(hasSelectedMarquee$ | async)" [class.active]="editMarqueeMode" [attr.aria-pressed]="editMarqueeMode"
+  <button 
+    mat-icon-button 
+    title="Move or resize selected marquee" 
+    aria-label="Move or resize selected marquee"
+    [disabled]="!(hasSelectedMarquee$ | async)" 
+    [class.active]="editMarqueeMode" 
+    [attr.aria-pressed]="editMarqueeMode"
     (click)="onEditMarqueeClick()">
     <mat-icon svgIcon="edit-marquee"></mat-icon>
   </button>
 
   <button mat-icon-button title="delete marquee from selected fragment"
-    aria-label="delete marquee from selected fragment" [disabled]="!(hasSelectedFragment$ | async)"
+    aria-label="delete marquee from selected fragment" 
+    [disabled]="!(hasSelectedMarquee$ | async)"
     (click)="onDeleteMarqueeClick()">
     <mat-icon svgIcon="delete-marquee"></mat-icon>
   </button>

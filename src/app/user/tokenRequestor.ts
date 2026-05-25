@@ -1,5 +1,5 @@
 import { Injectable } from "@angular/core";
-import { catchError, interval, Observable, Subscription, switchMap } from "rxjs";
+import { catchError, interval, Observable, of, Subscription, switchMap } from "rxjs";
 import { AccessTokenService } from "./token/accessTokenService";
 import { Router } from "@angular/router";
 import { RpcService } from "../mqtt/rpc.service";
@@ -46,7 +46,7 @@ export class TokenRequestor {
         this.refreshToken.clearToken();
         this.stop();
         this.router.navigate(['/signin']);
-        return "ok";
+        return of("ok");
       })
     );
   }

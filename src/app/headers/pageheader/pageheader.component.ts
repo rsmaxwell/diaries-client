@@ -5,7 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { DomSanitizer } from '@angular/platform-browser';
 import { ModelContext } from '../../model/model-context';
-import { asapScheduler, map, observeOn, Observable, Subject, switchMap, take, takeUntil, startWith, distinctUntilChanged } from 'rxjs';
+import { asapScheduler, map, observeOn, Observable, Subject, switchMap, take, takeUntil, startWith, distinctUntilChanged, combineLatest } from 'rxjs';
 import { Diary } from '../../model/diary';
 import { Page } from '../../model/page';
 import { Dialog } from '@angular/cdk/dialog';
@@ -48,6 +48,8 @@ export class PageheaderComponent implements OnInit, OnDestroy {
   editMarqueeMode = false;
   hasSelectedFragment$: Observable<boolean>;
   hasSelectedMarquee$: Observable<boolean>;
+  canCreateMarquee$: Observable<boolean>;
+
 
   private destroy$ = new Subject<void>();
 
@@ -76,6 +78,16 @@ export class PageheaderComponent implements OnInit, OnDestroy {
     );
 
     this.hasSelectedMarquee$ = this.modelContext.hasSelectedMarquee$.pipe(
+      startWith(false),
+      observeOn(asapScheduler)
+    );
+
+    this.canCreateMarquee$ = combineLatest([
+      this.hasSelectedFragment$,
+      this.hasSelectedMarquee$
+    ]).pipe(
+      map(([hasFragment, hasMarquee]) => hasFragment && !hasMarquee),
+      distinctUntilChanged(),
       startWith(false),
       observeOn(asapScheduler)
     );

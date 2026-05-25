@@ -24,6 +24,7 @@ import { ModelContext } from '../../model/model-context';
 import { firstValueFrom } from 'rxjs';
 import { AddFragmentRequest, Fragment } from '../../model/fragment';
 import { AccessTokenService } from '../../user/token/accessTokenService';
+import { FragmentLockService } from '../fragment-lock.service';
 
 
 interface ResizeEdge {
@@ -113,7 +114,8 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     private alertService: AlertService,
     private configService: ConfigService,
     private modelContext: ModelContext,
-    private accessTokenService: AccessTokenService
+    private accessTokenService: AccessTokenService,
+    private fragmentLockService: FragmentLockService
   ) {
   };
 
@@ -322,11 +324,17 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     resizeEdge?: ResizeEdge
   ): Promise<boolean> {
 
-    if (!this.marquee) {
+    if (this.marqueeUpdateInFlight) {
+      console.log('ImageViewerComponent.beginMarqueeInteraction: update already in flight');
       return false;
     }
 
-    const locked = await this.lockFragmentForMarqueeEdit(this.marquee.fragmentId);
+    if (!this.marquee) {
+      console.log('ImageViewerComponent.beginMarqueeInteraction: There is no current marquee');
+      return false;
+    }
+
+    const locked = await this.fragmentLockService.lockFragmentForEdit(this.marquee.fragmentId);
     if (!locked) {
       return false;
     }
@@ -360,7 +368,9 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   private beginPinchInteraction(): void {
     console.log(`ImageViewerComponent.beginPinchInteraction`);
 
+    this.unlockMarqueeEditFragmentIfNeeded();
     this.clearMarqueeInteractionState();
+
     this.pointerInteraction.mode = 'pinching';
     this.startPinchGesture();
   }
@@ -598,51 +608,25 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.pinchInteraction.startOffsetY = this.offsetY;
   }
 
-  private async lockFragmentForMarqueeEdit(fragmentId: number): Promise<boolean> {
-    try {
-      console.log(`ImageViewer: locking fragment ${fragmentId} for marquee edit`);
-
-      await firstValueFrom(
-        this.rpcService.lockFragment$(fragmentId).pipe(take(1))
-      );
-
-      console.log(`ImageViewer: locked fragment ${fragmentId} for marquee edit`);
-      return true;
-
-    } catch (err) {
-      console.warn(`ImageViewer: failed to lock fragment ${fragmentId} for marquee edit`, err);
-
-      if (!this.handleAuthError(err)) {
-        this.alertService.error('Could not lock the fragment for marquee editing');
-      }
-
-      return false;
-    }
-  }
-
   private unlockMarqueeEditFragmentIfNeeded(): void {
     const fragmentId = this.marqueeInteraction.lockedFragmentId;
+    const lockAcquired = this.marqueeInteraction.lockAcquired === true;
 
-    if (!fragmentId || !this.marqueeInteraction.lockAcquired) {
+    if (!lockAcquired || fragmentId == null) {
       return;
     }
 
-    console.log(`ImageViewer: unlocking fragment ${fragmentId} after abandoned marquee edit`);
+    /*
+     * Clear first so a second cleanup path cannot send a duplicate unlock.
+     */
+    this.marqueeInteraction.lockAcquired = false;
+    this.marqueeInteraction.lockedFragmentId = undefined;
 
-    this.rpcService.unlockFragment$(fragmentId)
-      .pipe(take(1))
-      .subscribe({
-        next: () => {
-          console.log(`ImageViewer: unlocked fragment ${fragmentId}`);
-        },
-        error: (err) => {
-          console.warn(`ImageViewer: failed to unlock fragment ${fragmentId}`, err);
+    console.log(
+      `ImageViewerComponent.unlockMarqueeEditFragmentIfNeeded: unlocking fragment ${fragmentId}`
+    );
 
-          if (!this.handleAuthError(err)) {
-            this.alertService.error('Could not unlock the fragment');
-          }
-        }
-      });
+    this.fragmentLockService.unlockFragmentAfterFailedEdit(fragmentId);
   }
 
   // -----------------------------------------------------------------------------
@@ -767,13 +751,9 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   async onSelectMarquee(marquee: Marquee, event?: MouseEvent | PointerEvent) {
 
     console.log(`ImageViewerComponent.onSelectMarquee: marquee: ${JSON.stringify(marquee)}`);
-    console.log(`ImageViewerComponent.onSelectMarquee: unlock the current fragment`);
 
-    // critical: unlock *while still subscribed to the current fragment*
-    await this.unlockCurrentFragmentIfNeeded(marquee.fragmentId);
+    this.unlockMarqueeEditFragmentIfNeeded();
 
-    // now switch selection
-    console.log(`ImageViewerComponent.onSelectMarquee: now switch selection: marqueeId: ${marquee.id}, fragmentId: ${marquee.fragmentId}`);
     this.modelContext.setMarqueeId(marquee.id);
     this.modelContext.setFragmentId(marquee.fragmentId);
 
@@ -1074,6 +1054,13 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
 
     if (this.marqueeUpdateInFlight) {
       console.log('ImageViewer: skipping update as there is a marquee Update In Flight');
+
+      /*
+       * We may already have acquired a lock for this interaction.
+       * Since we are not sending updateMarquee, the responder will not clear it.
+       */
+      this.unlockMarqueeEditFragmentIfNeeded();
+
       return;
     }
 
@@ -1134,7 +1121,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
         // updateMarquee failed, so the responder did not release the lock.
         // Because the client is rolling back/abandoning this edit, release it here.
         if (lockAcquired && lockedFragmentId != null) {
-          this.unlockFragmentIdAfterFailedMarqueeOperation(lockedFragmentId);
+          this.fragmentLockService.unlockFragmentAfterFailedEdit(lockedFragmentId);
         }
 
         if (!this.handleAuthError(err)) {
@@ -1159,25 +1146,6 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
         rectangle: { ...prevSnapshot.rectangle }
       };
     }
-  }
-
-  private unlockFragmentIdAfterFailedMarqueeOperation(fragmentId: number): void {
-    console.log(`ImageViewer: unlocking fragment ${fragmentId} after failed marquee update`);
-
-    this.rpcService.unlockFragment$(fragmentId)
-      .pipe(take(1))
-      .subscribe({
-        next: () => {
-          console.log(`ImageViewer: unlocked fragment ${fragmentId}`);
-        },
-        error: (err) => {
-          console.warn(`ImageViewer: failed to unlock fragment ${fragmentId}`, err);
-
-          if (!this.handleAuthError(err)) {
-            this.alertService.error(err);
-          }
-        }
-      });
   }
 
   // -----------------------------------------------------------------------------
@@ -1209,40 +1177,6 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     return false;
   }
 
-  private isLockHeldByThisSession(fragment: Fragment | null): fragment is Fragment {
-    const lock = fragment?.lock as any;
-    const myUserId = this.accessTokenService.userId;
-    const mySessionId = this.accessTokenService.sessionId;
-
-    return !!fragment
-      && !!lock?.locked
-      && lock.lockUserId != null
-      && lock.lockSessionId != null
-      && myUserId != null
-      && mySessionId != null
-      && lock.lockUserId === myUserId
-      && lock.lockSessionId === mySessionId;
-  }
-
-  private async unlockCurrentFragmentIfNeeded(nextFragmentId: number): Promise<void> {
-    // Get the fragment currently selected (the one we're about to leave)
-    const current = await firstValueFrom(this.modelContext.selectedFragment$.pipe(take(1)));
-
-    // No current fragment, or clicking the same fragment -> nothing to do
-    if (!current?.id || current.id === nextFragmentId) return;
-
-    // Only unlock if THIS session holds the lock
-    if (!this.isLockHeldByThisSession(current)) return;
-
-    try {
-      await firstValueFrom(this.rpcService.unlockFragment$(current.id).pipe(take(1)));
-      console.log(`ImageViewer: unlocked fragment ${current.id} before switching`);
-    } catch (err) {
-      // Don’t block navigation; just log.
-      console.warn(`ImageViewer: unlock before switching failed`, err);
-    }
-  }
-
   private async deleteSelectedFragment(): Promise<void> {
     const fragment = await firstValueFrom(
       this.modelContext.selectedFragment$.pipe(take(1))
@@ -1253,18 +1187,25 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
+    const locked = await this.fragmentLockService.lockFragmentForEdit(fragment.id);
+    if (!locked) {
+      return;
+    }
+
     console.log(
       `ImageViewerComponent.deleteSelectedFragment: deleting fragment ${fragment.id}, marquee ${fragment.marqueeId}`
     );
 
-    this.rpcService.lockFragment$(fragment.id)
-      .pipe(
-        switchMap(() => this.rpcService.deleteFragment$(fragment.id)),
-        take(1)
-      )
+    this.rpcService.deleteFragment$(fragment.id)
+      .pipe(take(1))
       .subscribe({
         next: (id: number) => {
           console.log(`ImageViewerComponent.deleteSelectedFragment: delete succeeded: id: ${id}`);
+
+          /*
+           * Do not unlock here if DeleteFragment clears the lock on the responder
+           * side as part of the successful transaction.
+           */
 
           this.modelContext.setMarqueeId(null);
           this.modelContext.setFragmentId(null);
@@ -1278,6 +1219,8 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
 
         error: (err: unknown) => {
           console.warn(`ImageViewerComponent.deleteSelectedFragment: delete failed`, err);
+
+          this.fragmentLockService.unlockFragmentAfterFailedEdit(fragment.id);
 
           if (!this.handleAuthError(err)) {
             this.alertService.error('Could not delete fragment');
@@ -1300,7 +1243,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       `ImageViewerComponent.deleteSelectedMarquee: locking fragment ${fragmentId} before deleting marquee ${marqueeId}`
     );
 
-    const locked = await this.lockFragmentForMarqueeEdit(fragmentId);
+    const locked = await this.fragmentLockService.lockFragmentForEdit(fragmentId);
 
     if (!locked) {
       console.warn(
@@ -1333,7 +1276,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
            * The delete failed. The responder may have rolled back before clearing
            * the lock, so unlock as a client-side fallback.
            */
-          this.unlockFragmentIdAfterFailedMarqueeOperation(fragmentId);
+          this.fragmentLockService.unlockFragmentAfterFailedEdit(fragmentId);
 
           if (!this.handleAuthError(err)) {
             this.alertService.error('Could not delete marquee');
