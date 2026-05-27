@@ -16,11 +16,11 @@
        }"> id: {{ fragment.id }}
     </span>
 
-    
+
     <!-- hidden field + picker -->
     <mat-form-field style="width:0; height:0; overflow:hidden; margin:0; padding:0;">
       <input matInput [matDatepicker]="picker" [value]="date" (dateChange)="onDateSelected($event)">
-      <mat-datepicker #picker></mat-datepicker>
+      <mat-datepicker #picker (closed)="onDatePickerClosed()"></mat-datepicker>
     </mat-form-field>
 
 
@@ -28,24 +28,16 @@
     <div class="row-actions">
 
       <!-- lockInfo button -->
-      <button class="btn lockInfo-button"
-        type="button"
-        [disabled]="!isLockedByMe"
-        [ngClass]="{
+      <button class="btn lockInfo-button" type="button" [disabled]="!isLockedByMe" [ngClass]="{
           'locked-by-me': isLockedByMe,
           'locked-by-other': isLockedByOther
-        }"
-        (click)="onLockInfo()"
-      >
+        }" (click)="onLockInfo()">
         {{ lockButtonText }}
       </button>
 
       <!-- save button -->
-      <button class="btn save-button" 
-        type="button" 
-        [disabled]="!hasEdits || isLockedByOther || !isLockedByMe" 
-        [ngClass]="{ 'active': hasEdits && isLockedByMe && !isLockedByOther }"
-        (click)="onSave()">
+      <button class="btn save-button" type="button" [disabled]="!hasEdits || isLockedByOther || !isLockedByMe"
+        [ngClass]="{ 'active': hasEdits && isLockedByMe && !isLockedByOther }" (click)="onSave()">
         Save
       </button>
     </div>

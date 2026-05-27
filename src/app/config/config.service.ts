@@ -24,6 +24,7 @@ export interface Config {
   connectTimeout?: number;
   protocolVersion?: 4 | 5 | 3 | undefined;
   clean: boolean;
+  fragmentLockTtlSeconds?: number;
 }
 
 export interface RuntimeConfig extends Config {

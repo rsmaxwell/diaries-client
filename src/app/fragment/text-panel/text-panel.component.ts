@@ -21,6 +21,7 @@ import { AccessTokenService } from '../../user/token/accessTokenService';
 import { RefreshTokenService } from '../../user/token/refreshTokenService';
 import { HttpStatusCode } from '@angular/common/http';
 import { Router } from '@angular/router';
+import { FragmentLockService } from '../fragment-lock.service';
 
 // minimal shape we need
 type QuillToolbarModule = {
@@ -86,7 +87,8 @@ export class TextPanelComponent implements OnInit, OnDestroy {
     private dialog: Dialog,
     private accessTokenService: AccessTokenService,
     private refreshTokenService: RefreshTokenService,
-    private router: Router
+    private router: Router,
+    private fragmentLockService: FragmentLockService
   ) { }
 
   ngOnInit(): void {
@@ -439,28 +441,75 @@ export class TextPanelComponent implements OnInit, OnDestroy {
     return new Date(year, month - 1, day);
   }
 
-  editDate() {
-    console.log(`TextPanelComponent.editDate`)
+  async editDate(): Promise<void> {
+    console.log(`TextPanelComponent.editDate`);
+
+    if (!this.fragment) {
+      return;
+    }
+
+    if (this.isLockedByOther) {
+      console.log(`TextPanelComponent.editDate: fragment is locked by another session`);
+      return;
+    }
+
+    if (!this.isLockedByMe) {
+      const fragmentId = this.fragment.id;
+
+      this.lockRequestedForFragmentId = fragmentId;
+
+      const locked = await this.fragmentLockService.lockFragmentForEdit(fragmentId);
+      if (!locked) {
+        this.lockRequestedForFragmentId = null;
+        return;
+      }
+
+      this.markFragmentLockedByMe();
+    }
+
     this.picker.open();
   }
 
   /** when the user picks a date, write it back into the Fragment */
-  onDateSelected(event: MatDatepickerInputEvent<Date>) {
+  onDateSelected(event: MatDatepickerInputEvent<Date>): void {
     const newDate = event.value;
-    if (this.fragment && newDate) {
-      // 1) write back into the model
-      this.fragment.year = newDate.getFullYear();
-      this.fragment.month = newDate.getMonth() + 1;
-      this.fragment.day = newDate.getDate();
 
-      // 2) recalculate what’s shown in the header
-      const df = new DateFormatter(
-        this.fragment.year,
-        this.fragment.month,
-        this.fragment.day
-      );
-      this.formattedDate = df.formattedDate;
-      this.isDateValid = df.isDateValid;
+    if (!this.fragment || !newDate) {
+      return;
+    }
+
+    this.fragment.year = newDate.getFullYear();
+    this.fragment.month = newDate.getMonth() + 1;
+    this.fragment.day = newDate.getDate();
+
+    const df = new DateFormatter(
+      this.fragment.year,
+      this.fragment.month,
+      this.fragment.day
+    );
+
+    this.formattedDate = df.formattedDate;
+    this.isDateValid = df.isDateValid;
+
+    /*
+     * If the selected date returns the fragment to its original state,
+     * release the lock. This mirrors your existing "edits undone" logic,
+     * but that existing logic only watches bodyCtrl.valueChanges.
+     */
+    if (!this.hasEdits && this.isLockedByMe) {
+      const fragmentId = this.fragment.id;
+
+      this.rpcService.unlockFragment$(fragmentId)
+        .pipe(take(1))
+        .subscribe({
+          next: () => {
+            console.log(`TextPanelComponent.onDateSelected: edits undone -> unlockFragment$ completed`);
+            this.markFragmentUnlocked();
+          },
+          error: err => {
+            console.warn(`TextPanelComponent.onDateSelected: unlockFragment$ failed`, err);
+          }
+        });
     }
   }
 
@@ -617,16 +666,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
 
         // ✅ SERVER CLEARS LOCK ON SAVE (Responder publishes lock:null)
         // Mirror that locally so the next edit will re-lock properly.
-        this.lockRequestedForFragmentId = null;
-
-        if (this.fragment) {
-          this.fragment = {
-            ...this.fragment,
-            lock: null
-          } as any;
-
-          this.updateEditorReadOnlyState();
-        }
+        this.markFragmentUnlocked();
       },
       error: (err) => {
         console.log(`TextPanelComponent.onSave: error -> rolling back: ${err}`);
@@ -701,5 +741,79 @@ export class TextPanelComponent implements OnInit, OnDestroy {
       quill.insertEmbed(index, 'image', url, 'user');
       quill.setSelection(index + 1, 0);
     });
+  }
+
+  private markFragmentLockedByMe(): void {
+    if (!this.fragment) return;
+
+    const myUserId = this.myUserId;
+    const mySessionId = this.mySessionId;
+
+    if (myUserId == null || mySessionId == null) {
+      console.warn('TextPanelComponent.markFragmentLockedByMe: missing user/session');
+      return;
+    }
+
+    const prevLock = this.fragment.lock ?? ({} as any);
+
+    this.fragment = {
+      ...this.fragment,
+      lock: {
+        ...prevLock,
+        locked: true,
+        lockUserId: myUserId,
+        lockSessionId: mySessionId,
+        lockUserName: this.accessTokenService.username ?? null,
+        lockKnownAs: this.accessTokenService.knownAs ?? null,
+        lockTimeStamp: Date.now(),
+      }
+    } as any;
+
+    this.currentFragment = this.fragment;
+    this.updateEditorReadOnlyState();
+  }
+
+  private markFragmentUnlocked(): void {
+    if (!this.fragment) return;
+
+    this.fragment = {
+      ...this.fragment,
+      lock: null
+    } as any;
+
+    this.currentFragment = this.fragment;
+    this.lockRequestedForFragmentId = null;
+    this.updateEditorReadOnlyState();
+  }
+
+  onDatePickerClosed(): void {
+    console.log(`TextPanelComponent.onDatePickerClosed`);
+
+    if (!this.fragment) {
+      return;
+    }
+
+    /*
+     * If the user opened the picker but did not actually change anything,
+     * release the lock again.
+     *
+     * If they did change the date, keep the lock until Save, undo, destroy,
+     * or rollback/error handling.
+     */
+    if (!this.hasEdits && this.isLockedByMe) {
+      const fragmentId = this.fragment.id;
+
+      this.rpcService.unlockFragment$(fragmentId)
+        .pipe(take(1))
+        .subscribe({
+          next: () => {
+            console.log(`TextPanelComponent.onDatePickerClosed: unlockFragment$ completed`);
+            this.markFragmentUnlocked();
+          },
+          error: err => {
+            console.warn(`TextPanelComponent.onDatePickerClosed: unlockFragment$ failed`, err);
+          }
+        });
+    }
   }
 }
