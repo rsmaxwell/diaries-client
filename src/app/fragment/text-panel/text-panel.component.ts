@@ -1,8 +1,8 @@
 import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ModelContext } from '../../model/model-context';
-import { Fragment } from '../../model/fragment';
-import { auditTime, BehaviorSubject, distinctUntilChanged, firstValueFrom, map, pairwise, startWith, Subject, take, takeUntil } from 'rxjs';
+import { EditLockInfo, Fragment } from '../../model/fragment';
+import { auditTime, BehaviorSubject, distinctUntilChanged, map, pairwise, startWith, Subject, take, takeUntil } from 'rxjs';
 import { QuillModule } from 'ngx-quill';
 import { FormControl, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { RpcService } from '../../mqtt/rpc.service';
@@ -103,32 +103,31 @@ export class TextPanelComponent implements OnInit, OnDestroy {
           if (a === b) return true;
           if (!a || !b) return false;
 
-          const aLockUserId = (a as any)?.lock?.lockUserId ?? null;
-          const bLockUserId = (b as any)?.lock?.lockUserId ?? null;
-
-          const aLockSessionId = (a as any)?.lock?.lockSessionId ?? null;
-          const bLockSessionId = (b as any)?.lock?.lockSessionId ?? null;
-
-          const aLocked = (a as any)?.lock?.locked ?? false;
-          const bLocked = (b as any)?.lock?.locked ?? false;
+          const aLock = a.lock ?? null;
+          const bLock = b.lock ?? null;
 
           return a.id === b.id
             && a.version === b.version
-            && aLockUserId === bLockUserId
-            && aLockSessionId === bLockSessionId
-            && aLocked === bLocked;
+            && aLock?.lockUserId === bLock?.lockUserId
+            && aLock?.lockSessionId === bLock?.lockSessionId
+            && aLock?.lockTimeStamp === bLock?.lockTimeStamp
+            && aLock?.lockUserName === bLock?.lockUserName
+            && aLock?.lockKnownAs === bLock?.lockKnownAs;
         }),
         takeUntil(this.destroy$)
       )
       .subscribe(fragment => {
-
-        const prevId = this.fragment?.id ?? null; // the UI’s current fragment id
+        const prevId = this.fragment?.id ?? null;
         const nextId = fragment?.id ?? null;
         const switchingFragment = prevId !== nextId;
 
-        const leaving = this.fragment; // <-- what the UI was showing up to now
+        const leaving = this.fragment;
 
         console.log(`TextPanelComponent: we are leaving fragment.id=${leaving?.id}`);
+
+        if (switchingFragment) {
+          void this.unlockFragmentIfMine(leaving, 'switching fragment');
+        }
 
         // Track current fragment after any switch logic
         this.currentFragment = fragment;
@@ -137,7 +136,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
         const prevServerText = this.fragment?.text ?? '';
         const nextServerText = fragment?.text ?? '';
 
-        // now update fragment reference (so getters like isLockedByMe use new lock)
+        // now update fragment reference
         this.fragment = fragment;
 
         if (switchingFragment) {
@@ -203,71 +202,14 @@ export class TextPanelComponent implements OnInit, OnDestroy {
         // Only request once per fragment per edit-session
         if (this.lockRequestedForFragmentId === this.fragment.id) return;
 
-        // ✅ ADD THESE LOGS HERE
-        console.log('mine', {
-          userId: this.accessTokenService.userId,
-          sessionId: this.accessTokenService.sessionId,
-          username: this.accessTokenService.username,
-          knownAs: this.accessTokenService.knownAs,
-        });
-        console.log('lock(before lockFragment$)', this.fragment.lock);
-
         this.lockRequestedForFragmentId = this.fragment.id;
 
-        console.log(`TextPanelComponent: edits detected -> lockFragment$, fragmentId=${this.fragment.id}`);
+        const fragmentId = this.fragment.id;
+        this.lockRequestedForFragmentId = fragmentId;
 
-        this.rpcService.lockFragment$(this.fragment.id)
-          .pipe(takeUntil(this.destroy$))
-          .subscribe({
-            next: () => {
-              console.log(`TextPanelComponent: lockFragment$ completed`);
+        console.log(`TextPanelComponent: edits detected -> lockFragment, fragmentId=${fragmentId}`);
 
-              // Optimistically apply the lock locally so UI reflects reality
-              const myUserId = this.myUserId;
-              const mySessionId = this.mySessionId;
-
-              if (this.fragment && myUserId != null && mySessionId != null) {
-                const prevLock = this.fragment.lock ?? ({} as any);
-
-                this.fragment = {
-                  ...this.fragment,
-                  lock: {
-                    ...prevLock,
-                    locked: true,
-                    lockUserId: myUserId,
-                    lockSessionId: mySessionId,
-                    lockUserName: this.accessTokenService.username ?? null,
-                    lockKnownAs: (this.accessTokenService as any).knownas ?? null,
-                    lockTimeStamp: Date.now(),
-                  }
-                } as any;
-
-                // If your Save enablement depends on lock state, update it now
-                this.updateEditorReadOnlyState();
-              } else {
-                console.warn(`TextPanelComponent: lockFragment$ succeeded but myUserId/mySessionId missing`, {
-                  myUserId,
-                  mySessionId
-                });
-              }
-            },
-            error: (err) => {
-              console.warn(`TextPanelComponent: lockFragment$ failed`, err);
-
-              if (err?.status === HttpStatusCode.Unauthorized) {
-                // clear auth
-                this.accessTokenService.clearToken();
-                this.refreshTokenService.clearToken();
-
-                // go to signin; keep current URL so you can return after signing in
-                this.router.navigateByUrl(`/signin?returnUrl=${encodeURIComponent(this.router.url)}`);
-                return;
-              }
-
-              // allow retry if it failed for other reasons
-              this.lockRequestedForFragmentId = null;
-            }
-          });
+        void this.lockCurrentFragmentForBodyEdit(fragmentId);
       });
 
     // 3) Unlock-on-undo: watch hasEdits and detect true -> false
@@ -294,70 +236,44 @@ export class TextPanelComponent implements OnInit, OnDestroy {
 
         // true -> false: user returned to original content
         if (wasDirty && !isDirty) {
-          // only unlock if I currently hold the lock
-          if (!this.isLockedByMe) return;
-
-          console.log(`TextPanelComponent: edits undone -> unlockFragment$, id=${this.fragment.id}`);
-
-          this.rpcService.unlockFragment$(this.fragment.id)
-            .pipe(takeUntil(this.destroy$))
-            .subscribe({
-              next: () => {
-                console.log(`TextPanelComponent: unlockFragment$ completed`);
-                if (this.fragment) {
-                  const prevLock = this.fragment.lock ?? ({} as any);
-                  this.fragment = {
-                    ...this.fragment,
-                    lock: {
-                      ...prevLock,
-                      locked: false,
-                      lockUserId: null,
-                      lockSessionId: null,
-                      lockUserName: null,
-                      lockKnownAs: null,
-                      lockTimeStamp: null,
-                    }
-                  } as any;
-                  this.updateEditorReadOnlyState();
-                }
-              },
-              error: (err) => {
-                console.log(`TextPanelComponent: unlockFragment$ failed`, err)
-
-                if (err?.status === HttpStatusCode.Unauthorized) {
-                  // clear auth
-                  this.accessTokenService.clearToken();
-                  this.refreshTokenService.clearToken();
-
-                  // go to signin; keep current URL so you can return after signing in
-                  this.router.navigateByUrl(`/signin?returnUrl=${encodeURIComponent(this.router.url)}`);
-                  return;
-                }
-              }
-            });
+          void this.unlockCurrentFragment('edits undone');
         }
       });
   }
 
+  private async lockCurrentFragmentForBodyEdit(fragmentId: number): Promise<void> {
+    const locked = await this.fragmentLockService.lockFragmentForEdit(fragmentId);
+
+    if (!locked) {
+      if (this.fragment?.id === fragmentId) {
+        this.lockRequestedForFragmentId = null;
+      }
+      return;
+    }
+
+    /*
+     * Only apply the optimistic lock if we are still looking at the same fragment.
+     * If the user navigated away while the RPC was in flight, immediately unlock it.
+     */
+    if (this.fragment?.id === fragmentId) {
+      this.markFragmentLockedByMe();
+      this.updateEditorReadOnlyState();
+    } else {
+      await this.fragmentLockService.unlockFragment(
+        fragmentId,
+        'body edit lock completed after fragment switch'
+      );
+    }
+  }
+
   private isLockedByMeFragment(f: Fragment): boolean {
-    const lock = (f as any)?.lock;
+    const lock = f.lock;
 
-    console.log('isLockedByMe check', {
-      lockUserId: lock?.lockUserId,
-      lockSessionId: lock?.lockSessionId,
-      myUserId: this.myUserId,
-      mySessionId: this.mySessionId,
-      locked: lock?.locked
-    });
-
-    return !!lock
-      && lock.locked === true
-      && lock.lockUserId != null
-      && lock.lockSessionId != null
+    return this.isLockActive(lock)
       && this.myUserId != null
       && this.mySessionId != null
-      && lock.lockUserId === this.myUserId
-      && lock.lockSessionId === this.mySessionId;
+      && lock!.lockUserId === this.myUserId
+      && lock!.lockSessionId === this.mySessionId;
   }
 
   private updateEditorReadOnlyState(): void {
@@ -377,51 +293,30 @@ export class TextPanelComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     console.log(`TextPanelComponent.ngOnDestroy`);
 
-    // --- NEW: unlock the fragment we are leaving (component destroyed / panel closed) ---
-    const leaving = this.fragment;
-    if (leaving?.id != null && this.isLockedByMe) {
-      console.log(`TextPanelComponent: destroy -> unlockFragment$, id=${leaving.id}`);
-      this.rpcService.unlockFragment$(leaving.id)
-        .pipe(take(1))
-        .subscribe({
-          next: () => {
-            console.log(`TextPanelComponent: unlockFragment$ completed`);
-            if (this.fragment) {
-              const prevLock = this.fragment.lock ?? ({} as any);
-              this.fragment = {
-                ...this.fragment,
-                lock: {
-                  ...prevLock,
-                  locked: false,
-                  lockUserId: null,
-                  lockSessionId: null,
-                  lockUserName: null,
-                  lockKnownAs: null,
-                  lockTimeStamp: null,
-                }
-              } as any;
-              this.updateEditorReadOnlyState();
-            }
-          },
-          error: (err) => {
-            console.log(`TextPanelComponent: unlockFragment$ (on destroy) failed`, err)
-
-            if (err?.status === HttpStatusCode.Unauthorized) {
-              // clear auth
-              this.accessTokenService.clearToken();
-              this.refreshTokenService.clearToken();
-
-              // go to signin; keep current URL so you can return after signing in
-              this.router.navigateByUrl(`/signin?returnUrl=${encodeURIComponent(this.router.url)}`);
-              return;
-            }
-          }
-        });
-    }
-
+    void this.unlockCurrentFragment('destroy');
 
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  private async unlockFragmentIfMine(fragment: Fragment | null, reason: string): Promise<void> {
+    if (!fragment) {
+      return;
+    }
+
+    if (!this.isLockedByMeFragment(fragment)) {
+      return;
+    }
+
+    const fragmentId = fragment.id;
+
+    console.log(`TextPanelComponent.${reason}: unlockFragment$, id=${fragmentId}`);
+
+    const unlocked = await this.fragmentLockService.unlockFragment(fragmentId, reason);
+
+    if (unlocked && this.fragment?.id === fragmentId) {
+      this.markFragmentUnlocked();
+    }
   }
 
   /**
@@ -460,7 +355,21 @@ export class TextPanelComponent implements OnInit, OnDestroy {
 
       const locked = await this.fragmentLockService.lockFragmentForEdit(fragmentId);
       if (!locked) {
-        this.lockRequestedForFragmentId = null;
+        if (this.fragment?.id === fragmentId) {
+          this.lockRequestedForFragmentId = null;
+        }
+        return;
+      }
+
+      /*
+       * The user may have selected another fragment while the lock RPC
+       * was in flight. If so, immediately unlock the fragment we just locked.
+       */
+      if (this.fragment?.id !== fragmentId) {
+        await this.fragmentLockService.unlockFragment(
+          fragmentId,
+          'date edit lock completed after fragment switch'
+        );
         return;
       }
 
@@ -497,19 +406,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
      * but that existing logic only watches bodyCtrl.valueChanges.
      */
     if (!this.hasEdits && this.isLockedByMe) {
-      const fragmentId = this.fragment.id;
-
-      this.rpcService.unlockFragment$(fragmentId)
-        .pipe(take(1))
-        .subscribe({
-          next: () => {
-            console.log(`TextPanelComponent.onDateSelected: edits undone -> unlockFragment$ completed`);
-            this.markFragmentUnlocked();
-          },
-          error: err => {
-            console.warn(`TextPanelComponent.onDateSelected: unlockFragment$ failed`, err);
-          }
-        });
+      void this.unlockCurrentFragment('date selected back to original');
     }
   }
 
@@ -548,7 +445,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
 
   /** Current signed-in display name (known-as preferred, else username). */
   get mySessionId(): string | null {
-    return this.accessTokenService.sessionId ?? this.accessTokenService.sessionId;
+    return this.accessTokenService.sessionId;
   }
 
   /** Lock owner userId from the selected fragment (supports nested lock or legacy flattened fields). */
@@ -573,7 +470,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
 
   get isLockedByOther(): boolean {
     const lock = this.fragment?.lock;
-    return !!lock?.locked && !this.isLockedByMe;
+    return this.isLockActive(lock) && !this.isLockedByMe;
   }
 
   /**
@@ -584,7 +481,8 @@ export class TextPanelComponent implements OnInit, OnDestroy {
    */
   get lockOwnerDisplay(): string {
     const lock = this.fragment?.lock;
-    if (!lock?.locked) return '';
+    if (!lock) return '';
+    if (!this.isLockActive(lock)) return '';
 
     // same user, different session -> very common in your setup
     if (lock.lockUserId === this.myUserId && lock.lockSessionId !== this.mySessionId) {
@@ -592,14 +490,14 @@ export class TextPanelComponent implements OnInit, OnDestroy {
     }
 
     return (
-      lock.lockUserName?.trim() ||
       lock.lockKnownAs?.trim() ||
+      lock.lockUserName?.trim() ||
       (lock.lockUserId != null ? `${lock.lockUserId}` : 'someone')
     );
   }
 
   get lockButtonText(): string {
-    if (this.lockUserId == null) return 'Unlocked';
+    if (!this.isLockActive(this.fragment?.lock)) return 'Unlocked';
     if (this.isLockedByMe) return 'Locked';
     return `Locked by ${this.lockOwnerDisplay}`;
   }
@@ -698,6 +596,8 @@ export class TextPanelComponent implements OnInit, OnDestroy {
           emitEvent: false,
           emitModelToViewChange: true
         });
+
+        void this.unlockCurrentFragment('save failed rollback');
       }
     });
   }
@@ -754,20 +654,19 @@ export class TextPanelComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const prevLock = this.fragment.lock ?? ({} as any);
+    const prevLock = this.fragment.lock ?? {};
 
     this.fragment = {
       ...this.fragment,
       lock: {
         ...prevLock,
-        locked: true,
         lockUserId: myUserId,
         lockSessionId: mySessionId,
         lockUserName: this.accessTokenService.username ?? null,
         lockKnownAs: this.accessTokenService.knownAs ?? null,
         lockTimeStamp: Date.now(),
       }
-    } as any;
+    };
 
     this.currentFragment = this.fragment;
     this.updateEditorReadOnlyState();
@@ -801,19 +700,38 @@ export class TextPanelComponent implements OnInit, OnDestroy {
      * or rollback/error handling.
      */
     if (!this.hasEdits && this.isLockedByMe) {
-      const fragmentId = this.fragment.id;
-
-      this.rpcService.unlockFragment$(fragmentId)
-        .pipe(take(1))
-        .subscribe({
-          next: () => {
-            console.log(`TextPanelComponent.onDatePickerClosed: unlockFragment$ completed`);
-            this.markFragmentUnlocked();
-          },
-          error: err => {
-            console.warn(`TextPanelComponent.onDatePickerClosed: unlockFragment$ failed`, err);
-          }
-        });
+      void this.unlockCurrentFragment('date picker closed without edits');
     }
+  }
+
+  private async unlockCurrentFragment(reason: string): Promise<void> {
+    if (!this.fragment) {
+      return;
+    }
+
+    if (!this.isLockedByMe) {
+      return;
+    }
+
+    const fragmentId = this.fragment.id;
+
+    console.log(`TextPanelComponent.${reason}: unlockFragment$, id=${fragmentId}`);
+
+    const unlocked = await this.fragmentLockService.unlockFragment(fragmentId, reason);
+
+    /*
+     * Only update local state if we are still looking at the same fragment.
+     * The async unlock could complete after the user has navigated away.
+     */
+    if (unlocked && this.fragment?.id === fragmentId) {
+      this.markFragmentUnlocked();
+    }
+  }
+
+  private isLockActive(lock: EditLockInfo | null | undefined): boolean {
+    return !!lock
+      && lock.lockUserId != null
+      && lock.lockSessionId != null
+      && lock.lockSessionId.trim() !== '';
   }
 }

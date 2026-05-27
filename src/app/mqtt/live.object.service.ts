@@ -58,7 +58,9 @@ export class LiveObjectService {
           console.log(`LiveObjectService.getObjectById$: [MQTT] RX ${messageTopic}`, {
             id: obj.id,
             version: obj.version,
-            locked: obj.lock?.locked ?? false,
+            locked: !!obj.lock?.lockUserId
+              && !!obj.lock?.lockSessionId
+              && String(obj.lock.lockSessionId).trim() !== '',
             lockSessionId: obj.lock?.lockSessionId ?? '',
             retain: packet?.retain,
             qos: packet?.qos,

@@ -74,7 +74,6 @@ export interface EditLockInfo {
   lockKnownAs: string | null;
   lockTimeStamp: number | null;    // epoch millis
   lockSessionId: string | null;
-  locked: boolean | null;
 }
 
 export class LockFragmentRequest {

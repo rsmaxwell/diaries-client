@@ -46,19 +46,28 @@ export class FragmentLockService {
         }
     }
 
-    async unlockFragmentAfterFailedEdit(fragmentId: number): Promise<void> {
+    async unlockFragment(fragmentId: number, reason = 'unlock'): Promise<boolean> {
         try {
-            console.log(`FragmentLockService: unlocking fragment ${fragmentId} after failed edit`);
+            console.log(`FragmentLockService: unlocking fragment ${fragmentId}: ${reason}`);
 
             await firstValueFrom(
-                this.rpcService.unlockFragment$(fragmentId)
+                this.rpcService.unlockFragment$(fragmentId).pipe(take(1))
             );
+
+            console.log(`FragmentLockService: unlocked fragment ${fragmentId}: ${reason}`);
+            return true;
 
         } catch (err) {
             console.warn(
-                `FragmentLockService: failed to unlock fragment ${fragmentId} after failed edit`,
+                `FragmentLockService: failed to unlock fragment ${fragmentId}: ${reason}`,
                 err
             );
+
+            return false;
         }
+    }
+
+    async unlockFragmentAfterFailedEdit(fragmentId: number): Promise<void> {
+        await this.unlockFragment(fragmentId, 'after failed edit');
     }
 }
