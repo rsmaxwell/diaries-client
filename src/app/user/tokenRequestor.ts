@@ -27,7 +27,6 @@ export class TokenRequestor {
 
     return this.rpcService.refreshToken$().pipe(
       switchMap((reply: RefreshTokenReply) => {
-        console.log(`TokenRequestor: sendRefreshRequest: reply: ${JSON.stringify(reply)}`);
         console.log(`TokenRequestor: sendRefreshRequest: refreshInterval: ${reply.refreshPeriod}`);
         this.accessTokenService.setToken(reply.accessToken);
 

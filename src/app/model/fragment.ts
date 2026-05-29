@@ -9,7 +9,7 @@ export interface Fragment {
   version: number;
   text: string;
 
-  lock?: EditLockInfo | null; 
+  lock?: EditLockInfo | null;
 }
 
 export class NormaliseFragmentsRequest {
@@ -49,7 +49,11 @@ export class UpdateFragmentRequest {
 
   static fromFragment(fragment: Fragment): UpdateFragmentRequest {
 
-    console.log(`UpdateFragmentRequest.fromFragment: ${JSON.stringify(fragment)}`);
+    console.log('UpdateFragmentRequest.fromFragment', {
+      id: fragment.id,
+      version: fragment.version,
+      marqueeId: fragment.marqueeId
+    });
 
     return new UpdateFragmentRequest(
       fragment.id,
@@ -77,14 +81,14 @@ export interface EditLockInfo {
 }
 
 export class LockFragmentRequest {
-  constructor(public id: number) {}
+  constructor(public id: number) { }
   static fromId(id: number): LockFragmentRequest {
     return new LockFragmentRequest(id);
   }
 }
 
 export class UnlockFragmentRequest {
-  constructor(public id: number) {}
+  constructor(public id: number) { }
   static fromId(id: number): UnlockFragmentRequest {
     return new UnlockFragmentRequest(id);
   }

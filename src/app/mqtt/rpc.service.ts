@@ -39,6 +39,7 @@ export class RpcError extends Error {
 export class RpcService {
     private readonly reqTopic = 'request';
     private subscribedTopics = new Set<string>();
+    private listenerAttached = false;
 
     // map of correlationIds to handlers
     private responseHandlers = new Map<string, {
@@ -60,26 +61,21 @@ export class RpcService {
 
     // Register a single global message listener once
     private ensureListener(): void {
-        const observable$ = from(this.mqtt.getConnection());
-        observable$.subscribe({
+        from(this.mqtt.getConnection()).subscribe({
             next: client => {
-                if (!client.listeners('message').some(fn => fn.name === 'rpcDispatcher')) {
-
-                    console.log(
-                        `RpcService.ensureListener: attaching handler`
-                    );
-
-                    client.on('message', this.rpcDispatcher.bind(this));
-
-                    console.log(
-                        `RpcService.ensureListener: ListenerCount: after subscribeToTopicTree:`,
-                        client.listenerCount('message')
-                    );
-
+                if (this.listenerAttached) {
+                    return;
                 }
+
+                client.on('message', this.rpcDispatcher.bind(this));
+                this.listenerAttached = true;
+
+                console.log(
+                    `RpcService.ensureListener: ListenerCount after attaching dispatcher:`,
+                    client.listenerCount('message')
+                );
             },
-            error: err => console.error("RpcServive.ensureListener: Error:", err),
-            complete: () => console.log("RpcServive.ensureListener: Completed")
+            error: err => console.error("RpcService.ensureListener: Error:", err)
         });
     }
 
@@ -185,11 +181,13 @@ export class RpcService {
                     properties
                 };
 
-                console.log(`RpcService.rpcRequest: sending to topic '${requestTopic}'`);
-                console.log(`RpcService.rpcRequest: ${publishPayload}`);
-                console.log(`RpcService.rpcRequest: correlationId: '${corr}', replyTopic: '${replyTopic}'`);
-                console.log(`RpcService.rpcRequest: userProperties: '${JSON.stringify(properties.userProperties)}'`);
-                console.log(`RpcService.rpcRequest: publishOptions: '${JSON.stringify(publishOptions)}'`);
+                console.log(`RpcService.rpcRequest: sending`, {
+                    requestTopic,
+                    function: (payload as any)?.function,
+                    correlationId: corr,
+                    replyTopic,
+                    hasAccessToken: !!accessToken
+                });
 
                 client.publish(requestTopic, publishPayload, publishOptions, err => {
                     if (err) {

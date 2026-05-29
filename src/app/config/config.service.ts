@@ -11,7 +11,7 @@ export interface Config {
 
   responderBaseUrlMode?: 'same-origin' | 'same-host-port';
   responderBaseUrl?: string;
-  responderBaseUrlPort?: string;
+  responderBaseUrlPort?: number;
 
   username: string;
   password: string;
@@ -40,6 +40,7 @@ export interface RuntimeConfig extends Config {
 export class ConfigService {
   private configUrl = 'assets/config.json';
   private configCache: RuntimeConfig | null = null;
+  private configPromise: Promise<RuntimeConfig> | null = null;
 
   constructor(private http: HttpClient) {
     console.log('ConfigService.constructor');
@@ -49,19 +50,31 @@ export class ConfigService {
     console.log(`ConfigService.getConfig`);
 
     if (this.configCache) {
-      console.log('ConfigService.getConfig from cache: ', this.configCache);
+      console.log('ConfigService.getConfig from cache: ', this.redactConfig(this.configCache));
       return this.configCache;
     }
 
-    const config = await lastValueFrom(this.http.get<Config>(this.configUrl));
-    this.configCache = {
-      ...config,
-      brokerUrl: this.buildBrokerUrl(config),
-      baseUrl: this.buildResponderBaseUrl(config)
-    };
+    if (this.configPromise) {
+      console.log('ConfigService.getConfig from pending request');
+      return this.configPromise;
+    }
 
-    console.log('ConfigService.getConfig new: ', this.configCache);
-    return this.configCache;
+    this.configPromise = lastValueFrom(this.http.get<Config>(this.configUrl))
+      .then(config => {
+        this.configCache = {
+          ...config,
+          brokerUrl: this.buildBrokerUrl(config),
+          baseUrl: this.buildResponderBaseUrl(config)
+        };
+
+        console.log('ConfigService.getConfig new: ', this.redactConfig(this.configCache));
+        return this.configCache;
+      })
+      .finally(() => {
+        this.configPromise = null;
+      });
+
+    return this.configPromise;
   }
 
   private buildBrokerUrl(config: Config): string {
@@ -114,5 +127,12 @@ export class ConfigService {
       throw new Error('baseUrl is required when baseUrlMode is not set');
     }
     return configured.replace(/\/$/, '');
+  }
+
+  private redactConfig(config: RuntimeConfig): Omit<RuntimeConfig, 'password'> & { password: string } {
+    return {
+      ...config,
+      password: config.password ? '********' : ''
+    };
   }
 }

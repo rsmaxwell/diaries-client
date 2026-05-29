@@ -83,7 +83,12 @@ export class AccessTokenService extends TokenService {
    */
   setUserInfo(userId: number, username: string, knownAs: string, sessionId: string): void {
 
-    console.log(`AccessTokenService.setUserInfo: userId: ${userId}, knownAs: ${knownAs}, sessionId: ${sessionId}`);
+    console.log('AccessTokenService.setUserInfo', {
+      userId,
+      username,
+      knownAs,
+      hasSessionId: !!sessionId
+    });
 
     this.userIdSubject.next(userId);
     this.usernameSubject.next(username);

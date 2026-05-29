@@ -38,6 +38,7 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private destroy$ = new Subject<void>();
   private layout: GoldenLayout | undefined;
+
   pages: Page[] = [];
 
   constructor(
@@ -52,14 +53,9 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
     private fragmentLockService: FragmentLockService
   ) { }
 
-  // Number (or null) with safe parsing
-  private idFromRoute$(key: string): Observable<number | null> {
-    return this.route.paramMap.pipe(
-      map(pm => pm.get(key)),
-      map(v => (v !== null && /^\d+$/.test(v) ? parseInt(v, 10) : null)),
-      distinctUntilChanged()
-    );
-  }
+  // ---------------------------------------------------------------------------
+  // Angular lifecycle
+  // ---------------------------------------------------------------------------
 
   ngOnInit(): void {
     // Resolve ids from this route or any parent using the helper
@@ -98,26 +94,6 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
       .subscribe(pages => {
         this.pages = pages;
       });
-  }
-
-  // Generic bindComponent: strongly typed and reusable
-  private bindComponent<T>(container: any, component: any): void {
-    const componentRef: ComponentRef<T> = createComponent<T>(component, {
-      environmentInjector: this.environmentInjector,
-    });
-
-    // Store for later cleanup:
-    container.componentRef = componentRef;
-
-    this.appRef.attachView(componentRef.hostView);
-    container.element!.append(componentRef.location.nativeElement);
-
-    // Hook up destroy
-    container.on('destroy', () => {
-      console.log('GoldenLayout: destroying Angular component');
-      this.appRef.detachView(componentRef.hostView);
-      componentRef.destroy();
-    });
   }
 
   ngAfterViewInit(): void {
@@ -205,11 +181,9 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  onUpPressed() {
-    const diaryId = +this.route.snapshot.paramMap.get('diaryId')!;
-    console.log('FragmentComponent: Up pressed');
-    this.router.navigate(['/diary', diaryId]);
-  }
+  // ---------------------------------------------------------------------------
+  // Header actions
+  // ---------------------------------------------------------------------------
 
   onAddButtonClick() {
     console.log(`FragmentComponent.onAddButtonClick`);
@@ -219,11 +193,6 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
   onDeleteButtonClick(): void {
     console.log(`FragmentComponent.onDeleteButtonClick`);
     this.modelContext.fireDeleteButtonClick();
-  }
-
-  onEditMarqueeClick() {
-    console.log(`FragmentComponent.onEditMarqueeClick`);
-    this.modelContext.toggleEditMarqueeMode();
   }
 
   openFilesDialog() {
@@ -245,26 +214,9 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  onBackPressed() {
-    const diaryId = +this.route.snapshot.paramMap.get('diaryId')!;
-    const pageId = +this.route.snapshot.paramMap.get('pageId')!;
-    const i = this.pages.findIndex(p => p.id === pageId);
-    if (i >= 1) {
-      const prev = this.pages[i - 1];
-      console.log(`FragmentComponent.onBackPressed: diaryId: ${diaryId}, prev.id:/${prev.id}`);
-      this.router.navigate(['/diary', diaryId, prev.id]);
-    }
-  }
-
-  onForwardPressed() {
-    const diaryId = +this.route.snapshot.paramMap.get('diaryId')!;
-    const pageId = +this.route.snapshot.paramMap.get('pageId')!;
-    const i = this.pages.findIndex(p => p.id === pageId);
-    if (i >= 0 && i < this.pages.length - 1) {
-      const next = this.pages[i + 1];
-      console.log(`FragmentComponent.onForwardPressed: diaryId: ${diaryId}, next.id:/${next.id}`);
-      this.router.navigate(['/diary', diaryId, next.id]);
-    }
+  onEditMarqueeClick() {
+    console.log(`FragmentComponent.onEditMarqueeClick`);
+    this.modelContext.toggleEditMarqueeMode();
   }
 
   async onCreateMarqueeClick(): Promise<void> {
@@ -394,5 +346,74 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
           this.alertService.error('Could not delete marquee');
         }
       });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Footer navigation actions
+  // ---------------------------------------------------------------------------
+
+  onBackPressed() {
+    const diaryId = +this.route.snapshot.paramMap.get('diaryId')!;
+    const pageId = +this.route.snapshot.paramMap.get('pageId')!;
+    const i = this.pages.findIndex(p => p.id === pageId);
+    if (i >= 1) {
+      const prev = this.pages[i - 1];
+      console.log(`FragmentComponent.onBackPressed: diaryId: ${diaryId}, prev.id:/${prev.id}`);
+      this.router.navigate(['/diary', diaryId, prev.id]);
+    }
+  }
+
+  onUpPressed() {
+    const diaryId = +this.route.snapshot.paramMap.get('diaryId')!;
+    console.log('FragmentComponent: Up pressed');
+    this.router.navigate(['/diary', diaryId]);
+  }
+
+  onForwardPressed() {
+    const diaryId = +this.route.snapshot.paramMap.get('diaryId')!;
+    const pageId = +this.route.snapshot.paramMap.get('pageId')!;
+    const i = this.pages.findIndex(p => p.id === pageId);
+    if (i >= 0 && i < this.pages.length - 1) {
+      const next = this.pages[i + 1];
+      console.log(`FragmentComponent.onForwardPressed: diaryId: ${diaryId}, next.id:/${next.id}`);
+      this.router.navigate(['/diary', diaryId, next.id]);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Route/model helpers
+  // ---------------------------------------------------------------------------
+
+  // Number (or null) with safe parsing
+  private idFromRoute$(key: string): Observable<number | null> {
+    return this.route.paramMap.pipe(
+      map(pm => pm.get(key)),
+      map(v => (v !== null && /^\d+$/.test(v) ? parseInt(v, 10) : null)),
+      distinctUntilChanged()
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // GoldenLayout helpers
+  // ---------------------------------------------------------------------------
+
+  // Generic bindComponent: strongly typed and reusable
+  private bindComponent<T>(container: any, component: any): void {
+    const componentRef: ComponentRef<T> = createComponent<T>(component, {
+      environmentInjector: this.environmentInjector,
+    });
+
+    // Store for later cleanup:
+    container.componentRef = componentRef;
+
+    this.appRef.attachView(componentRef.hostView);
+    container.element!.append(componentRef.location.nativeElement);
+
+    // Hook up destroy
+    container.on('destroy', () => {
+      console.log('GoldenLayout: destroying Angular component');
+      this.appRef.detachView(componentRef.hostView);
+      componentRef.destroy();
+    });
   }
 }

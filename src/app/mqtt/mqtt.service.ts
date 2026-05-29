@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { ConfigService } from '../config/config.service';
+import { ConfigService, RuntimeConfig } from '../config/config.service';
 import mqtt from 'mqtt';
 import { delay, Subject } from 'rxjs';
 
@@ -32,21 +32,16 @@ export class MqttService {
 
       this.configService.getConfig()
         .then((config) => {
+          let connectedOnce = false;
 
           const clientId = `${config.clientId}-${Date.now()}`;
           this.actualClientId = clientId;
-          console.log(`MqttService.getConnection: connecting: ${clientId}`);
 
-          console.log('MqttService.getConnection: brokerUrl', {
-            brokerUrl: config.brokerUrl
-          });
-
-          console.log('MqttService.getConnection: clientId', {
-            clientId
-          });
-
-          console.log('MqttService.getConnection: MQTT config', {
-            config: JSON.stringify(config)
+          console.log('MqttService.getConnection: connecting with MQTT config', {
+            brokerUrl: config.brokerUrl,
+            clientId,
+            clean: config.clean,
+            protocolVersion: config.protocolVersion
           });
 
           let client: mqtt.MqttClient = mqtt.connect(config.brokerUrl, {
@@ -61,6 +56,7 @@ export class MqttService {
           });
 
           client.on('connect', () => {
+            connectedOnce = true;
             console.log(`MqttService.getConnection: [MQTT] connect clientId=${clientId} clean=${config.clean}`);
             resolve(client);
           });
@@ -75,7 +71,11 @@ export class MqttService {
 
           client.on('error', (error: any) => {
             console.error(`MqttService.getConnection: connection error: ${error}`);
-            reject("Failed to connect to the server.");
+
+            if (!connectedOnce) {
+              this.connectionPromise = null;
+              reject("Failed to connect to the server.");
+            }
           });
 
           client.on('close', () => {
@@ -87,6 +87,7 @@ export class MqttService {
           });
         })
         .catch((error) => {
+          this.connectionPromise = null;
           console.error(`MqttService.getConnection: configuration error: ${error}`);
           reject(`MqttService.getConnection: Error: ${error}`);
         });
@@ -109,9 +110,9 @@ export class MqttService {
   }
 
   getClientId(): string {
-  if (!this.actualClientId) {
-    throw new Error('MqttService.getConnection: MQTT clientId not initialised');
+    if (!this.actualClientId) {
+      throw new Error('MqttService.getConnection: MQTT clientId not initialised');
+    }
+    return this.actualClientId;
   }
-  return this.actualClientId;
-}
 }

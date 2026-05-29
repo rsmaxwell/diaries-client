@@ -1,13 +1,24 @@
 import { Injectable } from "@angular/core";
 import { BehaviorSubject, Observable } from "rxjs";
-import { MqttService } from "./mqtt.service";
 import mqtt from "mqtt";
+
+import { MqttService } from "./mqtt.service";
+
+interface LiveObjectListEntry<R extends { id: number } = any> {
+  subject: BehaviorSubject<R[]>;
+  refCount: number;
+  topicFilters: string[];
+  deserialize: (buf: Buffer) => R;
+  subscribedFilters: Set<string>;
+}
 
 @Injectable({ providedIn: 'root' })
 export class LiveObjectListService {
 
-  private topicSubscriptionMap = new Map<string, BehaviorSubject<any[]>>();
-  private topicHandlerMap = new Map<string, (topic: string, payload: Buffer) => void>();
+  private topicSubscriptionMap = new Map<string, LiveObjectListEntry>();
+
+  private messageListenerAttached = false;
+  private connectionListenersAttached = false;
 
   constructor(
     private mqtt: MqttService
@@ -19,116 +30,298 @@ export class LiveObjectListService {
     deserialize: (buf: Buffer) => R
   ): Observable<R[]> {
 
-    const mapKey = topicFilters.join(',');
+    this.ensureListener(client);
 
-    if (this.topicSubscriptionMap.has(mapKey)) {
-      return this.topicSubscriptionMap.get(mapKey)!.asObservable();
+    return new Observable<R[]>(observer => {
+      const entry = this.getOrCreateEntry(client, topicFilters, deserialize);
+
+      entry.refCount++;
+      console.log(
+        `LiveObjectListService.subscribeToTopicTree$: SUBSCRIBE '${this.mapKey(topicFilters)}', refCount incremented to ${entry.refCount}`
+      );
+
+      const subscription = entry.subject.subscribe(observer);
+
+      return () => {
+        subscription.unsubscribe();
+        this.releaseTopicTreeReference(client, topicFilters, entry);
+      };
+    });
+  }
+
+  unsubscribeTopicTree(topicFilters: string[]): void {
+    console.log(`LiveObjectListService.unsubscribeTopicTree: topicFilters: ${topicFilters}`);
+
+    const mapKey = this.mapKey(topicFilters);
+    const entry = this.topicSubscriptionMap.get(mapKey);
+
+    if (!entry) {
+      console.warn(`LiveObjectListService.unsubscribeTopicTree: topic tree '${mapKey}' not found`);
+      return;
     }
 
-    const subject = new BehaviorSubject<R[]>([]);
-    this.topicSubscriptionMap.set(mapKey, subject);
+    this.mqtt.getConnection().then(client => {
+      this.unsubscribeAndDeleteTopicTree(client, topicFilters, entry, true);
 
-    const handler = (messageTopic: string, payload: Buffer) => {
-      if (!this.topicMatchesFilters(messageTopic, topicFilters)) {
-        return;
+      console.log(
+        `LiveObjectListService.unsubscribeTopicTree: ListenerCount after UNSUBSCRIBE '${topicFilters}':`,
+        client.listenerCount('message')
+      );
+    }).catch(err => {
+      console.error(`LiveObjectListService.unsubscribeTopicTree: failed to get MQTT connection`, err);
+    });
+  }
+
+  /**
+   * Attach one MQTT message listener for the whole service.
+   *
+   * Individual topic-tree subscriptions are still made per filter, but incoming MQTT
+   * messages are dispatched through this single listener rather than adding one
+   * client.on('message', ...) handler per topic tree.
+   */
+  private ensureListener(client: mqtt.MqttClient): void {
+    if (!this.messageListenerAttached) {
+      console.log(`LiveObjectListService.ensureListener: attaching MQTT message dispatcher`);
+
+      client.on('message', this.liveObjectListDispatcher.bind(this));
+      this.messageListenerAttached = true;
+
+      console.log(
+        `LiveObjectListService.ensureListener: ListenerCount after attaching dispatcher:`,
+        client.listenerCount('message')
+      );
+    }
+
+    if (!this.connectionListenersAttached) {
+      client.on('connect', (connack: any) => {
+        console.log(
+          `LiveObjectListService.ensureListener: [MQTT] connect seen in LiveObjectListService sessionPresent=${connack?.sessionPresent}`
+        );
+        this.resubscribeAll(client);
+      });
+
+      client.on('reconnect', () => {
+        console.log(`LiveObjectListService.ensureListener: [MQTT] reconnecting (LiveObjectListService)`);
+      });
+
+      this.connectionListenersAttached = true;
+    }
+  }
+
+  /**
+   * Single MQTT message dispatcher for all live object-list topic trees.
+   */
+  private liveObjectListDispatcher(messageTopic: string, payload: Buffer): void {
+    for (const [mapKey, entry] of this.topicSubscriptionMap.entries()) {
+      if (!this.topicMatchesFilters(messageTopic, entry.topicFilters)) {
+        continue;
       }
 
-      const current = subject.getValue();
+      this.applyMessageToEntry(mapKey, entry, messageTopic, payload);
+    }
+  }
 
-      // Handle delete (0-byte payload)
-      if (payload.byteLength === 0) {
-        const parts = messageTopic.split('/');
-        const id = Number(parts.at(-1));
-        if (!isNaN(id)) {
-          console.log(`LiveObjectListService.subscribeToTopicTree: Handle delete for: ${messageTopic}`);
-          subject.next(current.filter(item => item.id !== id));
+  private applyMessageToEntry<R extends { id: number }>(
+    mapKey: string,
+    entry: LiveObjectListEntry<R>,
+    messageTopic: string,
+    payload: Buffer
+  ): void {
+
+    const current = entry.subject.getValue();
+
+    // Handle retained delete / tombstone message.
+    if (!payload || payload.byteLength === 0) {
+      const id = this.extractIdFromTopic(messageTopic);
+
+      if (id !== null) {
+        console.log(`LiveObjectListService.liveObjectListDispatcher: Handle delete for: ${messageTopic}`);
+        entry.subject.next(current.filter(item => item.id !== id));
+      }
+
+      return;
+    }
+
+    try {
+      const value = entry.deserialize(payload);
+      const index = current.findIndex(item => item.id === value.id);
+      const updated = [...current];
+
+      if (index !== -1) {
+        updated[index] = value;
+      } else {
+        updated.push(value);
+      }
+
+      updated.sort((a, b) => {
+        const aSeq = (a as any).sequence;
+        const bSeq = (b as any).sequence;
+
+        if (typeof aSeq === 'number' && typeof bSeq === 'number') {
+          return aSeq - bSeq;
         }
-        return;
-      }
 
-      try {
-        const value = deserialize(payload);
-        const index = current.findIndex(item => item.id === value.id);
-        const updated = [...current];
+        return a.id - b.id;
+      });
 
-        if (index !== -1) {
-          updated[index] = value;
-        } else {
-          updated.push(value);
-        }
+      entry.subject.next(updated);
 
-        updated.sort((a, b) => {
-          const aSeq = (a as any).sequence;
-          const bSeq = (b as any).sequence;
+    } catch (err) {
+      console.error(
+        `LiveObjectListService.liveObjectListDispatcher: failed to parse message on ${messageTopic} for ${mapKey}`,
+        err
+      );
+    }
+  }
 
-          if (typeof aSeq === 'number' && typeof bSeq === 'number') {
-            return aSeq - bSeq;
-          }
+  private getOrCreateEntry<R extends { id: number }>(
+    client: mqtt.MqttClient,
+    topicFilters: string[],
+    deserialize: (buf: Buffer) => R
+  ): LiveObjectListEntry<R> {
 
-          return a.id - b.id;
-        });
+    const mapKey = this.mapKey(topicFilters);
+    const existing = this.topicSubscriptionMap.get(mapKey) as LiveObjectListEntry<R> | undefined;
+    if (existing) return existing;
 
-        subject.next(updated);
-
-      } catch (err) {
-        console.error(`LiveObjectListService: failed to parse message on ${messageTopic}`, err);
-      }
+    const entry: LiveObjectListEntry<R> = {
+      subject: new BehaviorSubject<R[]>([]),
+      refCount: 0,
+      topicFilters: [...topicFilters],
+      deserialize,
+      subscribedFilters: new Set<string>()
     };
 
-    topicFilters.forEach(topicFilter => {
+    this.topicSubscriptionMap.set(mapKey, entry);
+    this.subscribeToTopicFilters(client, mapKey, entry);
+
+    return entry;
+  }
+
+  private subscribeToTopicFilters(
+    client: mqtt.MqttClient,
+    mapKey: string,
+    entry: LiveObjectListEntry
+  ): void {
+
+    entry.topicFilters.forEach(topicFilter => {
+      console.log(
+        `LiveObjectListService.subscribeToTopicFilters: [MQTT] SUBSCRIBE -> ${topicFilter} (client.connected=${client.connected})`
+      );
+
       client.subscribe(topicFilter, { qos: 1 }, err => {
+        const latest = this.topicSubscriptionMap.get(mapKey);
+        if (latest !== entry) return;
+
+        console.log(`LiveObjectListService.subscribeToTopicFilters: [MQTT] SUBSCRIBE ACK <- ${topicFilter}`, { err });
+
         if (err) {
-          console.error(`LiveObjectListService: failed to subscribe to ${topicFilter}`, err);
-          subject.error(err);
+          console.error(`LiveObjectListService.subscribeToTopicFilters: failed to subscribe to ${topicFilter}`, err);
+          entry.subject.error(err);
           this.topicSubscriptionMap.delete(mapKey);
-        } else {
-          if (!this.topicHandlerMap.has(mapKey)) {
-
-            console.log(`LiveObjectListService.subscribeToTopicTree$: subscribed to '${topicFilter}', attaching handler`);
-
-            client.on('message', handler);
-
-            console.log(`LiveObjectListService.subscribeToTopicTree$: ListenerCount: after subscribeToTopicTree:`, client.listenerCount('message'));
-
-            this.topicHandlerMap.set(mapKey, handler);
-          }
+          return;
         }
+
+        entry.subscribedFilters.add(topicFilter);
+
+        console.log(
+          `LiveObjectListService.subscribeToTopicFilters: subscribed to '${topicFilter}' using shared dispatcher`
+        );
+        console.log(
+          `LiveObjectListService.subscribeToTopicFilters: ListenerCount after subscribeToTopicTree:`,
+          client.listenerCount('message')
+        );
       });
     });
+  }
 
-    subject.subscribe({
-      complete: () => {
+  private releaseTopicTreeReference(
+    client: mqtt.MqttClient,
+    topicFilters: string[],
+    entry: LiveObjectListEntry
+  ): void {
 
-        console.log(`LiveObjectListService.subscribeToTopicTree$: unsubscribing and removing handler'`);
+    const mapKey = this.mapKey(topicFilters);
+    const current = this.topicSubscriptionMap.get(mapKey);
+    if (current !== entry) return;
 
-        client.removeListener('message', handler);
+    entry.refCount--;
+    console.log(
+      `LiveObjectListService.releaseTopicTreeReference: UNSUBSCRIBE '${mapKey}', refCount decremented to ${entry.refCount}`
+    );
 
-        console.log(`LiveObjectListService.subscribeToTopicTree$: ListenerCount: after unsubscribeTopicTree cleanup:`, client.listenerCount('message'));
+    if (entry.refCount <= 0) {
+      this.unsubscribeAndDeleteTopicTree(client, topicFilters, entry, false);
+    }
+  }
 
+  private unsubscribeAndDeleteTopicTree(
+    client: mqtt.MqttClient,
+    topicFilters: string[],
+    entry: LiveObjectListEntry,
+    completeSubject: boolean
+  ): void {
 
-        topicFilters.forEach(filter => client.unsubscribe(filter));
-        this.topicHandlerMap.delete(mapKey);
-        this.topicSubscriptionMap.delete(mapKey);
-      },
-      error: err => {
-        console.error(`LiveObjectListService.subscribeToTopicTree$: error in stream for ${mapKey}`, err);
-        console.log(`LiveObjectListService.subscribeToTopicTree$: ListenerCount: after unsubscribeTopicTree cleanup:`, client.listenerCount('message'));
+    const mapKey = this.mapKey(topicFilters);
+    const current = this.topicSubscriptionMap.get(mapKey);
+    if (current !== entry) return;
 
-        client.removeListener('message', handler);
-        topicFilters.forEach(filter => client.unsubscribe(filter));
-        this.topicHandlerMap.delete(mapKey);
-        this.topicSubscriptionMap.delete(mapKey);
-      }
+    this.topicSubscriptionMap.delete(mapKey);
+
+    if (completeSubject) {
+      entry.subject.complete();
+    }
+
+    entry.topicFilters.forEach(topicFilter => {
+      console.log(`LiveObjectListService.unsubscribeAndDeleteTopicTree: [MQTT] UNSUBSCRIBE -> ${topicFilter}`);
+
+      client.unsubscribe(topicFilter, err => {
+        if (err) {
+          console.error(
+            `LiveObjectListService.unsubscribeAndDeleteTopicTree: failed to unsubscribe '${topicFilter}'`,
+            err
+          );
+          return;
+        }
+
+        console.log(`LiveObjectListService.unsubscribeAndDeleteTopicTree: unsubscribed '${topicFilter}'`);
+        console.log(
+          `LiveObjectListService.unsubscribeAndDeleteTopicTree: ListenerCount after unsubscribeTopicTree cleanup:`,
+          client.listenerCount('message')
+        );
+      });
     });
+  }
 
-    return subject.asObservable();
+  private resubscribeAll(client: mqtt.MqttClient): void {
+    for (const [mapKey, entry] of this.topicSubscriptionMap.entries()) {
+      if (entry.refCount <= 0) continue;
+
+      entry.topicFilters.forEach(topicFilter => {
+        console.log(
+          `LiveObjectListService.resubscribeAll: [MQTT] RESUBSCRIBE -> ${topicFilter} refCount=${entry.refCount}`
+        );
+
+        client.subscribe(topicFilter, { qos: 1 }, (err: any) => {
+          console.log(`LiveObjectListService.resubscribeAll: [MQTT] RESUBSCRIBE ACK <- ${topicFilter}`, { err });
+
+          if (err) {
+            entry.subject.error(err);
+            this.topicSubscriptionMap.delete(mapKey);
+            return;
+          }
+
+          entry.subscribedFilters.add(topicFilter);
+        });
+      });
+    }
   }
 
   private topicMatchesFilters(topic: string, filters: string[]): boolean {
     return filters.some(filter => this.topicMatchesFilter(topic, filter));
   }
 
-  /** Robust MQTT topic filter matching **/
+  /** Robust MQTT topic filter matching. */
   private topicMatchesFilter(topic: string, filter: string): boolean {
     const topicLevels = topic.split('/');
     const filterLevels = filter.split('/');
@@ -138,37 +331,30 @@ export class LiveObjectListService {
       const t = topicLevels[i];
 
       if (f === '#') {
-        return true; // Multi-level wildcard
+        return true; // Multi-level wildcard.
       }
+
       if (f === '+') {
-        continue; // Single-level wildcard
+        if (t === undefined) return false;
+        continue; // Single-level wildcard.
       }
+
       if (t === undefined || f !== t) {
         return false;
       }
     }
 
-    // Handles edge case: topic is longer than filter without trailing '#'
+    // Handles edge case: topic is longer than filter without trailing '#'.
     return topicLevels.length === filterLevels.length;
   }
 
-  unsubscribeTopicTree(topicFilters: string[]): void {
+  private extractIdFromTopic(topic: string): number | null {
+    const parts = topic.split('/');
+    const id = Number(parts.at(-1));
+    return Number.isNaN(id) ? null : id;
+  }
 
-    console.log(`LiveObjectListService.unsubscribeTopicTree: topicFilters: ${topicFilters}`);
-
-    const mapKey = topicFilters.join(',');
-
-    this.mqtt.getConnection().then(client => {
-      const subject = this.topicSubscriptionMap.get(mapKey);
-      if (subject) {
-        subject.complete(); // downstream handles cleanup in `complete` handler
-        this.topicSubscriptionMap.delete(mapKey);
-
-        console.log(
-          `LiveObjectListService.getObjectById$: ListenerCount after UNSUBSCRIBE '${topicFilters}': ${client.listenerCount('message')}`
-        );
-
-      }
-    });
+  private mapKey(topicFilters: string[]): string {
+    return topicFilters.join(',');
   }
 }
