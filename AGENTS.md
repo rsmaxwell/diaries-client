@@ -34,5 +34,9 @@
 - Use `src/environments/*` only for non-secret build flags. Keep sensitive values external or injected at deploy time.
 
 ## Architecture Notes
-- Standalone components with router-based navigation. Data flows via HttpClient and MQTT services (`src/app/mqtt/*`). UI uses Angular Material and Quill.
+- Standalone Angular components with router-based navigation.
+- The client communicates with `diaries-responder` primarily through MQTT RPC and retained MQTT live-object subscriptions.
+- HTTP is used only where appropriate for static files, runtime configuration, or browser-served resources.
+- UI uses Angular Material and Quill.
+- Keep client behaviour consistent with the responder, especially around request/reply payloads, retained topic names, locking, deletion, and idempotency.
 
