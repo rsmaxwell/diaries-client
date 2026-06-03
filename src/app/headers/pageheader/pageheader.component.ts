@@ -5,7 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { DomSanitizer } from '@angular/platform-browser';
 import { ModelContext } from '../../model/model-context';
-import { asapScheduler, map, observeOn, Observable, Subject, switchMap, take, takeUntil, startWith, distinctUntilChanged, combineLatest } from 'rxjs';
+import { asapScheduler, map, observeOn, Observable, Subject, switchMap, take, takeUntil, startWith, distinctUntilChanged, combineLatest, BehaviorSubject } from 'rxjs';
 import { Diary } from '../../model/diary';
 import { Page } from '../../model/page';
 import { Dialog } from '@angular/cdk/dialog';
@@ -46,6 +46,7 @@ export class PageheaderComponent implements OnInit, OnDestroy {
   page: Page | null = null;
 
   editMarqueeMode = false;
+  hasSelectedPage$: Observable<boolean>;
   hasSelectedFragment$: Observable<boolean>;
   hasSelectedMarquee$: Observable<boolean>;
   canCreateMarquee$: Observable<boolean>;
@@ -71,6 +72,11 @@ export class PageheaderComponent implements OnInit, OnDestroy {
     this.iconRegistry.addSvgIcon('create-marquee', this.sanitizer.bypassSecurityTrustResourceUrl('assets/icons/create-marquee.svg'));
     this.iconRegistry.addSvgIcon('edit-marquee', this.sanitizer.bypassSecurityTrustResourceUrl('assets/icons/edit-marquee.svg'));
     this.iconRegistry.addSvgIcon('delete-marquee', this.sanitizer.bypassSecurityTrustResourceUrl('assets/icons/trash-marquee.svg'));
+
+    this.hasSelectedPage$ = this.modelContext.hasSelectedPage$.pipe(
+      startWith(false),
+      observeOn(asapScheduler)
+    );
 
     this.hasSelectedFragment$ = this.modelContext.hasSelectedFragment$.pipe(
       startWith(false),
@@ -183,11 +189,18 @@ export class PageheaderComponent implements OnInit, OnDestroy {
         switchMap(() => this.rpcService.listFiles$()),
         take(1)
       ).subscribe({
-        next: (items) => {
+        next: () => {
+          const path$ = new BehaviorSubject<string>('/');
+
           this.dialog.open(FilesListDialogComponent, {
-            width: '980px',
-            data: items ?? [],
-            panelClass: 'files-dialog-panel'   // <- custom hook for styling
+            width: '80vw',
+            height: '70vh',
+            minWidth: '560px',
+            minHeight: '380px',
+            maxWidth: '96vw',
+            maxHeight: '92vh',
+            panelClass: 'files-dialog-panel',
+            data: { path$, select: false }
           });
         },
         error: (err) => {

@@ -38,7 +38,7 @@
     title="add fragment with default marquee"
     class="add icon"
     aria-label="add fragment with default marquee"
-    [disabled]="!(hasSelectedFragment$ | async)"
+    [disabled]="!(hasSelectedPage$ | async)"
     (click)="onAddClick()">
     <mat-icon svgIcon="cross"></mat-icon>
   </button>

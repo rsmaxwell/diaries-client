@@ -200,7 +200,12 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
 
     const ref: DialogRef<FileSelection, FilesListDialogComponent> =
       this.dialog.open(FilesListDialogComponent, {
-        width: '980px',
+        width: '80vw',
+        height: '70vh',
+        minWidth: '560px',
+        minHeight: '380px',
+        maxWidth: '96vw',
+        maxHeight: '92vh',
         panelClass: 'files-dialog-panel',
         data: { path$, select: true }
       });

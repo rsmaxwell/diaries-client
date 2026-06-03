@@ -2,10 +2,10 @@ import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ModelContext } from '../../model/model-context';
 import { EditLockInfo, Fragment } from '../../model/fragment';
-import { auditTime, BehaviorSubject, distinctUntilChanged, map, pairwise, startWith, Subject, take, takeUntil } from 'rxjs';
+import { auditTime, BehaviorSubject, distinctUntilChanged, firstValueFrom, map, pairwise, startWith, Subject, take, takeUntil } from 'rxjs';
 import { QuillModule } from 'ngx-quill';
 import { FormControl, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
-import { RpcService } from '../../mqtt/rpc.service';
+import { RpcError, RpcService } from '../../mqtt/rpc.service';
 
 // import the Material modules and types
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -131,7 +131,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
         console.log(`TextPanelComponent: we are leaving fragment.id=${leaving?.id}`);
 
         if (switchingFragment) {
-          void this.unlockFragmentIfMine(leaving, 'switching fragment');
+          void this.unlockCurrentFragment('switching fragment');
         }
 
         // Track current fragment after any switch logic
@@ -515,9 +515,14 @@ export class TextPanelComponent implements OnInit, OnDestroy {
 
     const ref: DialogRef<FileSelection, FilesListDialogComponent> =
       this.dialog.open(FilesListDialogComponent, {
-        width: '980px',
+        width: '80vw',
+        height: '70vh',
+        minWidth: '560px',
+        minHeight: '380px',
+        maxWidth: '96vw',
+        maxHeight: '92vh',
         panelClass: 'files-dialog-panel',
-        data: { path$, select: true }          // <-- selection mode
+        data: { path$, select: true }
       });
 
     ref.closed.pipe(take(1)).subscribe(res => {
@@ -700,23 +705,39 @@ export class TextPanelComponent implements OnInit, OnDestroy {
     }
   }
 
-  private async unlockFragmentIfMine(fragment: Fragment | null, reason: string): Promise<void> {
-    if (!fragment) {
-      return;
-    }
+  async unlockFragment(fragmentId: number, reason = 'unlock'): Promise<boolean> {
+    try {
+      console.log(`FragmentLockService: unlocking fragment ${fragmentId}: ${reason}`);
 
-    if (!this.isLockedByMeFragment(fragment)) {
-      return;
-    }
+      await firstValueFrom(
+        this.rpcService.unlockFragment$(fragmentId).pipe(take(1))
+      );
 
-    const fragmentId = fragment.id;
+      console.log(`FragmentLockService: unlocked fragment ${fragmentId}: ${reason}`);
+      return true;
 
-    console.log(`TextPanelComponent.${reason}: unlockFragment$, id=${fragmentId}`);
+    } catch (err: unknown) {
+      /*
+       * If the fragment has just been deleted, there is no lock left to release.
+       * Treat this as a successful no-op rather than warning.
+       */
+      if (
+        err instanceof RpcError &&
+        err.status === HttpStatusCode.InternalServerError &&
+        String(err.message ?? '').includes('Fragment not found')
+      ) {
+        console.info(
+          `FragmentLockService: fragment ${fragmentId} no longer exists; unlock ignored: ${reason}`
+        );
+        return true;
+      }
 
-    const unlocked = await this.fragmentLockService.unlockFragment(fragmentId, reason);
+      console.warn(
+        `FragmentLockService: failed to unlock fragment ${fragmentId}: ${reason}`,
+        err
+      );
 
-    if (unlocked && this.fragment?.id === fragmentId) {
-      this.markFragmentUnlocked();
+      return false;
     }
   }
 

@@ -33,6 +33,11 @@ export class ModelContext {
   readonly fragmentId$ = this.fragmentIdSubject.asObservable();
   readonly marqueeId$ = this.marqueeIdSubject.asObservable();
 
+  readonly hasSelectedPage$ = this.pageId$.pipe(
+    map(id => Number.isFinite(id)),
+    distinctUntilChanged()
+  );
+
   readonly hasSelectedFragment$ = this.fragmentId$.pipe(
     map(id => Number.isFinite(id)),
     distinctUntilChanged()

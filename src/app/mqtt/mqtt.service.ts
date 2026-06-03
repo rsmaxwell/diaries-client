@@ -88,8 +88,8 @@ export class MqttService {
         })
         .catch((error) => {
           this.connectionPromise = null;
-          console.error(`MqttService.getConnection: configuration error: ${error}`);
-          reject(`MqttService.getConnection: Error: ${error}`);
+          console.error('MqttService.getConnection: configuration error', error);
+          reject(error);
         });
     })
 

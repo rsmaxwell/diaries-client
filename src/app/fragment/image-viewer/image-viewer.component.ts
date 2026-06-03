@@ -929,19 +929,21 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
         this.modelContext.fragments$
       ]).pipe(take(1))
     ).then(([selectedFragment, fragments]) => {
-      if (!selectedFragment) {
-        this.alertService.error('Select an existing fragment first, so the new fragment has a date');
-        return;
-      }
+      const year = selectedFragment?.year ?? 0;
+      const month = selectedFragment?.month ?? 0;
+      const day = selectedFragment?.day ?? 0;
 
-      const sequence = this.nextFragmentSequence(fragments, selectedFragment.sequence);
+      const sequence = selectedFragment
+        ? this.nextFragmentSequence(fragments, selectedFragment.sequence)
+        : 1000;
+
       const rectangle = this.defaultMarqueeRectangle();
 
       const request = new AddFragmentRequest(
         this.page.id,
-        selectedFragment.year,
-        selectedFragment.month,
-        selectedFragment.day,
+        year,
+        month,
+        day,
         sequence,
         '',
         rectangle.x,
