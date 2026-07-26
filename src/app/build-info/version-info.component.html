@@ -1,0 +1,5 @@
+@if (versions$ | async; as versions) {
+  <span class="version-info">
+    Client {{ versions.client }} · Responder {{ versions.responder }}
+  </span>
+}

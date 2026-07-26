@@ -154,8 +154,11 @@ buildctl-daemonless.sh build \
   --local dockerfile="${DOCKERFILE_DIR}" \
   --opt build-arg:REPOSITORY="${REPOSITORY}" \
   --opt build-arg:VERSION="${VERSION}" \
+  --opt build-arg:BUILD_ID="${BUILD_ID}" \
   --opt build-arg:BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   --opt build-arg:VCS_REF="${GIT_COMMIT:-unknown}" \
+  --opt build-arg:GIT_BRANCH="${GIT_BRANCH:-unknown}" \
+  --opt build-arg:GIT_URL="${GIT_URL:-unknown}" \
   --output "type=image,\"name=${NAMES}\",push=true"
 
 # ----------------------------

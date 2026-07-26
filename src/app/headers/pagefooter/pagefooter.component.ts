@@ -4,6 +4,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { Router } from '@angular/router';
 import { AlertsComponent } from "../../alerts/alerts.component";
+import { VersionInfoComponent } from "../../build-info/version-info.component";
 
 @Component({
   selector: 'app-pagefooter',
@@ -12,7 +13,8 @@ import { AlertsComponent } from "../../alerts/alerts.component";
     MatToolbarModule, 
     MatButtonModule, 
     MatIconModule, 
-    AlertsComponent
+    AlertsComponent,
+    VersionInfoComponent
   ],
   templateUrl: './pagefooter.component.html',
   styleUrl: './pagefooter.component.scss'

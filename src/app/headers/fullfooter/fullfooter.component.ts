@@ -4,11 +4,12 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { Router } from '@angular/router';
 import { AlertsComponent } from "../../alerts/alerts.component";
+import { VersionInfoComponent } from "../../build-info/version-info.component";
 
 @Component({
   selector: 'app-fullfooter',
   standalone: true,
-  imports: [MatToolbarModule, MatButtonModule, MatIconModule, AlertsComponent],
+  imports: [MatToolbarModule, MatButtonModule, MatIconModule, AlertsComponent, VersionInfoComponent],
   templateUrl: './fullfooter.component.html',
   styleUrl: './fullfooter.component.scss'
 })

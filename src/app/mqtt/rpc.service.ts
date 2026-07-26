@@ -23,6 +23,7 @@ import { RefreshTokenService } from "../user/token/refreshTokenService";
 import { FileEntry } from "../model/FileEntry";
 import { FileListResponse } from "../model/FileListResponse";
 import { Router } from "@angular/router";
+import { BuildInfo } from "../model/build-info";
 
 export class RpcError extends Error {
     constructor(
@@ -290,6 +291,27 @@ export class RpcService {
                         this.redirectToSignin();
                         return throwError(() => refreshOrRetryErr);
                     })
+                );
+            })
+        );
+    }
+
+    getResponderVersion$(): Observable<BuildInfo> {
+        return forkJoin({
+            cfg: this.configService.getConfig(),
+            client: this.mqtt.getConnection()
+        }).pipe(
+            switchMap(({ client }) => {
+                const replyTopic = Constants.replyTopic(this.mqtt.getClientId());
+                const payload = { function: 'getVersion' };
+                const deserialize = ReplyHandler.getBufferAsObject as (buffer: Buffer) => BuildInfo;
+                return this.rpcRequest<BuildInfo>(
+                    client,
+                    Constants.reqTopic,
+                    replyTopic,
+                    payload,
+                    null,
+                    deserialize
                 );
             })
         );
