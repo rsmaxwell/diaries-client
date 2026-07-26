@@ -1,5 +1,5 @@
 import { AsyncPipe } from '@angular/common';
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { catchError, combineLatest, map, of, startWith } from 'rxjs';
 
 import { RpcService } from '../mqtt/rpc.service';
@@ -18,6 +18,9 @@ interface DisplayVersions {
   styleUrl: './version-info.component.scss'
 })
 export class VersionInfoComponent {
+  private readonly clientBuildInfoService = inject(ClientBuildInfoService);
+  private readonly rpcService = inject(RpcService);
+
   readonly versions$ = combineLatest({
     client: this.clientBuildInfoService.getBuildInfo().pipe(
       map(info => info.version),
@@ -34,10 +37,7 @@ export class VersionInfoComponent {
       }),
       startWith('connecting')
     )
-  }).pipe(map(versions => versions as DisplayVersions));
-
-  constructor(
-    private clientBuildInfoService: ClientBuildInfoService,
-    private rpcService: RpcService
-  ) {}
+  }).pipe(
+    map(versions => versions as DisplayVersions)
+  );
 }
