@@ -1,12 +1,12 @@
 {
-  "brokerMode": "proxy",
-  "brokerProxyUrl": "wss://example.com/mosquitto/",
+  "brokerMode": "direct",
   "brokerDirectUrl": "ws://localhost:9001",
 
-  "responderBaseUrl": "http://localhost:8081",
+  "responderBaseUrlMode": "same-host-port",
+  "responderBaseUrlPort": 8081,
 
-  "username": "{{ mqtt_client_user }}",
-  "password": "{{ mqtt_client_password }}",
+  "username": "diaries-client",
+  "password": "secret-2",
 
   "diaries": "diaries",
   "files": "files",
