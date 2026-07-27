@@ -1,9 +1,9 @@
 {
   "name": "diaries-client",
-  "version": "0.0.0-SNAPSHOT",
+  "version": "0.0.9-SNAPSHOT",
   "buildID": "(none)",
-  "builddate": "(development)",
-  "gitCommit": "(none)",
-  "gitBranch": "(none)",
-  "gitURL": "(none)"
+  "builddate": "2026-07-27T09:46:19.814Z",
+  "gitCommit": "80ab3ab60f188331770d8669cae2b926a96b1609",
+  "gitBranch": "main",
+  "gitURL": "git@github.com:rsmaxwell/diaries.git"
 }

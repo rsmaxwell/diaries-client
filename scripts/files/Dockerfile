@@ -1,7 +1,7 @@
 # ---- build stage -------------------------------------------------
 FROM node:20-bookworm-slim AS build
 
-ARG VERSION=0.0.0-SNAPSHOT
+ARG VERSION=0.0.1-SNAPSHOT
 ARG BUILD_ID=(none)
 ARG BUILD_DATE=(unknown)
 ARG VCS_REF=(unknown)
@@ -14,18 +14,14 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
-RUN printf '%s\n' \
-      '{' \
-      '  "name": "diaries-client",' \
-      "  \"version\": \"${VERSION}\"," \
-      "  \"buildID\": \"${BUILD_ID}\"," \
-      "  \"builddate\": \"${BUILD_DATE}\"," \
-      "  \"gitCommit\": \"${VCS_REF}\"," \
-      "  \"gitBranch\": \"${GIT_BRANCH}\"," \
-      "  \"gitURL\": \"${GIT_URL}\"" \
-      '}' \
-      > public/assets/build-info.json
-RUN npm run build -- --configuration production --base-href /
+
+RUN VERSION="${VERSION}" \
+    BUILD_ID="${BUILD_ID}" \
+    BUILD_DATE="${BUILD_DATE}" \
+    GIT_COMMIT="${VCS_REF}" \
+    GIT_BRANCH="${GIT_BRANCH}" \
+    GIT_URL="${GIT_URL}" \
+    npm run build -- --configuration production --base-href /
 
 # ---- runtime stage -----------------------------------------------
 FROM node:20-bookworm-slim AS runtime
