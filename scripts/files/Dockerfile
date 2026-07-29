@@ -21,7 +21,7 @@ RUN VERSION="${VERSION}" \
     GIT_COMMIT="${VCS_REF}" \
     GIT_BRANCH="${GIT_BRANCH}" \
     GIT_URL="${GIT_URL}" \
-    npm run build -- --configuration production --base-href /
+    npm run build -- --configuration production --base-href /diaries/
 
 # ---- runtime stage -----------------------------------------------
 FROM node:20-bookworm-slim AS runtime
