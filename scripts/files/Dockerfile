@@ -1,12 +1,17 @@
 # ---- build stage -------------------------------------------------
 FROM node:20-bookworm-slim AS build
 
-ARG VERSION=0.0.1-SNAPSHOT
+ARG VERSION
 ARG BUILD_ID=(none)
 ARG BUILD_DATE=(unknown)
 ARG VCS_REF=(unknown)
 ARG GIT_BRANCH=(unknown)
 ARG GIT_URL=(unknown)
+
+
+RUN test -n "${VERSION}" || \
+    (echo "VERSION build argument is required" >&2 && exit 1)
+
 
 WORKDIR /app
 
