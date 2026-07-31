@@ -43,6 +43,7 @@
           },
           "configurations": {
             "production": {
+              "baseHref": "/diaries/",
               "budgets": [
                 {
                   "type": "initial",
