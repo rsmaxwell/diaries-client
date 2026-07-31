@@ -21,17 +21,12 @@ RUN VERSION="${VERSION}" \
     GIT_COMMIT="${VCS_REF}" \
     GIT_BRANCH="${GIT_BRANCH}" \
     GIT_URL="${GIT_URL}" \
-    npm run build -- --configuration production 
+    npm run build -- --configuration production
 
 # ---- runtime stage -----------------------------------------------
-FROM node:20-bookworm-slim AS runtime
+FROM nginx:alpine AS runtime
 
-WORKDIR /app
-
-RUN npm install -g serve
-
-COPY --from=build /app/dist/diaries-client/browser/ /app/www/
+COPY scripts/files/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/dist/diaries-client/browser/ /usr/share/nginx/html/diaries/
 
 EXPOSE 8080
-
-CMD ["serve", "-s", "/app/www", "-l", "8080"]
