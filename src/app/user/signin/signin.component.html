@@ -6,7 +6,7 @@
     <h3>Signin</h3>
   </div>
 
-  <form [formGroup]="form" class="form" autocomplete="on">
+  <form [formGroup]="form" class="form" autocomplete="on" (ngSubmit)="onSubmit()">
 
     <mat-form-field appearance="outline" class="item">
       <mat-label>Username</mat-label>
@@ -41,8 +41,8 @@
     </mat-form-field>
 
     <mat-card-actions class="button-container">
-      <button mat-raised-button (click)="onSubmit()" [disabled]="!form.valid" color="primary">Signin</button>
-      <button mat-raised-button (click)="onRegister()" class="button">Register</button>
+      <button type="submit" mat-raised-button [disabled]="!form.valid" color="primary">Signin</button>
+      <button type="button" mat-raised-button (click)="onRegister()" class="button">Register</button>
     </mat-card-actions>
 
   </form>
