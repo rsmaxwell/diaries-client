@@ -1,5 +1,5 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
-import { Subject, take, takeUntil } from 'rxjs';
+import { firstValueFrom, Subject, take, takeUntil } from 'rxjs';
 import { ModelContext } from '../model/model-context';
 import { Fragment } from '../model/fragment';
 import { CommonModule } from '@angular/common';
@@ -13,6 +13,7 @@ import { AlertService } from '../alerts/alert.service';
 import { ScrollingModule } from '@angular/cdk/scrolling';
 import { Router } from '@angular/router';
 import { SafeHtmlPipe } from '../utilities/safe-html.pipe';
+import { FragmentLockService } from '../fragment/fragment-lock.service';
 
 @Component({
   selector: 'app-diary',
@@ -40,6 +41,7 @@ export class DayviewComponent implements OnInit, OnDestroy {
 
   displayedColumns = ['id', 'sequence', 'text'];
   dataSource = new MatTableDataSource<Fragment>();
+  reorderInFlight = false;
 
   private destroy$ = new Subject<void>();
 
@@ -47,7 +49,8 @@ export class DayviewComponent implements OnInit, OnDestroy {
     private rpcService: RpcService,
     private modelContext: ModelContext,
     private alertService: AlertService,
-    private router: Router
+    private router: Router,
+    private fragmentLockService: FragmentLockService
   ) { }
 
   ngOnInit(): void {
@@ -87,54 +90,72 @@ export class DayviewComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  drop(event: CdkDragDrop<Fragment[]>) {
-    const updated = [...this.dataSource.data];
-    moveItemInArray(updated, event.previousIndex, event.currentIndex);
-    this.dataSource.data = updated;
-
-    // Get the moved item
-    const movedItem = updated[event.currentIndex];
-
-    // Determine surrounding sequence values
-    const prevItem = updated[event.currentIndex - 1] ?? null;
-    const nextItem = updated[event.currentIndex + 1] ?? null;
-
-    if (prevItem && nextItem) {
-      // Middle of the list --> set sequence to average
-      movedItem.sequence = (prevItem.sequence + nextItem.sequence) / 2;
-    } else if (!prevItem && nextItem) {
-      // Moved to the beginning --> less than next
-      movedItem.sequence = nextItem.sequence - 1000;
-    } else if (prevItem && !nextItem) {
-      // Moved to the end --> more than previous
-      movedItem.sequence = prevItem.sequence + 1000;
-    } else {
-      // Only item in the list
-      movedItem.sequence = 1000;
+  async drop(event: CdkDragDrop<Fragment[]>): Promise<void> {
+    if (this.reorderInFlight || event.previousIndex === event.currentIndex) {
+      return;
     }
 
-    // Trigger table update
-    this.dataSource.data = updated;
+    const original = [...this.dataSource.data];
+    const reordered = [...original];
+    moveItemInArray(reordered, event.previousIndex, event.currentIndex);
 
-    // Update the item with the updated "sequence" number
-    this.rpcService.updateFragment$(movedItem)
-      .pipe(take(1))
-      .subscribe({
-        next: (n) => {
-          console.log(`DayviewComponent.drop: UpdateFragment succeeded: n: ${n}`);
+    // Clone the moved fragment before assigning its temporary sort key. The
+    // fragments supplied by ModelContext are shared live-model objects and must
+    // not be mutated optimistically.
+    const movedItem = { ...reordered[event.currentIndex] };
+    reordered[event.currentIndex] = movedItem;
 
-          // Normalise the sequence numbers
-          this.rpcService.normaliseFragments$(this.year, this.month, this.day)
-            .pipe(take(1))
-            .subscribe({
-              next: (n) => {
-                console.log(`DayviewComponent.drop: NormaliseFragments succeeded: n: ${n}`);
-              },
-              error: err => this.handleError(err)
-            });
-        },
-        error: err => this.handleError(err)
-      });
+    const prevItem = reordered[event.currentIndex - 1] ?? null;
+    const nextItem = reordered[event.currentIndex + 1] ?? null;
+
+    if (prevItem && nextItem) {
+      movedItem.sequence = (prevItem.sequence + nextItem.sequence) / 2;
+    } else if (!prevItem && nextItem) {
+      movedItem.sequence = nextItem.sequence - 1000;
+    } else if (prevItem && !nextItem) {
+      movedItem.sequence = prevItem.sequence + 1000;
+    } else {
+      movedItem.sequence = 1;
+    }
+
+    this.reorderInFlight = true;
+    let lockAcquired = false;
+
+    try {
+      lockAcquired = await this.fragmentLockService.lockFragmentForEdit(movedItem.id);
+      if (!lockAcquired) {
+        this.dataSource.data = original;
+        return;
+      }
+
+      // Present the intended final order without exposing the temporary sort
+      // key. Retained MQTT updates will replace these optimistic values with the
+      // responder's canonical, versioned fragments.
+      this.dataSource.data = reordered.map((fragment, index) => ({
+        ...fragment,
+        sequence: index + 1
+      }));
+
+      const n = await firstValueFrom(
+        this.rpcService.updateFragment$(movedItem).pipe(take(1))
+      );
+      console.log(`DayviewComponent.drop: UpdateFragment succeeded: n: ${n}`);
+
+      // UpdateFragment releases the lock and normalises the date atomically.
+      lockAcquired = false;
+
+    } catch (err) {
+      this.dataSource.data = original;
+
+      if (lockAcquired) {
+        await this.fragmentLockService.unlockFragmentAfterFailedEdit(movedItem.id);
+      }
+
+      this.handleError(err);
+
+    } finally {
+      this.reorderInFlight = false;
+    }
   }
 
   /** error handler */

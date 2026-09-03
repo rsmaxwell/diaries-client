@@ -104,10 +104,13 @@
       padding: 8px 16px;
     }
 
-    /* hover effect on rows */
-    tr.mat-row:hover {
-      background-color: rgba(0, 0, 0, 0.04);
+    /* Angular Material MDC rows no longer use the old .mat-row class. */
+    tr.fragment-table-row {
       cursor: pointer;
+
+      &:hover {
+        background-color: rgba(0, 0, 0, 0.04);
+      }
     }
   }
 
@@ -131,6 +134,13 @@
   word-break: break-word;      /* fallback */
   line-height: 1.4;
   font-size: 14px;             /* match your TextPanel if you want */
+}
+
+/* Quill assigns cursor:text to the generated children of every editor. The
+   day-view text is read-only and the whole row is the navigation target. */
+:host ::ng-deep .fragment-table-row .ql-editor.ql-editor--viewer,
+:host ::ng-deep .fragment-table-row .ql-editor.ql-editor--viewer * {
+  cursor: pointer;
 }
 
 /* Images in fragments shouldn’t overflow cells */

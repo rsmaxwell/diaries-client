@@ -14,6 +14,7 @@
     <mat-card appearance="outlined" class="card fragments-panel" *ngIf="dataSource.data.length > 0">
       <mat-card-content class="content">
         <table mat-table [dataSource]="dataSource" class="mat-elevation-z8 fragments-table" cdkDropList
+          [cdkDropListDisabled]="reorderInFlight"
           (cdkDropListDropped)="drop($event)">
 
           <!-- Id Column -->
@@ -40,7 +41,8 @@
 
           <!-- Header & Row Declarations -->
           <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-          <tr mat-row *matRowDef="let fragment; columns: displayedColumns" cdkDrag (click)="goToFragment(fragment)">
+          <tr mat-row class="fragment-table-row" *matRowDef="let fragment; columns: displayedColumns" cdkDrag
+            (click)="goToFragment(fragment)">
           </tr>
         </table>
       </mat-card-content>
