@@ -42,3 +42,5 @@ testem.log
 Thumbs.db
 public/assets/config.json 
 src/app/model/responder.json 
+
+public/assets/build-info.json
