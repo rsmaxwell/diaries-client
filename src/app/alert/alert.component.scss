@@ -1,31 +1,56 @@
 
 
-@use '../../styles/constants' as *;
+@use '../../styles/tokens' as tokens;
 
-
-
-.alert-message{
-    white-space: pre-wrap;
+.string-list-card {
+  gap: 1rem;
+  margin: clamp(1rem, 4vw, 3rem) auto;
+  padding: clamp(1rem, 3vw, 2rem);
+  width: min(60rem, calc(100% - 2rem));
+  border: 1px solid tokens.$diaries-line;
+  background: tokens.$diaries-surface;
+  color: tokens.$diaries-ink;
+  box-shadow: none;
 }
 
-.alert-success {
-    background-color: $green-100;
+.alert-message {
+  display: flex;
+  align-items: baseline;
+  gap: 0.65rem;
+  padding: 0.75rem 1rem;
+  border-left: 0.3rem solid tokens.$diaries-accent;
+  background: tokens.$diaries-paper;
+  white-space: pre-wrap;
+}
+
+.alert-kind {
+  flex: 0 0 auto;
+  font-family: tokens.$diaries-font-ui;
 }
 
 .alert-danger {
-    background-color: $red-100;
+  border-left-color: var(--mat-sys-error);
+  background: var(--mat-sys-error-container);
+  color: var(--mat-sys-on-error-container);
 }
 
 .alert-info {
-    background-color: $cyan-100;
+  border-left-color: tokens.$diaries-focus;
 }
 
 .alert-warning {
-    background-color: $orange-100;
+  border-left-color: tokens.$diaries-accent-dark;
 }
 
-
-.alert-dump{
-    white-space: pre-wrap;
-    background-color: $neutral-200;
+.alert-dump {
+  max-width: 100%;
+  margin: 0;
+  padding: 1rem;
+  overflow: auto;
+  border: 1px solid tokens.$diaries-line;
+  background: tokens.$diaries-paper;
+  color: tokens.$diaries-muted;
+  font-family: tokens.$diaries-font-monospace;
+  font-size: 0.8rem;
+  white-space: pre-wrap;
 }

@@ -74,6 +74,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
 
   formattedDate = '';
   isDateValid = false;
+  saveInFlight = false;
   private destroy$ = new Subject<void>();
   private lockRequestedForFragmentId: number | null = null;
   private quill?: Quill;
@@ -400,7 +401,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
       version: this.fragment?.version
     });
 
-    if (!this.fragment) return;
+    if (!this.fragment || this.saveInFlight) return;
 
     const currentBody = this.form.get('body')!.value as string;
 
@@ -446,8 +447,10 @@ export class TextPanelComponent implements OnInit, OnDestroy {
     this.form.markAsPristine();
 
     // ---- SERVER CALL ----
+    this.saveInFlight = true;
     this.rpcService.updateFragment$(requestPayload).subscribe({
       next: () => {
+        this.saveInFlight = false;
         console.log('TextPanelComponent.onSave: success (optimistic accepted)');
 
         // ✅ SERVER CLEARS LOCK ON SAVE (Responder publishes lock:null)
@@ -455,6 +458,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
         this.markFragmentUnlocked();
       },
       error: (err) => {
+        this.saveInFlight = false;
         console.log(`TextPanelComponent.onSave: error -> rolling back: ${err}`);
 
         if (err?.status === HttpStatusCode.Unauthorized) {
@@ -517,8 +521,8 @@ export class TextPanelComponent implements OnInit, OnDestroy {
       this.dialog.open(FilesListDialogComponent, {
         width: '80vw',
         height: '70vh',
-        minWidth: '560px',
-        minHeight: '380px',
+        minWidth: 'min(560px, 96vw)',
+        minHeight: 'min(380px, 92vh)',
         maxWidth: '96vw',
         maxHeight: '92vh',
         panelClass: 'files-dialog-panel',

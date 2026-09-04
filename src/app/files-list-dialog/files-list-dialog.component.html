@@ -11,7 +11,7 @@
 
     <div class="view-switch">
       <label for="view-mode" class="vh">View</label>
-      <mat-select id="view-mode" class="mat-mdc-select mode-select" [value]="viewMode"
+      <mat-select id="view-mode" class="mat-mdc-select mode-select" aria-label="File view mode" [value]="viewMode"
         (selectionChange)="onModeSelect($event.value)">
         <!-- Closed state: show icon + "View" -->
         <mat-select-trigger>
@@ -191,7 +191,7 @@
       {{ fileCount$ | async | i18nPlural: {'=0':'0 files','=1':'1 file','other':'# files'} }}
     </div>
     <div class="footer-actions">
-      <button class="close-button" (click)="close()">Close</button>
+      <button type="button" class="close-button" (click)="close()">Close</button>
     </div>
   </div>
 

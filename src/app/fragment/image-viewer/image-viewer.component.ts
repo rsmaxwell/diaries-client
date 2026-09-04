@@ -41,6 +41,8 @@ type InteractionMode =
   | 'resizing-marquee'
   | 'pinching';
 
+type MarqueeDisplayMode = 'focus' | 'highlight';
+
 interface PointerInteraction {
   mode: InteractionMode;
   activePointers: Map<number, PointerEvent>;
@@ -77,6 +79,10 @@ interface PinchInteraction {
 })
 export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
 
+  private static readonly BUTTON_ZOOM_FACTOR = 1.2;
+  private static readonly MIN_SCALE = 0.1;
+  private static readonly MAX_SCALE = 20;
+
   @Output() titleChanged = new EventEmitter<string>();
   @Output() marqueeMoved = new EventEmitter<Marquee>();
   @Output() marqueeSelected = new EventEmitter<Marquee>();
@@ -107,6 +113,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   marquee: Marquee | null = null;
   cursorStyle = '';
   hasSelectedFragment = false;
+  marqueeDisplayMode: MarqueeDisplayMode = 'focus';
 
   constructor(
     private router: Router,
@@ -154,6 +161,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
         const base = config.baseUrl.replace(/\/+$/, '');
         const diariesRoot = config.diaries.replace(/^\/+|\/+$/g, '');
         this.imageURL = `${base}/${diariesRoot}/${diary.name}/${page.name}${page.extension}`;
+        this.fitPage();
         console.log(`ImageViewer.ngOnInit: imageURL updated to ${this.imageURL}`);
       });
 
@@ -1311,6 +1319,10 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.page?.width ?? 0;
   }
 
+  get sourceName(): string {
+    return this.page?.name?.trim() || 'Source page';
+  }
+
   get height(): number {
     return this.page?.height ?? 0;
   }
@@ -1319,12 +1331,64 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     return `translate(${this.offsetX}, ${this.offsetY}) scale(${this.scale})`;
   }
 
+  zoomIn(): void {
+    this.zoomAroundPageCentre(ImageViewerComponent.BUTTON_ZOOM_FACTOR);
+  }
+
+  zoomOut(): void {
+    this.zoomAroundPageCentre(1 / ImageViewerComponent.BUTTON_ZOOM_FACTOR);
+  }
+
+  fitPage(): void {
+    this.scale = 1;
+    this.offsetX = 0;
+    this.offsetY = 0;
+  }
+
+  fitSelection(): void {
+    const rectangle = this.marquee?.rectangle;
+    if (!rectangle || rectangle.width <= 0 || rectangle.height <= 0 || this.width <= 0 || this.height <= 0) {
+      return;
+    }
+
+    const paddingFactor = 0.9;
+    const nextScale = this.clampScale(
+      Math.min(this.width / rectangle.width, this.height / rectangle.height) * paddingFactor
+    );
+
+    this.scale = nextScale;
+    this.offsetX = (this.width - rectangle.width * nextScale) / 2 - rectangle.x * nextScale;
+    this.offsetY = (this.height - rectangle.height * nextScale) / 2 - rectangle.y * nextScale;
+  }
+
+  toggleMarqueeDisplayMode(): void {
+    this.marqueeDisplayMode = this.marqueeDisplayMode === 'focus' ? 'highlight' : 'focus';
+  }
+
+  private zoomAroundPageCentre(factor: number): void {
+    if (this.width <= 0 || this.height <= 0) return;
+
+    const centreX = this.width / 2;
+    const centreY = this.height / 2;
+    const nextScale = this.clampScale(this.scale * factor);
+    const imageXAtCentre = (centreX - this.offsetX) / this.scale;
+    const imageYAtCentre = (centreY - this.offsetY) / this.scale;
+
+    this.offsetX = centreX - imageXAtCentre * nextScale;
+    this.offsetY = centreY - imageYAtCentre * nextScale;
+    this.scale = nextScale;
+  }
+
+  private clampScale(scale: number): number {
+    return Math.min(ImageViewerComponent.MAX_SCALE, Math.max(ImageViewerComponent.MIN_SCALE, scale));
+  }
+
   onWheel(event: WheelEvent) {
     event.preventDefault();
 
     // This increases (scroll up) or decreases (scroll down) the scale.
     const factor = event.deltaY < 0 ? 1.1 : 0.9;
-    const newScale = this.scale * factor;
+    const newScale = this.clampScale(this.scale * factor);
 
     // This computes the mouse position relative to the SVG element in screen/pixel space.
     const pt = this.svgRef.nativeElement.createSVGPoint();

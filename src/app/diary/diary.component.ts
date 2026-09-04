@@ -1,16 +1,10 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { Diary } from '../model/diary';
 
-import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FullHeaderComponent } from "../headers/fullheader/fullheader.component";
-import { MatTableDataSource, MatTableModule } from '@angular/material/table';
-import { ScrollingModule } from '@angular/cdk/scrolling';
+import { MatTableDataSource } from '@angular/material/table';
 import { FullfooterComponent } from "../headers/fullfooter/fullfooter.component";
-import { MatCardModule } from '@angular/material/card';
-import { MatSelectModule } from '@angular/material/select';
-import { MatInputModule } from '@angular/material/input';
-import { MatFormFieldModule } from '@angular/material/form-field';
 import { map, Subject, takeUntil } from 'rxjs';
 import { AlertService } from '../alerts/alert.service';
 import { Page } from '../model/page';
@@ -24,15 +18,8 @@ import { ModelContext } from '../model/model-context';
   selector: 'app-diary',
   standalone: true,
   imports: [
-    FormsModule,
     FullHeaderComponent,
     FullfooterComponent,
-    MatCardModule,
-    MatSelectModule,
-    MatInputModule,
-    MatFormFieldModule,
-    MatTableModule,
-    ScrollingModule,
     DragDropModule
   ],
   templateUrl: './diary.component.html',
@@ -41,7 +28,6 @@ import { ModelContext } from '../model/model-context';
 export class DiaryComponent implements OnInit, OnDestroy {
 
   title = 'Diaries';
-  displayedColumns: string[] = ['id', 'sequence', 'name'];
   dataSource = new MatTableDataSource<Page>();
   diaryId: number | undefined;
   diary: Diary | undefined;

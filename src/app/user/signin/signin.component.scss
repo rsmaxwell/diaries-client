@@ -1,42 +1,8 @@
+@use '../../../styles/auth' as auth;
 
-@use '../../../styles/constants' as *;
-
-.page {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-}
-
-.form {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  width: 500px;
-  margin: 10px;
-  overflow: auto;
-}
-
-.pagename {
-  margin-left: 20px;
-  font-size: 24px;
-  line-height: 28px;
-  font-weight: 500;
-}
-
-.item {
-  margin: 10px;
-}
-
-.button-container {
-  display: flex; 
-  gap: 20px;
-}
-
-.button-container button {
-  margin-top: 20px;
-  margin-left: 70px;
-}
-
-.padding {
-  flex-grow: 1;
-}
+.page { @include auth.page; }
+.auth-main { @include auth.main; }
+.auth-panel { @include auth.panel; }
+.auth-heading { @include auth.heading; }
+.form { @include auth.form; }
+.button-container { @include auth.actions; }

@@ -2,15 +2,19 @@
 
   <app-plainheader></app-plainheader>
 
-  <div class="pagename">
-    <h3>Register</h3>
-  </div>
+  <main class="auth-main">
+    <section class="auth-panel" aria-labelledby="register-heading">
+      <header class="auth-heading">
+        <p class="eyebrow">Your diary collection</p>
+        <h1 id="register-heading">Register</h1>
+        <p>Create an account to begin reading and editing diaries.</p>
+      </header>
 
-  <form [formGroup]="form" class="form">
+      <form [formGroup]="form" class="form" autocomplete="on" (ngSubmit)="onSubmit()">
 
     <mat-form-field appearance="outline" class="item">
       <mat-label>First Name</mat-label>
-      <input matInput [formControl]="firstname" type="text" required>
+      <input matInput [formControl]="firstname" type="text" name="firstname" autocomplete="given-name" required>
       @if (firstname.invalid) {
         <mat-error>{{getErrorMessage(firstname)}}</mat-error>
       }
@@ -18,7 +22,7 @@
 
     <mat-form-field appearance="outline" class="item">
       <mat-label>Last Name</mat-label>
-      <input matInput [formControl]="lastname" type='text' required>
+      <input matInput [formControl]="lastname" type="text" name="lastname" autocomplete="family-name" required>
       @if (lastname.invalid) {
         <mat-error>{{getErrorMessage(lastname)}}</mat-error>
       }
@@ -26,7 +30,7 @@
 
     <mat-form-field appearance="outline" class="item">
       <mat-label>Username</mat-label>
-      <input matInput [formControl]="username" type="search" required>
+      <input matInput [formControl]="username" type="text" name="username" autocomplete="username" required>
       @if (username.invalid) {
         <mat-error>{{getErrorMessage(username)}}</mat-error>
       }
@@ -34,7 +38,7 @@
 
     <mat-form-field appearance="outline" class="item">
       <mat-label>Email</mat-label>
-      <input matInput [formControl]="email" type="search" required>
+      <input matInput [formControl]="email" type="email" name="email" autocomplete="email" required>
       @if (email.invalid) {
         <mat-error>{{getErrorMessage(email)}}</mat-error>
       }
@@ -42,7 +46,7 @@
 
     <mat-form-field appearance="outline" class="item">
       <mat-label>Known as</mat-label>
-      <input matInput [formControl]="knownas" type="text" required>
+      <input matInput [formControl]="knownas" type="text" name="knownas" autocomplete="nickname" required>
       @if (knownas.invalid) {
         <mat-error>{{getErrorMessage(knownas)}}</mat-error>
       }
@@ -50,7 +54,7 @@
 
     <mat-form-field appearance="outline" class="item">
       <mat-label>Phone</mat-label>
-      <input matInput [formControl]="phone" type="text" required>
+      <input matInput [formControl]="phone" type="tel" name="phone" autocomplete="tel" required>
       @if (phone.invalid) {
         <mat-error>{{getErrorMessage(phone)}}</mat-error>
       }
@@ -58,9 +62,11 @@
 
     <mat-form-field appearance="outline" class="item">
       <mat-label>Password</mat-label>
-      <input matInput [formControl]="password" [type]="hide ? 'password' : 'text'" required>
-      <button mat-icon-button matSuffix (click)="hide = !hide" [attr.aria-label]="'Hide password'"
-        [attr.aria-pressed]="hide">
+      <input matInput [formControl]="password" [type]="hide ? 'password' : 'text'"
+        name="password" autocomplete="new-password" required>
+      <button type="button" mat-icon-button matSuffix (click)="hide = !hide"
+        [attr.aria-label]="hide ? 'Show password' : 'Hide password'"
+        [attr.aria-pressed]="!hide">
         <mat-icon>{{hide ? 'visibility_off' : 'visibility'}}</mat-icon>
       </button>
       @if (password.invalid) {
@@ -69,13 +75,13 @@
     </mat-form-field>
 
     <mat-card-actions class="button-container">
-      <button mat-raised-button (click)="onSubmit()" [disabled]="!form.valid" color="primary">Register</button>
-      <button mat-raised-button (click)="onSignin()" class="button">Signin</button>
+      <button type="submit" mat-raised-button [disabled]="!form.valid" color="primary">Register</button>
+      <button type="button" mat-raised-button (click)="onSignin()" class="button">Sign in</button>
     </mat-card-actions>
 
-  </form>
-
-  <div class="padding"></div>
+      </form>
+    </section>
+  </main>
   <app-alerts></app-alerts>
   <!-- <app-alertbuttons></app-alertbuttons> -->
   <app-plainfooter></app-plainfooter>

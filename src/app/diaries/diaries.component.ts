@@ -2,12 +2,9 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 
 import { Diary } from '../model/diary';
 import { Router } from '@angular/router';
-import { MatTableDataSource, MatTableModule } from '@angular/material/table';
-import { ScrollingModule } from '@angular/cdk/scrolling';
+import { MatTableDataSource } from '@angular/material/table';
 import { FullHeaderComponent } from '../headers/fullheader/fullheader.component';
 import { FullfooterComponent } from '../headers/fullfooter/fullfooter.component';
-import { MatCardModule } from '@angular/material/card';
-import { MatButtonModule } from '@angular/material/button';
 import { Subject, takeUntil } from 'rxjs';
 import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { RpcService } from '../mqtt/rpc.service';
@@ -18,12 +15,8 @@ import { ModelContext } from '../model/model-context';
   selector: 'app-diaries',
   standalone: true,
   imports: [
-    MatTableModule,
-    ScrollingModule,
     FullHeaderComponent,
     FullfooterComponent,
-    MatCardModule,
-    MatButtonModule,
     DragDropModule
   ],
   templateUrl: './diaries.component.html',
@@ -34,7 +27,6 @@ export class DiariesComponent implements OnInit, OnDestroy {
   title = 'Diaries';
 
   dataSource = new MatTableDataSource<Diary>();
-  displayedColumns: string[] = ['id', 'sequence', 'name'];
   private destroy$ = new Subject<void>();
 
   constructor(

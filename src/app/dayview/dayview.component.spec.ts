@@ -1,4 +1,5 @@
 import { CdkDragDrop } from '@angular/cdk/drag-drop';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { BehaviorSubject, of, throwError } from 'rxjs';
 
@@ -9,35 +10,100 @@ import { ModelContext } from '../model/model-context';
 import { RpcService } from '../mqtt/rpc.service';
 import { DayviewComponent } from './dayview.component';
 
-describe('DayviewComponent drag-and-drop', () => {
+describe('DayviewComponent', () => {
   let component: DayviewComponent;
+  let fixture: ComponentFixture<DayviewComponent>;
   let rpcService: jasmine.SpyObj<RpcService>;
   let fragmentLockService: jasmine.SpyObj<FragmentLockService>;
   let alertService: jasmine.SpyObj<AlertService>;
+  let router: jasmine.SpyObj<Router>;
+  let modelContext: jasmine.SpyObj<ModelContext>;
+  let fragments$: BehaviorSubject<Fragment[]>;
 
-  beforeEach(() => {
-    rpcService = jasmine.createSpyObj<RpcService>('RpcService', [
-      'updateFragment$',
-      'normaliseFragments$'
-    ]);
+  beforeEach(async () => {
+    fragments$ = new BehaviorSubject<Fragment[]>([]);
+    rpcService = jasmine.createSpyObj<RpcService>('RpcService', ['updateFragment$']);
     fragmentLockService = jasmine.createSpyObj<FragmentLockService>('FragmentLockService', [
       'lockFragmentForEdit',
       'unlockFragmentAfterFailedEdit'
     ]);
     alertService = jasmine.createSpyObj<AlertService>('AlertService', ['error']);
-
-    const modelContext = {
-      selectFragmentsForDate$: new BehaviorSubject<Fragment[]>([])
-    } as unknown as ModelContext;
-    const router = jasmine.createSpyObj<Router>('Router', ['navigate'], { url: '/day' });
-
-    component = new DayviewComponent(
-      rpcService,
-      modelContext,
-      alertService,
-      router,
-      fragmentLockService
+    router = jasmine.createSpyObj<Router>('Router', ['navigate'], { url: '/day' });
+    modelContext = jasmine.createSpyObj<ModelContext>(
+      'ModelContext',
+      ['getLiveMarquee$', 'getLivePage$'],
+      { selectFragmentsForDate$: fragments$ }
     );
+
+    await TestBed.configureTestingModule({
+      imports: [DayviewComponent],
+      providers: [
+        { provide: RpcService, useValue: rpcService },
+        { provide: ModelContext, useValue: modelContext },
+        { provide: AlertService, useValue: alertService },
+        { provide: Router, useValue: router },
+        { provide: FragmentLockService, useValue: fragmentLockService }
+      ]
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(DayviewComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('renders a formatted reader heading and rich fragment content without a table', () => {
+    fragments$.next([
+      fragment(1, 1, `<p>A paragraph with <strong>emphasis</strong> and https://example.test/${'x'.repeat(100)}</p>
+        <ul><li>A list item</li></ul>
+        <p><img alt="Diary scan" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="></p>`)
+    ]);
+    fixture.detectChanges();
+
+    const editor = fixture.nativeElement.querySelector('.ql-editor--viewer') as HTMLElement;
+    const image = editor.querySelector('img') as HTMLImageElement;
+
+    expect(fixture.nativeElement.querySelector('table')).toBeNull();
+    expect(fixture.nativeElement.querySelector('h1').textContent.trim()).toBe('1830 February 1');
+    expect(editor.querySelector('strong')?.textContent).toBe('emphasis');
+    expect(editor.querySelector('li')?.textContent).toBe('A list item');
+    expect(getComputedStyle(editor).overflowWrap).toBe('anywhere');
+    expect(getComputedStyle(editor).lineHeight).toBe('25.6px');
+    expect(getComputedStyle(image).maxWidth).toBe('100%');
+  });
+
+  it('explains an invalid stored date with text as well as styling', () => {
+    fragments$.next([fragment(1, 1, '<p>Invalid date fragment</p>', 1830, 2, 31)]);
+    fixture.detectChanges();
+
+    const warning = fixture.nativeElement.querySelector('.date-warning') as HTMLElement;
+
+    expect(component.isDateValid).toBeFalse();
+    expect(fixture.nativeElement.querySelector('h1').textContent.trim()).toBe('1830-02-31');
+    expect(warning.getAttribute('role')).toBe('alert');
+    expect(warning.textContent).toContain('not a valid calendar date');
+  });
+
+  it('shows an explanatory state when no diary date is selected', () => {
+    expect(fixture.nativeElement.querySelector('#no-date-heading').textContent.trim()).toBe('Choose a diary day');
+    expect(fixture.nativeElement.textContent).toContain('Select a marquee');
+  });
+
+  it('keeps fragment navigation separate from the accessible drag handle', () => {
+    fragments$.next([fragment(1, 1)]);
+    modelContext.getLiveMarquee$.and.returnValue(of({ pageId: 77 } as any));
+    modelContext.getLivePage$.and.returnValue(of({ diaryId: 5 } as any));
+    fixture.detectChanges();
+
+    const handle = fixture.nativeElement.querySelector('.drag-handle') as HTMLButtonElement;
+    const link = fixture.nativeElement.querySelector('.fragment-link') as HTMLElement;
+
+    expect(handle.getAttribute('aria-label')).toBe('Drag to reorder fragment 1');
+    expect(handle.closest('.fragment-link')).toBeNull();
+
+    link.click();
+    expect(modelContext.getLiveMarquee$).toHaveBeenCalledOnceWith(101);
+    expect(modelContext.getLivePage$).toHaveBeenCalledOnceWith(77);
+    expect(router.navigate).toHaveBeenCalledOnceWith(['/diary', 5, 77, 1]);
   });
 
   it('locks the fragment and sends a cloned temporary sequence when moving bottom to top', async () => {
@@ -57,7 +123,6 @@ describe('DayviewComponent drag-and-drop', () => {
     expect(fragments[2].sequence).toBe(3);
     expect(component.dataSource.data.map(item => item.id)).toEqual([3, 1, 2]);
     expect(component.dataSource.data.map(item => item.sequence)).toEqual([1, 2, 3]);
-    expect(rpcService.normaliseFragments$).not.toHaveBeenCalled();
     expect(fragmentLockService.unlockFragmentAfterFailedEdit).not.toHaveBeenCalled();
     expect(component.reorderInFlight).toBeFalse();
   });
@@ -94,16 +159,36 @@ describe('DayviewComponent drag-and-drop', () => {
     expect(component.reorderInFlight).toBeFalse();
   });
 
-  function fragment(id: number, sequence: number): Fragment {
+  it('blocks duplicate drops and disables drag handles while a reorder is in flight', async () => {
+    fragments$.next([fragment(1, 1), fragment(2, 2)]);
+    component.reorderInFlight = true;
+    fixture.detectChanges();
+
+    await component.drop(dropEvent(1, 0));
+
+    const handles = Array.from(fixture.nativeElement.querySelectorAll('.drag-handle')) as HTMLButtonElement[];
+    expect(handles.every(handle => handle.disabled)).toBeTrue();
+    expect(fragmentLockService.lockFragmentForEdit).not.toHaveBeenCalled();
+    expect(rpcService.updateFragment$).not.toHaveBeenCalled();
+  });
+
+  function fragment(
+    id: number,
+    sequence: number,
+    text = `fragment ${id}`,
+    year = 1830,
+    month = 2,
+    day = 1
+  ): Fragment {
     return {
       id,
       marqueeId: id + 100,
-      year: 1830,
-      month: 2,
-      day: 1,
+      year,
+      month,
+      day,
       sequence,
       version: 0,
-      text: `fragment ${id}`,
+      text,
       lock: null
     };
   }

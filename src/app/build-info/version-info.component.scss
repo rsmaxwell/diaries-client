@@ -1,5 +1,11 @@
+@use '../../styles/tokens' as tokens;
+
 .version-info {
+  display: inline-flex;
+  align-items: center;
+  color: tokens.$diaries-muted;
+  font-family: tokens.$diaries-font-metadata;
   font-size: 0.75rem;
-  line-height: 1;
+  line-height: 1.25;
   white-space: nowrap;
 }

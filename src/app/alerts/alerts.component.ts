@@ -2,7 +2,7 @@ import { Component, Input, OnDestroy, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 
-import { Alert, AlertType } from './alert.model';
+import { Alert, AlertType, alertTypeLabel } from './alert.model';
 import { AlertService } from './alert.service';
 
 
@@ -70,6 +70,10 @@ export class AlertsComponent implements OnInit, OnDestroy {
       }
 
       return classes.join(' ');
+  }
+
+  typeLabel(alert: Alert): string {
+    return alertTypeLabel(alert.type);
   }
 
   getRecord(alert: Alert) {

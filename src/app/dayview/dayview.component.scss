@@ -1,151 +1,279 @@
+@use '../../styles/tokens' as tokens;
+
 :host {
-  display: flex;
-  flex-direction: column;
+  display: block;
   height: 100%;
-  padding: 8px;
-  box-sizing: border-box;
-  background-color: #f9f9f9; /* light page background */
-  color: #333; /* default text color */
+  min-width: 0;
+  overflow-y: auto;
+  background: tokens.$diaries-paper;
+  color: tokens.$diaries-ink;
 }
 
-.header {
+.day-reader,
+.empty-reader {
+  min-height: 100%;
+}
+
+.reader-shell {
+  width: min(48rem, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: clamp(1.5rem, 5vw, 3rem) 0 4rem;
+}
+
+.day-heading {
+  margin-bottom: clamp(1.5rem, 4vw, 2.4rem);
+
+  h1 {
+    margin: 0;
+    overflow-wrap: anywhere;
+    color: tokens.$diaries-ink;
+    font-family: tokens.$diaries-font-heading;
+    font-size: clamp(2rem, 5vw, 3.35rem);
+    line-height: 1.08;
+  }
+
+  &.is-invalid h1 {
+    text-decoration: underline wavy var(--mat-sys-error, #{tokens.$diaries-accent-dark});
+    text-decoration-thickness: 0.08em;
+    text-underline-offset: 0.18em;
+  }
+}
+
+.eyebrow {
+  margin: 0 0 0.25rem;
+  color: tokens.$diaries-muted;
+  font-family: tokens.$diaries-font-metadata;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.date-warning,
+.reorder-status,
+.empty-state,
+.empty-reader p:not(.eyebrow) {
+  font-family: tokens.$diaries-font-ui;
+}
+
+.date-warning {
   display: flex;
   align-items: center;
-  gap: 16px;
-  flex: 0 0 auto;
-  margin-bottom: 8px;
-  font-weight: 500;
-  margin-left: auto;
-  color: #555;
-  padding: 4px 8px;
-  font-size: 0.9rem;
-  border: 1px solid #888;
-  background-color: #f0f0f0;
+  gap: 0.55rem;
+  margin: 1rem 0 0;
+  padding: 0.65rem 0.8rem;
+  border-left: 0.3rem solid var(--mat-sys-error, #{tokens.$diaries-accent-dark});
+  background: tokens.$diaries-surface;
+  color: var(--mat-sys-error, #{tokens.$diaries-accent-dark});
+  font-size: 0.88rem;
+
+  span {
+    display: inline-grid;
+    width: 1.35rem;
+    height: 1.35rem;
+    flex: 0 0 auto;
+    place-items: center;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+    font-weight: 800;
+    line-height: 1;
+  }
+}
+
+.reorder-status {
+  margin: -1rem 0 1rem;
+  color: tokens.$diaries-muted;
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.fragment-list {
+  display: grid;
+  gap: 0.8rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fragment-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: stretch;
+  min-width: 0;
+  overflow: hidden;
+  border-top: 1px solid tokens.$diaries-line;
+  background: tokens.$diaries-surface;
+  transition: border-color 120ms ease, transform 180ms cubic-bezier(0, 0, 0.2, 1);
+
+  &:hover {
+    border-top-color: tokens.$diaries-accent;
+    box-shadow: inset 0.25rem 0 0 tokens.$diaries-accent;
+  }
+
+  &.cdk-drag-animating {
+    transition: transform 180ms cubic-bezier(0, 0, 0.2, 1);
+  }
+}
+
+.drag-handle {
+  display: grid;
+  width: 2.6rem;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-right: 1px solid tokens.$diaries-line;
+  background: tokens.$diaries-paper;
+  color: tokens.$diaries-muted;
+  cursor: grab;
+  font: 700 1.1rem/1 tokens.$diaries-font-ui;
+
+  &:hover:not(:disabled) {
+    background: tokens.$diaries-selected;
+    color: tokens.$diaries-accent-dark;
+  }
+
+  &:active:not(:disabled) {
+    cursor: grabbing;
+  }
+
+  &:disabled {
+    cursor: wait;
+    opacity: 0.45;
+  }
+}
+
+.fragment-link {
+  min-width: 0;
+  padding: 0.8rem 1.1rem 1rem;
   cursor: pointer;
-  border-radius: 3px;  
-}
 
-.body {
-  /* ensure you have whatever existing styles here */
-
-  .fragments-panel {
-    margin-top: 16px;
-    padding: 8px;
-    border-top: 1px solid #ccc;
-
-    h3 {
-      margin: 0 0 8px;
-      font-size: 1.1rem;
-      font-weight: 500;
-    }
-  }
-
-  .fragments-container {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .fragment-row {
-    display: flex;
-    align-items: flex-start;
-    gap: 16px;
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    background-color: #fff;
-
-    .fragment-field {
-      &.sequence {
-        flex: 0 0 auto;
-        min-width: 80px;
-      }
-      &.text {
-        flex: 1 1 auto;
-        line-height: 1.4;
-
-        /* let the box shrink below content width… */
-        min-width: 0;
-
-        /* default wrapping rules: only at spaces or hyphens */
-        white-space: normal;
-        overflow-wrap: normal;
-        word-wrap: normal;
-        word-break: normal;
-
-        /* allow hyphenation where supported */
-        hyphens: auto;        
-      }
-    }
+  &:hover {
+    background: color-mix(in srgb, tokens.$diaries-selected 45%, tokens.$diaries-surface);
   }
 }
 
-/* —— match Diaries list styling —— */
-
-.dayview {
-  .card.fragments-panel {
-    /* same vertical spacing as Diaries’ mat‑card */
-    margin: 16px 0;
-  }
-
-  .card.fragments-panel .content {
-    /* identical padding inside the card */
-    padding: 16px;
-  }
-
-  /* full‑width table like .diaries-table */
-  .fragments-table {
-    width: 100%;
-    border-spacing: 0;
-
-    /* match cell padding */
-    th.mat-header-cell,
-    td.mat-cell {
-      padding: 8px 16px;
-    }
-
-    /* Angular Material MDC rows no longer use the old .mat-row class. */
-    tr.fragment-table-row {
-      cursor: pointer;
-
-      &:hover {
-        background-color: rgba(0, 0, 0, 0.04);
-      }
-    }
-  }
-
-  /* give your “Sequence” column a fixed width like Diaries’ sequence column */
-  .mat-column-sequence {
-    width: 80px;
-  }
+.fragment-metadata {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.8rem;
+  margin: 0 0 0.55rem;
+  color: tokens.$diaries-muted;
+  font-family: tokens.$diaries-font-metadata;
+  font-size: 0.72rem;
+  line-height: 1.35;
 }
 
-/* Let text wrap and align from the top */
-.fragments-table td.mat-cell,
-.fragments-table th.mat-header-cell {
-  vertical-align: top;
-  white-space: normal;
-}
-
-/* Quill content: preserve line breaks & wrap long words */
+.fragment-content,
 .ql-editor.ql-editor--viewer {
-  white-space: pre-wrap;       /* keep newlines from Quill HTML */
-  overflow-wrap: anywhere;     /* break very long words/URLs */
-  word-break: break-word;      /* fallback */
-  line-height: 1.4;
-  font-size: 14px;             /* match your TextPanel if you want */
+  min-width: 0;
 }
 
-/* Quill assigns cursor:text to the generated children of every editor. The
-   day-view text is read-only and the whole row is the navigation target. */
-:host ::ng-deep .fragment-table-row .ql-editor.ql-editor--viewer,
-:host ::ng-deep .fragment-table-row .ql-editor.ql-editor--viewer * {
+.ql-editor.ql-editor--viewer {
+  padding: 0;
+  overflow: visible;
+  color: tokens.$diaries-ink;
+  font-family: tokens.$diaries-font-reader;
+  font-size: 1rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  hyphens: auto;
+}
+
+// Quill HTML is inserted dynamically, so its descendants need a deep selector.
+:host ::ng-deep .fragment-link .ql-editor.ql-editor--viewer,
+:host ::ng-deep .fragment-link .ql-editor.ql-editor--viewer * {
+  max-width: 100%;
   cursor: pointer;
 }
 
-/* Images in fragments shouldn’t overflow cells */
-.ql-editor.ql-editor--viewer img {
-  max-width: 100%;
-  height: auto;
+:host ::ng-deep .fragment-link .ql-editor.ql-editor--viewer img {
   display: inline-block;
+  height: auto;
+  max-width: 100%;
+}
+
+:host ::ng-deep .fragment-link .ql-editor.ql-editor--viewer pre {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.fragment-list.cdk-drop-list-dragging .fragment-item:not(.cdk-drag-placeholder) {
+  transition: transform 180ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.fragment-drag-placeholder {
+  min-height: 6rem;
+  border: 2px dashed tokens.$diaries-accent;
+  background: tokens.$diaries-selected;
+}
+
+.fragment-drag-preview {
+  width: min(30rem, calc(100vw - 2rem));
+  padding: 0.85rem 1rem;
+  border: 1px solid tokens.$diaries-accent;
+  background: tokens.$diaries-surface;
+  color: tokens.$diaries-ink;
+  font-family: tokens.$diaries-font-heading;
+  font-size: 1.1rem;
+  box-shadow: 0 0.5rem 1.5rem color-mix(in srgb, tokens.$diaries-ink 16%, transparent);
+
+  small {
+    display: block;
+    margin-top: 0.2rem;
+    color: tokens.$diaries-muted;
+    font-family: tokens.$diaries-font-metadata;
+    font-size: 0.72rem;
+  }
+}
+
+.empty-state,
+.empty-reader {
+  color: tokens.$diaries-muted;
+}
+
+.empty-state {
+  margin: 0;
+  padding: 1.2rem;
+  border: 1px solid tokens.$diaries-line;
+  background: tokens.$diaries-surface;
+  text-align: center;
+}
+
+.empty-reader h1 {
+  margin: 0 0 0.6rem;
+  color: tokens.$diaries-ink;
+  font-family: tokens.$diaries-font-heading;
+  font-size: clamp(1.8rem, 5vw, 2.8rem);
+  line-height: 1.1;
+}
+
+.empty-reader p:not(.eyebrow) {
+  margin: 0;
+  line-height: 1.55;
+}
+
+@media (max-width: 44rem) {
+  .reader-shell {
+    width: min(100% - 1.25rem, 48rem);
+    padding-top: 1.25rem;
+  }
+
+  .drag-handle {
+    width: 2.4rem;
+  }
+
+  .fragment-link {
+    padding-inline: 0.85rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fragment-item,
+  .fragment-item.cdk-drag-animating,
+  .fragment-list.cdk-drop-list-dragging .fragment-item:not(.cdk-drag-placeholder) {
+    transition: none;
+  }
 }

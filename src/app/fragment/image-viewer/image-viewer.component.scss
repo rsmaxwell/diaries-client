@@ -1,87 +1,177 @@
+@use '../../../styles/tokens' as tokens;
+
 :host {
+  --viewer-content-inset: 1rem;
+
   display: flex;
   flex-direction: column;
-  height: 100vh;
-}
-
-.container {
-  display: flex;
-  flex: 1;
-  flex-direction: row;
   width: 100%;
   height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: tokens.$diaries-paper;
+}
+
+.source-heading {
+  flex: 0 0 auto;
+  padding: 0.85rem var(--viewer-content-inset) 0.75rem;
+  border: 1px solid tokens.$diaries-line;
+  border-bottom: 0;
+  background: tokens.$diaries-surface;
+}
+
+.source-heading p {
+  margin: 0 0 0.25rem;
+  color: tokens.$diaries-accent;
+  font: 700 0.72rem/1.2 tokens.$diaries-font-ui;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.source-heading h2 {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: tokens.$diaries-ink;
+  font: 700 clamp(1.25rem, 2.5vw, 1.65rem)/1.15 tokens.$diaries-font-heading;
+}
+
+.viewer-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.7rem;
+}
+
+.viewer-controls button {
+  min-width: 2.5rem;
+  min-height: 2.2rem;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid tokens.$diaries-accent-dark;
+  border-radius: 0.25rem;
+  background: tokens.$diaries-surface;
+  color: tokens.$diaries-ink;
+  cursor: pointer;
+  font: 700 0.8rem/1.2 tokens.$diaries-font-ui;
+}
+
+.viewer-controls button:hover:not(:disabled) {
+  background: tokens.$diaries-selected;
+}
+
+.viewer-controls button:disabled {
+  border-color: tokens.$diaries-line;
+  color: tokens.$diaries-muted;
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+// Keep decoration outside the coordinate-bearing SVG so pointer geometry is unchanged.
+.viewer-frame {
+  position: relative;
+  display: flex;
+  flex: 0 1 auto;
+  align-self: stretch;
+  width: auto;
+  max-height: 100%;
+  margin-inline: var(--viewer-content-inset);
+  min-width: 0;
+  min-height: 0;
+  aspect-ratio: 4 / 3;
+  box-sizing: border-box;
+  overflow: hidden;
+  border: 1px solid #191919;
+  background: #282828;
+}
+
+@media (max-width: 44rem) {
+  :host {
+    --viewer-content-inset: 0.8rem;
+  }
+
+  .source-heading {
+    padding: 0.7rem var(--viewer-content-inset) 0.6rem;
+  }
+
+  .viewer-controls {
+    gap: 0.35rem;
+    margin-top: 0.55rem;
+  }
+
+}
+
+@media (max-width: 48rem) {
+  .viewer-frame {
+    aspect-ratio: 16 / 10;
+  }
 }
 
 #svg {
-  flex: 1;
+  display: block;
+  flex: 1 1 auto;
   width: 100%;
   height: 100%;
-  display: block;
-  background-color: black;
+  min-width: 0;
+  min-height: 0;
+  background: #282828;
   cursor: default;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
 
-  &.corner-1-resize {
-    cursor: nwse-resize;
+  &:focus-visible {
+    outline: 3px solid tokens.$diaries-focus;
+    outline-offset: -3px;
   }
 
-  &.corner-2-resize {
-    cursor: nesw-resize;
-  }
-
-  &.horizontal-resize {
-    cursor: ew-resize;
-  }
-
-  &.vertical-resize {
-    cursor: ns-resize;
-  }
-
-  &.move {
-    cursor: move;
-  }
+  &.corner-1-resize { cursor: nwse-resize; }
+  &.corner-2-resize { cursor: nesw-resize; }
+  &.horizontal-resize { cursor: ew-resize; }
+  &.vertical-resize { cursor: ns-resize; }
+  &.move { cursor: move; }
 }
 
-// .baseMask15   { fill: rgb(60, 60, 60); }
-// .otherMask    { fill: rgb(80, 80, 80); }
-// 
-// .baseMask16   { fill: rgb(60, 60, 60); }
-// .selectedMask { fill: white;           }
-
-
-/* Mask 15: whole image faint; non-selected areas slightly brighter */
-.baseMask15  { fill: white; opacity: 0.20; }   /* default faint image */
-.otherMask   { fill: white; opacity: 0.05; }   /* non-selected brighter than base */
-
-/* Mask 16: show ONLY the selected marquee at full brightness */
-.baseMask16  { fill: black; }                  /* hide everything */
-.selectedMask{ fill: white; }                  /* show selected at 100% */
-
-.selected-outline {
-  fill: none;
+.viewer-state {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 1;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid tokens.$diaries-line;
+  border-radius: 0.25rem;
+  background: tokens.$diaries-surface;
+  color: tokens.$diaries-muted;
+  font: 0.875rem/1.4 tokens.$diaries-font-ui;
+  text-align: center;
   pointer-events: none;
 }
 
-.other {
-  fill: transparent;
-  stroke: black;
-  stroke-width: 10;
-  stroke-dasharray: 30
+// Leave the whole page faintly visible, then restore only the selection.
+.baseMask15 {
+  fill: tokens.$diaries-surface;
+  opacity: 0.2;
 }
 
-.text {
-  flex: 1;
-  padding: 1rem;
-  overflow: auto;
-  background-color: #fff;
-  border-left: 1px solid #ccc;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.baseMask16 { fill: tokens.$diaries-ink; }
+.selectedMask { fill: tokens.$diaries-surface; }
+
+.selected-outline {
+  fill: none;
+  stroke: tokens.$diaries-focus;
+  stroke-width: 4;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
 }
 
-app-fullfooter {
-  flex-shrink: 0;
+// Highlight mode mirrors the read-only web reader: the page remains at full
+// strength while the selected region receives a translucent amber overlay.
+#svg.highlight-mode .baseMask15 {
+  opacity: 1;
+}
+
+#svg.highlight-mode .selected-outline {
+  fill: rgba(255, 214, 64, 0.18);
+  stroke: #ffc928;
 }

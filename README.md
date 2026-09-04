@@ -232,6 +232,27 @@ Reader content and prominent reader headings use the Georgia/Times-style serif r
 
 New component styles should consume the semantic Sass variables from `src/styles/_tokens.scss` (directly or through the compatibility `constants.scss` entry point), or the generated `--diaries-*` custom properties. Do not create a separate copy of the palette in component styles.
 
+Shared application headers and footers use `src/styles/_shell.scss` for their toolbar, inner-width, title and icon-control patterns. These shell components use warm surfaces, thin separators and serif titles without Material elevation. Their actions remain system-sans and wrap at the shared 44rem narrow-layout breakpoint. Alerts, build metadata and file dialogs consume the same semantic tokens; dialog sizing that must reach the CDK overlay container is defined in the global stylesheet.
+
+Diary and page browsing use semantic ordered lists rather than Material data tables. Their common layout and drag-state rules live in `src/styles/_reader-navigation.scss`: names are the primary serif content, IDs and sequence positions are muted metadata, and navigation buttons are separate from labelled CDK drag handles so selecting and reordering remain unambiguous.
+
+The day view follows the same document-oriented approach inside the fragment workspace. It renders the date as a reader heading and Quill transcription fragments as a semantic ordered passage list in a constrained reading column. Fragment articles remain navigation targets, while separate labelled drag handles preserve the lock-protected resequencing flow. Dynamically inserted Quill content must retain the day-view containment rules for long strings, preformatted text and embedded images.
+
+The fragment editor keeps its Golden Layout image/transcription split while presenting it as a working reader surface. Decorative image backing belongs on the outer `.viewer-frame` so the SVG remains the coordinate-bearing element for pan, zoom and marquee interaction. Only the selected marquee is rendered, with a focus-colour outline. The transcription pane uses reader typography for Quill content and system UI typography for its toolbar, metadata, lock state and save controls; read-only and save-in-progress states are announced in the panel as well as reflected by disabled controls.
+
+### Responsive and accessibility conventions
+
+Responsive decisions are based on content rather than named devices:
+
+| Breakpoint | Behaviour |
+| --- | --- |
+| `44rem` | Reader shells tighten, application actions wrap, authentication actions stack when needed, and file-details views hide secondary columns. |
+| `56rem` | The fragment editor changes from a side-by-side split to a vertical source-page/transcription stack. |
+
+Reader columns remain constrained at wide widths, while forms and dialog surfaces use fluid widths with viewport-safe maximums. Global `focus-visible` treatment uses the dedicated focus token, and icon-only controls provide accessible labels. Error, selection, lock and progress states include text, borders, button state or live-region semantics so colour is not their only signal. Non-essential transitions collapse when `prefers-reduced-motion: reduce` is active.
+
+The Angular client intentionally differs from static `diaries-web` where editing requires Golden Layout tabs and splitters, Quill controls, lock/save indicators, drag handles, file management and marquee manipulation. CDK drag handles are labelled and visually distinct, but reordering remains a pointer/drag interaction; a keyboard reordering command is not currently implemented.
+
 ## Useful commands
 
 ```bash id="j10t5s"

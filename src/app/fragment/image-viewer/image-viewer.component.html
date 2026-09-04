@@ -1,22 +1,47 @@
-<svg
-  #svgRef
-  id="svg"
-  xmlns="http://www.w3.org/2000/svg"
-  version="1.1"
-  preserveAspectRatio="xMidYMid meet"
-  width="100%"
-  height="100%"
-  [attr.viewBox]="'0 0 ' + width + ' ' + height"
-  [ngClass]="[cursorStyle]"
-  (wheel)="onWheel($event)"
-(pointerdown)="onPointerDown($event)"
-(pointermove)="onPointerMove($event)"
-(pointerleave)="onPointerLeave($event)"
-(pointercancel)="onPointerCancel($event)"
-  (contextmenu)="onRightClick($any($event))"
-  (keydown)="onKeyDown($any($event))"
-  tabindex="0"
->
+<header class="source-heading">
+  <p>Original source</p>
+  <h2>{{ sourceName }}</h2>
+  <div class="viewer-controls" role="group" aria-label="Source image view controls">
+    <button type="button" (click)="zoomOut()" [disabled]="!imageURL" aria-label="Zoom out" title="Zoom out">−</button>
+    <button type="button" (click)="zoomIn()" [disabled]="!imageURL" aria-label="Zoom in" title="Zoom in">+</button>
+    <button type="button" (click)="fitPage()" [disabled]="!imageURL">Fit page</button>
+    <button type="button" (click)="fitSelection()" [disabled]="!imageURL || !marquee">Fit selection</button>
+    <button
+      type="button"
+      (click)="toggleMarqueeDisplayMode()"
+      [disabled]="!imageURL || !marquee"
+      [attr.aria-label]="marqueeDisplayMode === 'focus' ? 'Use highlight style for the selected marquee' : 'Use focus style for the selected marquee'">
+      {{ marqueeDisplayMode === 'focus' ? 'Use highlight style' : 'Use focus style' }}
+    </button>
+  </div>
+</header>
+
+<div class="viewer-frame" [class.is-empty]="!imageURL">
+  @if (!imageURL) {
+    <p class="viewer-state" role="status">No source page image is selected.</p>
+  }
+
+  <svg
+    #svgRef
+    id="svg"
+    xmlns="http://www.w3.org/2000/svg"
+    version="1.1"
+    preserveAspectRatio="xMidYMid meet"
+    width="100%"
+    height="100%"
+    [attr.viewBox]="'0 0 ' + width + ' ' + height"
+    [ngClass]="[cursorStyle]"
+    [class.highlight-mode]="marqueeDisplayMode === 'highlight'"
+    [attr.aria-label]="imageURL ? sourceName + ', diary source page with selected marquee' : 'No diary source page image selected'"
+    role="img"
+    (wheel)="onWheel($event)"
+    (pointerdown)="onPointerDown($event)"
+    (pointermove)="onPointerMove($event)"
+    (pointerleave)="onPointerLeave($event)"
+    (pointercancel)="onPointerCancel($event)"
+    (contextmenu)="onRightClick($any($event))"
+    (keydown)="onKeyDown($any($event))"
+    tabindex="0">
   <g [attr.transform]="transformStyle">
     <defs id="defs1">
       <mask maskUnits="userSpaceOnUse" id="mask15">
@@ -29,15 +54,6 @@
             [attr.height]="height"
             class="baseMask15"
           />
-          <g *ngFor="let m of otherMarquees; trackBy: trackById">
-            <rect
-              [attr.x]="m.rectangle.x"
-              [attr.y]="m.rectangle.y"
-              [attr.width]="m.rectangle.width"
-              [attr.height]="m.rectangle.height"
-              class="otherMask"
-            />
-          </g>
         </g>
       </mask>
 
@@ -75,17 +91,6 @@
       mask="url(#mask15)"
     />
 
-    <g *ngFor="let m of otherMarquees; trackBy: trackById">
-      <rect
-        [attr.x]="m.rectangle.x"
-        [attr.y]="m.rectangle.y"
-        [attr.width]="m.rectangle.width"
-        [attr.height]="m.rectangle.height"
-        class="other"
-        (click)="onSelectMarquee(m, $event)"
-      />
-    </g>
-
     <image
       id="image2"
       [attr.href]="imageURL"
@@ -106,4 +111,5 @@
       class="selected-outline"
     />
   </g>
-</svg>
+  </svg>
+</div>

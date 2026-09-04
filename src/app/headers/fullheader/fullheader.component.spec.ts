@@ -20,4 +20,11 @@ describe('FullHeaderComponent', () => {
   it('should create', () => {
     expect(component).toBeTruthy();
   });
+
+  it('gives every icon button an accessible name', () => {
+    const buttons = Array.from(fixture.nativeElement.querySelectorAll('button')) as HTMLButtonElement[];
+    const labels = buttons.map(button => button.getAttribute('aria-label'));
+
+    expect(labels).toEqual(['Open application menu', 'Favourite diary', 'Share diary']);
+  });
 });

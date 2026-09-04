@@ -1,0 +1,79 @@
+@use 'tokens' as tokens;
+
+// Shared responsive treatment for authentication screens.
+@mixin page {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 100dvh;
+  background: tokens.$diaries-paper;
+  color: tokens.$diaries-ink;
+}
+
+@mixin main {
+  display: grid;
+  flex: 1 1 auto;
+  width: 100%;
+  padding: clamp(1.25rem, 6vw, 4rem) 1rem;
+  place-items: start center;
+}
+
+@mixin panel {
+  width: min(32rem, 100%);
+  padding: clamp(1.25rem, 4vw, 2.25rem);
+  border: 1px solid tokens.$diaries-line;
+  border-radius: 0.35rem;
+  background: tokens.$diaries-surface;
+}
+
+@mixin heading {
+  margin: 0 0 1.5rem;
+
+  .eyebrow {
+    margin: 0 0 0.25rem;
+    color: tokens.$diaries-muted;
+    font: 700 0.76rem/1.3 tokens.$diaries-font-ui;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    margin: 0 0 0.5rem;
+    color: tokens.$diaries-ink;
+    font: 700 clamp(2rem, 8vw, 3rem)/1.08 tokens.$diaries-font-heading;
+  }
+
+  p:last-child {
+    margin: 0;
+    color: tokens.$diaries-muted;
+    font: 0.95rem/1.55 tokens.$diaries-font-ui;
+  }
+}
+
+@mixin form {
+  display: grid;
+  gap: 0.75rem;
+  width: 100%;
+
+  .item {
+    width: 100%;
+  }
+}
+
+@mixin actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.5rem 0 0;
+
+  button {
+    min-height: 2.75rem;
+    min-width: 7rem;
+  }
+
+  @media (max-width: 28rem) {
+    button {
+      flex: 1 1 100%;
+    }
+  }
+}

@@ -5,12 +5,9 @@ import { Fragment } from '../model/fragment';
 import { CommonModule } from '@angular/common';
 import { DateFormatter } from '../utilities/DateFormatter';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
-import { MatCardModule } from '@angular/material/card';
-import { MatButtonModule } from '@angular/material/button';
-import { MatTableDataSource, MatTableModule } from '@angular/material/table';
+import { MatTableDataSource } from '@angular/material/table';
 import { RpcService } from '../mqtt/rpc.service';
 import { AlertService } from '../alerts/alert.service';
-import { ScrollingModule } from '@angular/cdk/scrolling';
 import { Router } from '@angular/router';
 import { SafeHtmlPipe } from '../utilities/safe-html.pipe';
 import { FragmentLockService } from '../fragment/fragment-lock.service';
@@ -19,11 +16,7 @@ import { FragmentLockService } from '../fragment/fragment-lock.service';
   selector: 'app-diary',
   standalone: true,
   imports: [
-    MatTableModule,
-    ScrollingModule,
     CommonModule,
-    MatCardModule,
-    MatButtonModule,
     DragDropModule,
     SafeHtmlPipe
   ],
@@ -39,7 +32,6 @@ export class DayviewComponent implements OnInit, OnDestroy {
   month: number = 0;
   day: number = 0;
 
-  displayedColumns = ['id', 'sequence', 'text'];
   dataSource = new MatTableDataSource<Fragment>();
   reorderInFlight = false;
 

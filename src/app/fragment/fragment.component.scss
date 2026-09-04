@@ -1,16 +1,27 @@
 
+@use '../../styles/tokens' as tokens;
+
 :host {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
-  min-height: 0;  
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: tokens.$diaries-paper;
+  color: tokens.$diaries-ink;
 }
 
 .layout-container {
   flex: 1 1 auto;
-  min-height: 0; 
+  min-height: 0;
   overflow: hidden;
   display: flex;
+  padding: 0.55rem;
+  background: tokens.$diaries-paper;
 }
 
 .container {
@@ -22,8 +33,73 @@
 
 .container > app-image-viewer,
 .container > app-text-panel {
-  flex: 1 1 50%;    /* 👈 Each takes 50% */
-  min-width: 0;     /* Allow proper shrinking of overflowing content */
-  overflow: hidden; /* Avoid unnecessary scrollbars */
+  flex: 1 1 50%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+// Golden Layout is intentionally kept for stable pane resizing. These
+// overrides change only its visual treatment; splitter and panel geometry stay
+// under the library's control.
+:host ::ng-deep .lm_goldenlayout {
+  background: tokens.$diaries-paper;
+}
+
+:host ::ng-deep .lm_content {
+  border-color: tokens.$diaries-line;
+  background: tokens.$diaries-surface;
+}
+
+:host ::ng-deep .lm_splitter {
+  background: tokens.$diaries-line;
+  opacity: 1;
+}
+
+:host ::ng-deep .lm_splitter:hover,
+:host ::ng-deep .lm_splitter.lm_dragging {
+  background: tokens.$diaries-accent;
+}
+
+:host ::ng-deep .lm_header {
+  background: tokens.$diaries-paper;
+}
+
+:host ::ng-deep .lm_header .lm_tab {
+  margin-right: 0.15rem;
+  border: 1px solid tokens.$diaries-line;
+  border-bottom: 0;
+  background: tokens.$diaries-paper;
+  box-shadow: none;
+  color: tokens.$diaries-muted;
+  font-family: tokens.$diaries-font-ui;
+  font-size: 0.75rem;
+}
+
+:host ::ng-deep .lm_header .lm_tab:hover {
+  background: tokens.$diaries-selected;
+  color: tokens.$diaries-accent-dark;
+}
+
+:host ::ng-deep .lm_header .lm_tab.lm_active,
+:host ::ng-deep .lm_header .lm_tab.lm_active.lm_focused {
+  background: tokens.$diaries-surface;
+  box-shadow: inset 0 2px tokens.$diaries-accent;
+  color: tokens.$diaries-ink;
+}
+
+:host ::ng-deep .lm_dropTargetIndicator {
+  outline: 2px dashed tokens.$diaries-focus;
+  box-shadow: none;
+}
+
+:host ::ng-deep .lm_dropTargetIndicator .lm_inner {
+  background: tokens.$diaries-selected;
+  opacity: 0.45;
+}
+
+@media (max-width: 56rem) {
+  .layout-container {
+    padding: 0.35rem;
+  }
 }
 

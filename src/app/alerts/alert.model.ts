@@ -23,3 +23,12 @@ export enum AlertType {
     Info,
     Warning
 }
+
+export function alertTypeLabel(type: AlertType): string {
+    switch (type) {
+        case AlertType.Success: return 'Success';
+        case AlertType.Error: return 'Error';
+        case AlertType.Info: return 'Information';
+        case AlertType.Warning: return 'Warning';
+    }
+}

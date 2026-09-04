@@ -1,52 +1,42 @@
 
-@use '../../styles/constants' as *;
-
+@use '../../styles/reader-navigation' as navigation;
 
 .page {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
+  @include navigation.page;
 }
 
-.card {
-  height: 90% !important;
-  position: relative;
-  overflow: hidden;
+.reader-main {
+  @include navigation.main;
 }
 
-.content {
-  max-height: 100%;
-  overflow-y: auto;
+.reader-shell {
+  @include navigation.shell;
 }
 
-.padding {
-  flex-grow: 1;
+.reader-heading {
+  @include navigation.heading;
 }
 
-.diaries-table {
-  width: 100%;
-  table-layout: fixed;
-
-  .mat-header-cell,
-  .mat-cell {
-    padding: 8px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .column-id {
-    width: 80px;
-  }
-
-  .column-sequence {
-    width: 100px;
-  }
-
-  .column-name {
-    width: auto;
-  }
+.reader-list {
+  @include navigation.list;
 }
 
+.reader-item {
+  @include navigation.item;
+}
 
+.drag-handle {
+  @include navigation.handle;
+}
 
+.reader-link {
+  @include navigation.link;
+}
+
+.empty-state {
+  @include navigation.empty;
+}
+
+@include navigation.drag-states;
+@include navigation.narrow;
+@include navigation.reduced-motion;

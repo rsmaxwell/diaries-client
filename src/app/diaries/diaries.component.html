@@ -1,39 +1,45 @@
 <div class="page">
   <app-fullheader [title]="title"></app-fullheader>
 
+  <main class="reader-main" aria-labelledby="diaries-heading">
+    <div class="reader-shell">
+      <header class="reader-heading">
+        <p class="eyebrow">Your collection</p>
+        <h1 id="diaries-heading">Diaries</h1>
+        <p class="supporting-text">Choose a diary to browse its pages, or use the drag handles to change the reading order.</p>
+      </header>
 
-  <mat-card appearance="outlined" class="card">
-    <mat-card-content class="content">
+      @if (dataSource.data.length > 0) {
+        <ol class="reader-list" aria-label="Diaries" cdkDropList
+          [cdkDropListData]="dataSource.data" (cdkDropListDropped)="drop($event)">
+          @for (diary of dataSource.data; track diary.id) {
+            <li class="reader-item" cdkDrag cdkDragLockAxis="y" [cdkDragData]="diary">
+              <button type="button" class="drag-handle" cdkDragHandle
+                title="Drag to reorder {{diary.name}}" [attr.aria-label]="'Drag to reorder ' + diary.name">
+                <span aria-hidden="true">⠿</span>
+              </button>
 
-      <table mat-table [dataSource]="dataSource" class="mat-elevation-z8 diaries-table" cdkDropList
-        (cdkDropListDropped)="drop($event)">
+              <button type="button" class="reader-link" (click)="selectItem(diary.id)">
+                <span class="item-name">{{diary.name}}</span>
+                <span class="item-metadata">
+                  <span>Diary {{diary.id}}</span>
+                  <span>Position {{diary.sequence}}</span>
+                </span>
+              </button>
 
-        <ng-container matColumnDef="id">
-          <th mat-header-cell *matHeaderCellDef class="column-id"> id </th>
-          <td mat-cell *matCellDef="let diary" class="column-id"> {{diary.id}} </td>
-        </ng-container>
+              <div *cdkDragPreview class="reader-drag-preview">
+                {{diary.name}}
+                <small>Diary {{diary.id}}</small>
+              </div>
+              <div *cdkDragPlaceholder class="reader-drag-placeholder"></div>
+            </li>
+          }
+        </ol>
+      } @else {
+        <p class="empty-state">No diaries are available yet.</p>
+      }
+    </div>
+  </main>
 
-        <ng-container matColumnDef="sequence">
-          <th mat-header-cell *matHeaderCellDef class="column-sequence"> sequence </th>
-          <td mat-cell *matCellDef="let diary" class="column-sequence"> {{diary.sequence}} </td>
-        </ng-container>
-
-        <ng-container matColumnDef="name">
-          <th mat-header-cell *matHeaderCellDef class="column-name"> name </th>
-          <td mat-cell *matCellDef="let diary" class="column-name"> {{diary.name}} </td>
-        </ng-container>
-
-        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-
-        <tr mat-row *matRowDef="let diary; columns: displayedColumns;" (click)="selectItem(diary.id)" cdkDrag>
-        </tr>
-      </table>
-
-    </mat-card-content>
-  </mat-card>
-
-  <div class="padding"></div>
-  <!-- <app-alerts></app-alerts> -->
-  <!-- <app-alertbuttons></app-alertbuttons> -->
   <app-fullfooter></app-fullfooter>
 </div>

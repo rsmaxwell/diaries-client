@@ -1,44 +1,55 @@
 
-@use '../../styles/constants' as *;
-
-.alertbuttons {
-    background-color: pink;
-    padding: 10px;
-    text-align: center;
-}
-
-.alert-success {
-    background-color: $green-100;
-}
-
-.alert-danger {
-    background-color: $red-100;
-}
-
-.alert-info {
-    background-color: $primary;
-}
-
-.alert-warning {
-    background-color: $orange-100;
-}
+@use '../../styles/tokens' as tokens;
 
 .alert-container {
-    display: flex;
-    flex-direction: row;
-    align-items: center, stretch;
-}
-
-.alert-close {
-    flex-grow: 0;
-    border-width: 0;
+  display: flex;
+  width: 100%;
+  min-width: 0;
 }
 
 .alert-message {
-    flex-grow: 1;
-    align-content: center;
-    padding: 4px;
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid tokens.$diaries-line;
+  border-left: 0.3rem solid tokens.$diaries-accent;
+  border-radius: 0.25rem;
+  background: tokens.$diaries-surface;
+  color: tokens.$diaries-ink;
+  cursor: pointer;
+  font-family: tokens.$diaries-font-ui;
+  font-size: 0.85rem;
+  line-height: 1.35;
+  text-align: left;
+
+  &:hover {
+    background: tokens.$diaries-selected;
+  }
 }
 
+.alert-kind {
+  flex: 0 0 auto;
+  font-weight: 700;
+}
 
-  
+.alert-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.alert-danger {
+  border-left-color: var(--mat-sys-error);
+  background: var(--mat-sys-error-container);
+  color: var(--mat-sys-on-error-container);
+}
+
+.alert-info {
+  border-left-color: tokens.$diaries-focus;
+}
+
+.alert-warning {
+  border-left-color: tokens.$diaries-accent-dark;
+}

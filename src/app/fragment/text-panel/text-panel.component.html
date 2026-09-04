@@ -1,59 +1,84 @@
-<div class="text-panel-container" *ngIf="fragment; else noFragment">
-  <div class="header">
+<section
+  class="text-panel-container"
+  *ngIf="fragment; else noFragment"
+  [class.is-locked-by-me]="isLockedByMe"
+  [class.is-locked-by-other]="isLockedByOther">
+  <header class="editor-header">
+    <div class="heading-group">
+      <p class="eyebrow">Transcription</p>
+      <div class="title-row">
+        <button
+          class="date-button"
+          type="button"
+          [class.is-invalid]="!isDateValid"
+          [disabled]="isLockedByOther"
+          [attr.aria-label]="'Edit fragment date, currently ' + formattedDate"
+          (click)="editDate()">
+          {{ formattedDate }}
+        </button>
+        <span class="fragment-id">Fragment {{ fragment.id }}</span>
+      </div>
+      @if (!isDateValid) {
+        <p class="date-warning" role="alert">This fragment needs a valid date.</p>
+      }
+    </div>
 
-    <span (click)="editDate()" [ngStyle]="{
-        'background-color': isDateValid ? null : 'red',
-        'padding': '2px',
-        'border-radius': '2px'
-       }">
-      {{ formattedDate }}
-    </span>
-
-    <span [ngStyle]="{
-        'color': 'grey',
-        'padding-left': '50px',
-        'border-radius': '2px'
-       }"> id: {{ fragment.id }}
-    </span>
-
-
-    <!-- hidden field + picker -->
-    <mat-form-field style="width:0; height:0; overflow:hidden; margin:0; padding:0;">
+    <!-- The picker stays visually hidden while the readable date button opens it. -->
+    <mat-form-field class="hidden-date-field">
       <input matInput [matDatepicker]="picker" [value]="date" (dateChange)="onDateSelected($event)">
       <mat-datepicker #picker (closed)="onDatePickerClosed()"></mat-datepicker>
     </mat-form-field>
 
-
-
     <div class="row-actions">
-
-      <!-- lockInfo button -->
-      <button class="btn lockInfo-button" type="button" [disabled]="!isLockedByMe" [ngClass]="{
-          'locked-by-me': isLockedByMe,
-          'locked-by-other': isLockedByOther
-        }" (click)="onLockInfo()">
+      <button
+        class="btn lock-info-button"
+        type="button"
+        [disabled]="!isLockedByMe"
+        [ngClass]="{ 'locked-by-me': isLockedByMe, 'locked-by-other': isLockedByOther }"
+        [attr.aria-label]="lockButtonText"
+        (click)="onLockInfo()">
         {{ lockButtonText }}
       </button>
 
-      <!-- save button -->
-      <button class="btn save-button" type="button" [disabled]="!hasEdits || isLockedByOther || !isLockedByMe"
-        [ngClass]="{ 'active': hasEdits && isLockedByMe && !isLockedByOther }" (click)="onSave()">
-        Save
+      <button
+        class="btn save-button"
+        type="button"
+        [disabled]="saveInFlight || !hasEdits || isLockedByOther || !isLockedByMe"
+        [ngClass]="{ 'active': hasEdits && isLockedByMe && !isLockedByOther }"
+        [attr.aria-busy]="saveInFlight"
+        (click)="onSave()">
+        {{ saveInFlight ? 'Saving…' : 'Save' }}
       </button>
     </div>
-  </div>
-
-
+  </header>
 
   <div class="body">
+    @if (isLockedByOther) {
+      <p class="panel-status lock-notice" role="status">
+        Read only — locked by {{ lockOwnerDisplay }}.
+      </p>
+    }
+    @if (saveInFlight) {
+      <p class="panel-status save-status" role="status" aria-live="polite">
+        Saving transcription…
+      </p>
+    }
+
     <form [formGroup]="form">
-      <quill-editor formControlName="body" [modules]="editorModules" placeholder="Write something…"
+      <quill-editor
+        formControlName="body"
+        [modules]="editorModules"
+        placeholder="Write something…"
         (onEditorCreated)="onEditorCreated($event)">
       </quill-editor>
     </form>
   </div>
-</div>
+</section>
 
 <ng-template #noFragment>
-  <p>No fragment selected. Please click on a marquee to view details.</p>
+  <section class="empty-state" aria-labelledby="empty-fragment-title">
+    <p class="eyebrow">Transcription</p>
+    <h2 id="empty-fragment-title">Choose a passage to begin</h2>
+    <p>Select a marquee on the source page to read or edit its transcription.</p>
+  </section>
 </ng-template>

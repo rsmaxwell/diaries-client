@@ -1,10 +1,42 @@
 
-@use '../../../styles/constants' as *;
+@use '../../../styles/shell' as shell;
 
-.header {
-  background-color: $primary;
+:host {
+  display: block;
+  flex: 0 0 auto;
 }
 
-.example-spacer {
-    flex: 1 1 auto;
+.header {
+  @include shell.toolbar(header);
+}
+
+.shell-inner {
+  @include shell.inner;
+}
+
+.shell-title {
+  @include shell.title;
+  flex: 1 1 auto;
+}
+
+.shell-action {
+  @include shell.icon-button;
+}
+
+.header-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+@media (max-width: 44rem) {
+  .shell-inner {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .shell-title {
+    padding-top: 0.65rem;
+  }
 }

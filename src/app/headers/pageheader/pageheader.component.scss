@@ -1,22 +1,59 @@
 
-@use '../../../styles/constants' as *;
+@use '../../../styles/shell' as shell;
+@use '../../../styles/tokens' as tokens;
+
+:host {
+  display: block;
+  flex: 0 0 auto;
+}
 
 .header {
-  background-color: $primary;
+  @include shell.toolbar(header);
 }
 
-.icon {
-  color: black;
+.shell-inner {
+  @include shell.inner;
 }
 
-.spacer {
-    flex: 1 1 auto;
+.shell-title {
+  @include shell.title;
+  flex: 1 1 auto;
+}
+
+.shell-action,
+.header-actions button {
+  @include shell.icon-button;
+}
+
+.header-actions {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.1rem;
 }
 
 button.active {
-  background-color: rgba(0, 0, 0, 0.16);
+  background: tokens.$diaries-selected;
+  box-shadow: inset 0 -3px tokens.$diaries-accent;
 }
 
 button.active mat-icon {
-  color: #1976d2;
+  color: tokens.$diaries-accent-dark;
+}
+
+@media (max-width: 44rem) {
+  .shell-inner {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .shell-title {
+    padding-top: 0.65rem;
+  }
+
+  .header-actions {
+    flex: 1 0 100%;
+    flex-wrap: wrap;
+  }
 }

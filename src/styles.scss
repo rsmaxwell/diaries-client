@@ -13,9 +13,11 @@
 }
 
 html, body, app-root {
-    height: 100%;
-    margin: 0;
-    padding: 0;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 html,
@@ -32,6 +34,7 @@ app-root {
 
 body {
   margin: 0;
+  overflow-x: hidden;
   font-family: var(--diaries-font-reader);
   line-height: 1.5;
 }
@@ -73,8 +76,8 @@ a:hover {
   resize: both;
   overflow: auto;
 
-  min-width: 560px;
-  min-height: 380px;
+  min-width: min(560px, 96vw);
+  min-height: min(380px, 92vh);
   max-width: 96vw !important;
   max-height: 92vh !important;
 }
@@ -90,4 +93,23 @@ a:hover {
   background: var(--diaries-surface);
   color: var(--diaries-ink);
   font-family: var(--diaries-font-ui);
+}
+
+@media (max-width: 44rem) {
+  .files-dialog-panel {
+    resize: none;
+  }
+}
+
+// Preserve all state changes while removing non-essential movement for users
+// who request reduced motion. CDK drag feedback remains immediate.
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

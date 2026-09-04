@@ -1,23 +1,23 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
-
 import { SigninComponent } from './signin.component';
 
-describe('SigninPageComponent', () => {
-  let component: SigninComponent;
-  let fixture: ComponentFixture<SigninComponent>;
+describe('SigninComponent', () => {
+  function createComponent(): SigninComponent {
+    return new SigninComponent(
+      {} as any,
+      { snapshot: { queryParams: {} } } as any,
+      {} as any,
+      { userId: null, username: null, knownAs: null } as any,
+      {} as any,
+      {} as any,
+      { clear: jasmine.createSpy('clear') } as any
+    );
+  }
 
-  beforeEach(async () => {
-    await TestBed.configureTestingModule({
-      imports: [SigninComponent]
-    })
-    .compileComponents();
+  it('requires both sign-in fields', () => {
+    const component = createComponent();
 
-    fixture = TestBed.createComponent(SigninComponent);
-    component = fixture.componentInstance;
-    fixture.detectChanges();
-  });
-
-  it('should create', () => {
-    expect(component).toBeTruthy();
+    expect(component.form.valid).toBeFalse();
+    component.form.setValue({ username: 'reader', password: 'secret' });
+    expect(component.form.valid).toBeTrue();
   });
 });

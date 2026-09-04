@@ -1,16 +1,7 @@
-import { TestBed } from '@angular/core/testing';
-
 import { MqttService } from './mqtt.service';
 
 describe('MqttService', () => {
-  let service: MqttService;
-
-  beforeEach(() => {
-    TestBed.configureTestingModule({});
-    service = TestBed.inject(MqttService);
-  });
-
-  it('should be created', () => {
-    expect(service).toBeTruthy();
+  it('creates with the runtime configuration service', () => {
+    expect(new MqttService({} as any)).toBeTruthy();
   });
 });

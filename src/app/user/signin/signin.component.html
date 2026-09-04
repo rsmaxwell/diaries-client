@@ -2,11 +2,15 @@
 
   <app-plainheader></app-plainheader>
 
-  <div class="pagename">
-    <h3>Signin</h3>
-  </div>
+  <main class="auth-main">
+    <section class="auth-panel" aria-labelledby="signin-heading">
+      <header class="auth-heading">
+        <p class="eyebrow">Your diary collection</p>
+        <h1 id="signin-heading">Sign in</h1>
+        <p>Continue reading and editing your diaries.</p>
+      </header>
 
-  <form [formGroup]="form" class="form" autocomplete="on" (ngSubmit)="onSubmit()">
+      <form [formGroup]="form" class="form" autocomplete="on" (ngSubmit)="onSubmit()">
 
     <mat-form-field appearance="outline" class="item">
       <mat-label>Username</mat-label>
@@ -31,8 +35,9 @@
         name="password"
         autocomplete="current-password"
         required>
-      <button type="button" mat-icon-button matSuffix (click)="hide = !hide" [attr.aria-label]="'Hide password'"
-        [attr.aria-pressed]="hide">
+      <button type="button" mat-icon-button matSuffix (click)="hide = !hide"
+        [attr.aria-label]="hide ? 'Show password' : 'Hide password'"
+        [attr.aria-pressed]="!hide">
         <mat-icon>{{hide ? 'visibility_off' : 'visibility'}}</mat-icon>
       </button>
       @if (passwordFormControl.invalid) {
@@ -41,13 +46,13 @@
     </mat-form-field>
 
     <mat-card-actions class="button-container">
-      <button type="submit" mat-raised-button [disabled]="!form.valid" color="primary">Signin</button>
+      <button type="submit" mat-raised-button [disabled]="!form.valid" color="primary">Sign in</button>
       <button type="button" mat-raised-button (click)="onRegister()" class="button">Register</button>
     </mat-card-actions>
 
-  </form>
-
-  <div class="padding"></div>
+      </form>
+    </section>
+  </main>
   <!-- <app-alerts></app-alerts> -->
   <!-- <app-alertbuttons></app-alertbuttons> -->
   <app-plainfooter></app-plainfooter>

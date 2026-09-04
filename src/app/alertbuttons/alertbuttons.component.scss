@@ -1,91 +1,48 @@
 
-@use '../../styles/constants' as *;
-
-
-
-.success {
-    background-color: $green-500;
-    color: white;
-}
-
-.error {
-    background-color: $red-500;
-    color: white;
-}
-
-.info {
-    background-color: $cyan-500;
-    color: white;
-}
-
-.warning {
-    background-color: $orange-500;
-    color: white;
-}
-
-.clear {
-    background-color: white;
-    color: black;
-}
-
-.xtext-white {
-    color: white;
-}
-
-.xtext-black {
-    color: black;
-}
-
-
-
-
-
-
-
-
-
+@use '../../styles/tokens' as tokens;
 
 .alertbuttons {
-    background-color: pink;
-    padding: 10px;
-    text-align: center;
-}
-
-.alert-success {
-    background-color: $green-500;
-}
-
-.alert-danger {
-    background-color: $red-500;
-}
-
-.alert-info {
-    background-color: $cyan-500;
-}
-
-.alert-warning {
-    background-color: $orange-300;
+  display: grid;
+  gap: 0.75rem;
+  margin: 1rem;
+  padding: 1rem;
+  border: 1px solid tokens.$diaries-line;
+  border-radius: 0.35rem;
+  background: tokens.$diaries-surface;
+  color: tokens.$diaries-ink;
+  font-family: tokens.$diaries-font-ui;
+  text-align: center;
 }
 
 button {
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    color: black;
-    font-size: 1.2rem;
-    padding: 1rem;
-    margin-right: 1rem;
-    margin-bottom: 1rem;
-    margin-top: 1rem;
+  margin: 0.25rem;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid tokens.$diaries-accent;
+  border-radius: 0.25rem;
+  background: tokens.$diaries-surface;
+  color: tokens.$diaries-accent-dark;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 650;
 }
 
-button:hover {
-    background-color: black;
-    color: white;
+button:hover:not(:disabled) {
+  background: tokens.$diaries-selected;
+}
+
+button:active:not(:disabled) {
+  background: tokens.$diaries-line;
+}
+
+button.error {
+  border-color: var(--mat-sys-error);
+  color: var(--mat-sys-error);
 }
 
 button:disabled {
-    background-color: $grey-200;
-    color: #aaa;
-    cursor: auto;
+  border-color: tokens.$diaries-line;
+  background: tokens.$diaries-paper;
+  color: tokens.$diaries-muted;
+  cursor: not-allowed;
+  opacity: 0.55;
 }

@@ -2,11 +2,14 @@
 
 
 <mat-card class="string-list-card">
+  <div class="alert-message {{ cssClass(alert) }}">
+    <strong class="alert-kind">{{ typeLabel(alert) }}</strong>
+    <span>{{ getMessage() }}</span>
+  </div>
 
-  <mat-label class="alert-message {{ cssClass(alert) }}">{{ getMessage() }}</mat-label>
-
-  <mat-label class="alert-dump">{{ getDump() }}</mat-label>
-
+  @if (getDump()) {
+    <pre class="alert-dump">{{ getDump() }}</pre>
+  }
 </mat-card>
   
 

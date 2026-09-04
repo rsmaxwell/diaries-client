@@ -1,0 +1,213 @@
+@use 'tokens' as tokens;
+
+// Shared browsing treatment for ordered diary and page collections.
+@mixin page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  min-width: 0;
+  background: tokens.$diaries-paper;
+  color: tokens.$diaries-ink;
+}
+
+@mixin main {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+@mixin shell {
+  width: min(64rem, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: clamp(1.75rem, 5vw, 3.5rem) 0 4rem;
+}
+
+@mixin heading {
+  max-width: 48rem;
+  margin-bottom: clamp(1.5rem, 4vw, 2.5rem);
+
+  .eyebrow {
+    margin: 0 0 0.25rem;
+    color: tokens.$diaries-muted;
+    font-family: tokens.$diaries-font-metadata;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    margin: 0 0 0.65rem;
+    overflow-wrap: anywhere;
+    color: tokens.$diaries-ink;
+    font-family: tokens.$diaries-font-heading;
+    font-size: clamp(2rem, 5vw, 3.7rem);
+    line-height: 1.08;
+  }
+
+  .supporting-text {
+    margin: 0;
+    color: tokens.$diaries-muted;
+    font-family: tokens.$diaries-font-ui;
+    font-size: 0.95rem;
+    line-height: 1.55;
+  }
+}
+
+@mixin list {
+  display: grid;
+  gap: 0.8rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@mixin item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: stretch;
+  overflow: hidden;
+  border: 1px solid tokens.$diaries-line;
+  border-radius: 0.35rem;
+  background: tokens.$diaries-surface;
+  transition: border-color 120ms ease, background-color 120ms ease;
+
+  &:hover {
+    border-color: tokens.$diaries-accent;
+  }
+
+  &.cdk-drag-animating {
+    transition: transform 180ms cubic-bezier(0, 0, 0.2, 1);
+  }
+}
+
+@mixin handle {
+  display: grid;
+  width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-right: 1px solid tokens.$diaries-line;
+  background: tokens.$diaries-paper;
+  color: tokens.$diaries-muted;
+  cursor: grab;
+  font: 700 1.15rem/1 tokens.$diaries-font-ui;
+
+  &:hover {
+    background: tokens.$diaries-selected;
+    color: tokens.$diaries-accent-dark;
+  }
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+@mixin link {
+  display: flex;
+  min-height: 2.75rem;
+  min-width: 0;
+  padding: 1rem 1.15rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  border: 0;
+  background: transparent;
+  color: tokens.$diaries-ink;
+  cursor: pointer;
+  text-align: left;
+
+  &:hover {
+    background: tokens.$diaries-selected;
+  }
+
+  .item-name {
+    overflow-wrap: anywhere;
+    font-family: tokens.$diaries-font-heading;
+    font-size: clamp(1.15rem, 2.2vw, 1.4rem);
+    font-weight: 700;
+    line-height: 1.25;
+  }
+
+  .item-metadata {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.8rem;
+    color: tokens.$diaries-muted;
+    font-family: tokens.$diaries-font-metadata;
+    font-size: 0.76rem;
+    line-height: 1.35;
+  }
+}
+
+@mixin drag-states {
+  .reader-list.cdk-drop-list-dragging .reader-item:not(.cdk-drag-placeholder) {
+    transition: transform 180ms cubic-bezier(0, 0, 0.2, 1);
+  }
+
+  .reader-drag-placeholder {
+    min-height: 4.75rem;
+    border: 2px dashed tokens.$diaries-accent;
+    border-radius: 0.35rem;
+    background: tokens.$diaries-selected;
+  }
+
+  .reader-drag-preview {
+    width: min(36rem, calc(100vw - 2rem));
+    padding: 0.85rem 1rem;
+    border: 1px solid tokens.$diaries-accent;
+    border-radius: 0.35rem;
+    background: tokens.$diaries-surface;
+    color: tokens.$diaries-ink;
+    font-family: tokens.$diaries-font-heading;
+    font-size: 1.15rem;
+    box-shadow: 0 0.5rem 1.5rem color-mix(in srgb, tokens.$diaries-ink 16%, transparent);
+
+    small {
+      display: block;
+      margin-top: 0.25rem;
+      color: tokens.$diaries-muted;
+      font-family: tokens.$diaries-font-metadata;
+      font-size: 0.72rem;
+    }
+  }
+}
+
+@mixin empty {
+  margin: 0;
+  padding: 1.5rem;
+  border: 1px solid tokens.$diaries-line;
+  border-radius: 0.35rem;
+  background: tokens.$diaries-surface;
+  color: tokens.$diaries-muted;
+  font-family: tokens.$diaries-font-ui;
+  text-align: center;
+}
+
+@mixin narrow {
+  @media (max-width: 44rem) {
+    .reader-shell {
+      width: min(100% - 1.25rem, 64rem);
+      padding-top: 1.5rem;
+    }
+
+    .reader-link {
+      padding: 0.85rem 0.9rem;
+    }
+
+    .drag-handle {
+      width: 2.5rem;
+    }
+  }
+}
+
+@mixin reduced-motion {
+  @media (prefers-reduced-motion: reduce) {
+    .reader-item,
+    .reader-item.cdk-drag-animating,
+    .reader-list.cdk-drop-list-dragging .reader-item:not(.cdk-drag-placeholder) {
+      transition: none;
+    }
+  }
+}

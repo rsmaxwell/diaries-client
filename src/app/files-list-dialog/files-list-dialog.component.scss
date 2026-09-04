@@ -2,6 +2,8 @@
    FilesListDialog — SCSS (rationalized, same visuals)
    ========================================================================== */
 
+@use '../../styles/tokens' as tokens;
+
 /* ---------- 1) Variables -------------------------------------------------- */
 .dialog-container {
   /* Details grid: thumb | name | size | modified | taken */
@@ -9,8 +11,8 @@
   --details-row-min-h: 38px;
   --details-row-vpad: 1px;
   --details-gap: 10px;
-  --details-header-bg: rgba(0, 0, 0, 0.08);
-  --details-header-text: inherit;
+  --details-header-bg: #{tokens.$diaries-paper};
+  --details-header-text: #{tokens.$diaries-muted};
   /* keep current color */
   --pad-x: 6px;
 
@@ -53,9 +55,9 @@
   }
 
   /* Generic colors (keep existing feel) */
-  --row-hover-bg: rgba(0, 0, 0, 0.04);
-  --muted: rgba(0, 0, 0, 0.6);
-  --muted-strong: rgba(0, 0, 0, 0.8);
+  --row-hover-bg: #{tokens.$diaries-selected};
+  --muted: #{tokens.$diaries-muted};
+  --muted-strong: #{tokens.$diaries-ink};
 
   /* Make the dialog fill the resizable dialog panel */
   display: flex;
@@ -67,6 +69,9 @@
 
   max-height: none;
   overflow: hidden;
+  background: tokens.$diaries-surface;
+  color: tokens.$diaries-ink;
+  font-family: tokens.$diaries-font-ui;
 }
 
 /* global default for metadata text */
@@ -116,6 +121,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid tokens.$diaries-line;
+  background: tokens.$diaries-surface;
 
   .subdir-wrap {
     display: inline-flex;
@@ -130,7 +139,8 @@
       margin: 0;
       font-weight: 600;
       font-size: 14px;
-      color: #374151;
+      color: tokens.$diaries-ink;
+      font-family: tokens.$diaries-font-heading;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -147,11 +157,11 @@
       align-items: center;
       gap: 8px;
       padding: 6px 10px;
-      border: 1px solid #e5e7eb;
+      border: 1px solid tokens.$diaries-line;
       border-radius: 8px;
-      background: #fff;
+      background: tokens.$diaries-surface;
       font-size: 14px;
-      color: #111827;
+      color: tokens.$diaries-ink;
       min-width: 140px;
       cursor: pointer;
 
@@ -182,8 +192,8 @@
     .mode-select:focus-within,
     .mode-select.cdk-focused {
       outline: none;
-      border-color: #6366f1;
-      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+      border-color: tokens.$diaries-focus;
+      box-shadow: 0 0 0 3px color-mix(in srgb, tokens.$diaries-focus 18%, transparent);
     }
   }
 }
@@ -192,6 +202,7 @@
 .empty,
 .loading {
   padding: 24px;
+  color: tokens.$diaries-muted;
   text-align: center;
 }
 
@@ -333,10 +344,14 @@
   cursor: pointer;
 
   /* Hover/focus state (kept subtle) */
-  &:hover,
-  &:focus {
+  &:hover {
     background: var(--row-hover-bg);
-    outline: none;
+  }
+
+  &:focus-visible {
+    outline: 3px solid tokens.$diaries-focus;
+    outline-offset: -3px;
+    background: var(--row-hover-bg);
   }
 }
 
@@ -529,7 +544,7 @@
     height: var(--details-row-h);
     font-size: 12px;
     line-height: 1.3;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    border-bottom: 1px solid tokens.$diaries-line;
   }
 
   /* Remove left offset so header/body align flush */
@@ -649,13 +664,14 @@
   padding: 6px 8px;
 
   /* optional: subtle divider to separate from the list */
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  border-top: 1px solid tokens.$diaries-line;
 }
 
 /* keep the count text tone consistent with header cells */
 .dialog-container .dialog-footer .count {
   margin: 0;
-  color: inherit;
+  color: tokens.$diaries-muted;
+  font-size: 0.8rem;
 }
 
 /* keep action area tight */
@@ -688,4 +704,52 @@
   font-weight: 400;
   padding-left: 0;
   margin-left: 0;
+}
+
+.close-button {
+  padding: 0.45rem 0.8rem;
+  border: 1px solid tokens.$diaries-accent;
+  border-radius: 0.25rem;
+  background: tokens.$diaries-surface;
+  color: tokens.$diaries-accent-dark;
+  cursor: pointer;
+  font-weight: 650;
+
+  &:hover {
+    background: tokens.$diaries-selected;
+  }
+}
+
+@media (max-width: 44rem) {
+  .dialog-container {
+    --details-cols: 36px minmax(0, 1fr);
+  }
+
+  .dialog-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .dialog-header .subdir-wrap .subdir {
+    max-width: calc(100vw - 5rem);
+  }
+
+  .mode-details .col-size,
+  .mode-details .col-mtime,
+  .mode-details .col-dtaken {
+    display: none;
+  }
+
+  .dialog-container .dialog-footer {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .dialog-container .dialog-footer .footer-actions {
+    margin-left: auto;
+  }
+
+  .close-button {
+    min-height: 2.75rem;
+  }
 }

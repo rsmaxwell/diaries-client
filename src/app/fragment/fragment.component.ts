@@ -38,6 +38,10 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private destroy$ = new Subject<void>();
   private layout: GoldenLayout | undefined;
+  private resizeObserver?: ResizeObserver;
+  private editorBreakpoint?: MediaQueryList;
+  private layoutMode?: 'wide' | 'narrow';
+  private readonly onEditorBreakpointChange = (): void => this.loadResponsiveLayout();
 
   pages: Page[] = [];
 
@@ -97,31 +101,62 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngAfterViewInit(): void {
-    const layoutConfig: LayoutConfig = {
+    this.layout = new GoldenLayout(this.layoutContainer.nativeElement);
+
+    // Register Angular components once; crossing the responsive breakpoint only
+    // reloads their Golden Layout arrangement.
+    this.layout.registerComponentFactoryFunction('ImageViewer', (container) => {
+      this.bindComponent<ImageViewerComponent>(container, ImageViewerComponent);
+    });
+
+    this.layout.registerComponentFactoryFunction('TextPanel', (container) => {
+      this.bindComponent<TextPanelComponent>(container, TextPanelComponent);
+    });
+
+    this.layout.registerComponentFactoryFunction('Dayview', (container) => {
+      this.bindComponent<DayviewComponent>(container, DayviewComponent);
+    });
+
+    this.editorBreakpoint = window.matchMedia('(max-width: 56rem)');
+    this.editorBreakpoint.addEventListener('change', this.onEditorBreakpointChange);
+    this.loadResponsiveLayout();
+
+    this.resizeObserver = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        this.layout?.setSize(width, height);
+      }
+    });
+    this.resizeObserver.observe(this.layoutContainer.nativeElement);
+  }
+
+  private createLayoutConfig(narrow: boolean): LayoutConfig {
+    return {
       root: <RowOrColumnItemConfig>{
-        type: 'row',
+        type: narrow ? 'column' : 'row',
         content: [
-          // Left side: ImageViewer alone
           {
             type: 'component',
             componentType: 'ImageViewer',
-            title: 'Page',
-            width: 50      // give it ~30% of the width (tweak as you like)
+            title: 'Source page',
+            width: 50,
+            height: narrow ? 45 : undefined
           },
-          // Right side: stack/tabs with TextPanel and Dayview
           {
             type: 'stack',
+            width: 50,
+            height: narrow ? 55 : undefined,
             content: [
               {
                 type: 'component',
                 componentType: 'TextPanel',
-                title: 'Editor'
+                title: 'Transcription'
               }
               ,
               {
                 type: 'component',
                 componentType: 'Dayview',
-                title: 'List'
+                title: 'Day reader'
               }
             ]
           }
@@ -138,35 +173,16 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
         close: false
       }
     };
+  }
 
-    this.layout = new GoldenLayout(this.layoutContainer.nativeElement);
+  private loadResponsiveLayout(): void {
+    if (!this.layout || !this.editorBreakpoint) return;
 
-    // Register your Angular components
-    this.layout.registerComponentFactoryFunction('ImageViewer', (container) => {
-      this.bindComponent<ImageViewerComponent>(container, ImageViewerComponent);
-    });
+    const nextMode = this.editorBreakpoint.matches ? 'narrow' : 'wide';
+    if (this.layoutMode === nextMode) return;
 
-    this.layout.registerComponentFactoryFunction('TextPanel', (container) => {
-      this.bindComponent<TextPanelComponent>(container, TextPanelComponent);
-    });
-
-    this.layout.registerComponentFactoryFunction('Dayview', (container) => {
-      this.bindComponent<DayviewComponent>(container, DayviewComponent);
-    });
-
-    this.layout.loadLayout(layoutConfig);
-
-    // ResizeObserver
-    const ro = new ResizeObserver(entries => {
-      for (const entry of entries) {
-        // contentRect is universally supported
-        const { width, height } = entry.contentRect;
-
-        // call the new API
-        this.layout?.setSize(width, height);
-      }
-    });
-    ro.observe(this.layoutContainer.nativeElement);
+    this.layoutMode = nextMode;
+    this.layout.loadLayout(this.createLayoutConfig(nextMode === 'narrow'));
   }
 
   ngOnDestroy(): void {
@@ -174,6 +190,9 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.destroy$.next();
     this.destroy$.complete();
+
+    this.resizeObserver?.disconnect();
+    this.editorBreakpoint?.removeEventListener('change', this.onEditorBreakpointChange);
 
     if (this.layout) {
       this.layout.destroy();
@@ -202,8 +221,8 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
       this.dialog.open(FilesListDialogComponent, {
         width: '80vw',
         height: '70vh',
-        minWidth: '560px',
-        minHeight: '380px',
+        minWidth: 'min(560px, 96vw)',
+        minHeight: 'min(380px, 92vh)',
         maxWidth: '96vw',
         maxHeight: '92vh',
         panelClass: 'files-dialog-panel',

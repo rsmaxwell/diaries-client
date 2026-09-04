@@ -1,32 +1,26 @@
 <mat-toolbar class="footer">
+  <div class="shell-inner">
+    <nav class="footer-navigation" aria-label="Page navigation">
+      <button mat-icon-button class="shell-action" title="Home" aria-label="Home" (click)="home()">
+        <mat-icon>home</mat-icon>
+      </button>
+      <button mat-icon-button class="shell-action" title="Up to diary" aria-label="Up to diary" (click)="onUpClick()">
+        <mat-icon>arrow_upward</mat-icon>
+      </button>
+      <button mat-icon-button class="shell-action" title="Previous page" aria-label="Previous page" (click)="onBackClick()">
+        <mat-icon>arrow_back</mat-icon>
+      </button>
+      <button mat-icon-button class="shell-action" title="Next page" aria-label="Next page" (click)="onForwardClick()">
+        <mat-icon>arrow_forward</mat-icon>
+      </button>
+    </nav>
 
-  <button mat-icon-button class="home icon" aria-label="Home" (click)="home()">
-    <mat-icon>home</mat-icon>
-  </button>
+    <div class="footer-alerts">
+      <app-alerts></app-alerts>
+    </div>
 
-  <button mat-icon-button class="arrow-up icon" aria-label="arrowUp" (click)="onUpClick()">
-    <mat-icon>arrow_upward</mat-icon>
-  </button>
-  
-  <span class="spacer"></span>
-
-  <!-- CENTERED ALERTS -->
-  <div class="footer-alerts">
-    <app-alerts></app-alerts>
+    <app-version-info></app-version-info>
   </div>
-
-  <span class="spacer"></span>
-
-  <button mat-icon-button class="arrow-left icon" aria-label="arrowLeft" (click)="onBackClick()">
-    <mat-icon>arrow_back</mat-icon>
-  </button>
-
-  <button mat-icon-button class="arrow-left icon" aria-label="arrowRight" (click)="onForwardClick()">
-    <mat-icon>arrow_forward</mat-icon>
-  </button>
-
-  <app-version-info></app-version-info>
-
 </mat-toolbar>
 
 

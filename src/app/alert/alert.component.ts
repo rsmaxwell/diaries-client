@@ -12,7 +12,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 
-import { Alert, AlertType } from '../alerts/alert.model';
+import { Alert, AlertType, alertTypeLabel } from '../alerts/alert.model';
 import { AlertService } from '../alerts/alert.service';
 import { ActivatedRoute } from '@angular/router';
 import { AlertsComponent } from '../alerts/alerts.component';
@@ -97,6 +97,10 @@ export class AlertComponent {
       return this.alert.message
     }
     return ""
+  }
+
+  typeLabel(alert: Alert): string {
+    return alertTypeLabel(alert.type);
   }
 
   getDump() {

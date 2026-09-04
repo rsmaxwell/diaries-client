@@ -1,47 +1,52 @@
 <div class="page">
   <app-fullheader [title]="title"></app-fullheader>
 
+  <main class="reader-main" aria-labelledby="diary-heading">
+    <div class="reader-shell">
+      @if (diary) {
+        <header class="reader-heading">
+          <p class="eyebrow">Diary {{diary.id}}</p>
+          <h1 id="diary-heading">{{diary.name}}</h1>
+          <p class="supporting-text">Choose a page to begin reading, or use the drag handles to change the page order.</p>
+        </header>
+      } @else {
+        <header class="reader-heading">
+          <p class="eyebrow">Diary</p>
+          <h1 id="diary-heading">Pages</h1>
+        </header>
+      }
 
-  <div class="title">
-    @if (diary) {
-      <div class="title-content">
-        <div class="title-item">{{diary.id}}</div>
-        <div class="title-item">{{diary.name}}</div>
-      </div>
-    }
-  </div>
+      @if (dataSource.data.length > 0) {
+        <ol class="reader-list" aria-label="Diary pages" cdkDropList
+          [cdkDropListData]="dataSource.data" (cdkDropListDropped)="drop($event)">
+          @for (pageItem of dataSource.data; track pageItem.id) {
+            <li class="reader-item" cdkDrag cdkDragLockAxis="y" [cdkDragData]="pageItem">
+              <button type="button" class="drag-handle" cdkDragHandle
+                title="Drag to reorder {{pageItem.name}}" [attr.aria-label]="'Drag to reorder ' + pageItem.name">
+                <span aria-hidden="true">⠿</span>
+              </button>
 
+              <button type="button" class="reader-link" (click)="selectItem(pageItem.id)">
+                <span class="item-name">{{pageItem.name}}</span>
+                <span class="item-metadata">
+                  <span>Page {{pageItem.id}}</span>
+                  <span>Position {{pageItem.sequence}}</span>
+                </span>
+              </button>
 
-  <mat-card appearance="outlined" class="card">
-    <mat-card-content class="content">
+              <div *cdkDragPreview class="reader-drag-preview">
+                {{pageItem.name}}
+                <small>Page {{pageItem.id}}</small>
+              </div>
+              <div *cdkDragPlaceholder class="reader-drag-placeholder"></div>
+            </li>
+          }
+        </ol>
+      } @else {
+        <p class="empty-state">No pages are available in this diary yet.</p>
+      }
+    </div>
+  </main>
 
-      <table mat-table [dataSource]="dataSource" class="mat-elevation-z8 diary-table" cdkDropList (cdkDropListDropped)="drop($event)">
-
-        <ng-container matColumnDef="id">
-          <th mat-header-cell *matHeaderCellDef class="column-id"> id </th>
-          <td mat-cell *matCellDef="let element" class="column-id"> {{element.id}} </td>
-        </ng-container>
-
-        <ng-container matColumnDef="sequence">
-          <th mat-header-cell *matHeaderCellDef class="column-sequence"> id </th>
-          <td mat-cell *matCellDef="let element" class="column-sequence"> {{element.sequence}} </td>
-        </ng-container>
-
-        <ng-container matColumnDef="name">
-          <th mat-header-cell *matHeaderCellDef class="column-name"> name </th>
-          <td mat-cell *matCellDef="let element" class="column-name"> {{element.name}} </td>
-        </ng-container>
-
-        <tr mat-row *matRowDef="let row; columns: displayedColumns;" (click)="selectItem(row.id)" cdkDrag>
-        </tr>
-
-      </table>
-
-    </mat-card-content>
-  </mat-card>
-
-  <div class="padding"></div>
-  <!-- <app-alerts></app-alerts> -->
-  <!-- <app-alertbuttons></app-alertbuttons> -->
   <app-fullfooter></app-fullfooter>
 </div>

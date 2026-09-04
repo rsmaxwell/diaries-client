@@ -1,21 +1,47 @@
 
-@use '../../../styles/constants' as *;
+@use '../../../styles/shell' as shell;
 
-.footer {
-  background-color: $primary;
+:host {
+  display: block;
+  flex: 0 0 auto;
 }
 
-.example-spacer {
-  flex: 1 1 auto;
+.footer {
+  @include shell.toolbar(footer);
+}
+
+.shell-inner {
+  @include shell.inner;
+  flex-wrap: wrap;
+}
+
+.footer-navigation {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.1rem;
+}
+
+.shell-action {
+  @include shell.icon-button;
 }
 
 .footer-alerts {
   display: flex;
-  justify-content: center;
   align-items: center;
-  flex-grow: 1;
+  justify-content: center;
+  flex: 1 1 16rem;
+  min-width: 0;
 }
 
 app-version-info {
-  margin-left: 1rem;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+@media (max-width: 44rem) {
+  .footer-alerts {
+    order: 3;
+    flex-basis: 100%;
+  }
 }

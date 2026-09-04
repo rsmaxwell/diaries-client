@@ -1,13 +1,17 @@
 <mat-toolbar class="header">
-    <button mat-icon-button class="example-icon" aria-label="Example icon-button with menu icon">
+  <div class="shell-inner">
+    <button mat-icon-button class="shell-action" title="Menu" aria-label="Open application menu">
       <mat-icon>menu</mat-icon>
     </button>
-    <span>{{title}}</span>
-    <span class="example-spacer"></span>
-    <button mat-icon-button class="example-icon favorite-icon" aria-label="Example icon-button with heart icon">
-      <mat-icon>favorite</mat-icon>
-    </button>
-    <button mat-icon-button class="example-icon" aria-label="Example icon-button with share icon">
-      <mat-icon>share</mat-icon>
-    </button>
-  </mat-toolbar>
+    <span class="shell-title">{{title}}</span>
+
+    <div class="header-actions" role="group" aria-label="Diary actions">
+      <button mat-icon-button class="shell-action" title="Favourite" aria-label="Favourite diary">
+        <mat-icon>favorite</mat-icon>
+      </button>
+      <button mat-icon-button class="shell-action" title="Share" aria-label="Share diary">
+        <mat-icon>share</mat-icon>
+      </button>
+    </div>
+  </div>
+</mat-toolbar>

@@ -195,8 +195,8 @@ export class PageheaderComponent implements OnInit, OnDestroy {
           this.dialog.open(FilesListDialogComponent, {
             width: '80vw',
             height: '70vh',
-            minWidth: '560px',
-            minHeight: '380px',
+            minWidth: 'min(560px, 96vw)',
+            minHeight: 'min(380px, 92vh)',
             maxWidth: '96vw',
             maxHeight: '92vh',
             panelClass: 'files-dialog-panel',

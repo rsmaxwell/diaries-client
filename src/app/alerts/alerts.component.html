@@ -1,6 +1,10 @@
 
 @if (alert) {
-  <div class="alert-container">
-    <div class="alert-message {{ cssClass(alert) }}" [innerHTML]="alert.message" (click)="getRecord(alert)"></div>
+  <div class="alert-container" role="status" aria-live="polite">
+    <button type="button" class="alert-message {{ cssClass(alert) }}"
+      title="View alert details" (click)="getRecord(alert)">
+      <span class="alert-kind">{{ typeLabel(alert) }}</span>
+      <span class="alert-text" [innerHTML]="alert.message"></span>
+    </button>
   </div>
 }

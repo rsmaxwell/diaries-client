@@ -1,23 +1,18 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
-
 import { RegisterComponent } from './register.component';
 
-describe('RegisterPageComponent', () => {
-  let component: RegisterComponent;
-  let fixture: ComponentFixture<RegisterComponent>;
+describe('RegisterComponent', () => {
+  function createComponent(): RegisterComponent {
+    return new RegisterComponent(
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      { clear: jasmine.createSpy('clear') } as any
+    );
+  }
 
-  beforeEach(async () => {
-    await TestBed.configureTestingModule({
-      imports: [RegisterComponent]
-    })
-    .compileComponents();
-
-    fixture = TestBed.createComponent(RegisterComponent);
-    component = fixture.componentInstance;
-    fixture.detectChanges();
-  });
-
-  it('should create', () => {
-    expect(component).toBeTruthy();
+  it('starts with an invalid registration form', () => {
+    expect(createComponent().form.valid).toBeFalse();
   });
 });
