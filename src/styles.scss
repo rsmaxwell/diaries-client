@@ -1,12 +1,27 @@
-@import '@angular/material/prebuilt-themes/azure-blue.css';
+@use 'app/theme';
+@use 'styles/tokens' as tokens;
 
-@import "quill/dist/quill.core.css";
-@import "quill/dist/quill.snow.css";
+:root {
+  @include tokens.emit-css-custom-properties();
+  color-scheme: light;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
 
 html, body, app-root {
     height: 100%;
     margin: 0;
     padding: 0;
+}
+
+html,
+body {
+  background-color: var(--diaries-paper);
+  color: var(--diaries-ink);
 }
 
 app-root {
@@ -16,8 +31,30 @@ app-root {
 }
 
 body {
-    margin: 0;
-    font-family: Roboto, "Helvetica Neue", sans-serif;
+  margin: 0;
+  font-family: var(--diaries-font-reader);
+  line-height: 1.5;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: var(--diaries-font-ui);
+}
+
+a {
+  color: var(--diaries-accent-dark);
+  text-underline-offset: 0.16em;
+}
+
+a:hover {
+  color: var(--diaries-accent);
+}
+
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--diaries-focus);
+  outline-offset: 3px;
 }
 
 /* GoldenLayout: hide all close/popout/maximise UI */
@@ -47,8 +84,10 @@ body {
   height: 100%;
   overflow: hidden;
 
-  border: 1px solid gray;
+  border: 1px solid var(--diaries-line);
   border-radius: 5px;
   box-sizing: border-box;
-  background: lightgray;
+  background: var(--diaries-surface);
+  color: var(--diaries-ink);
+  font-family: var(--diaries-font-ui);
 }

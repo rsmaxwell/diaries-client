@@ -211,6 +211,27 @@ When debugging client/server behaviour, consider all of the following together:
 
 Many bugs involve both the Angular client and the Java responder. For example, a UI issue may be caused by a retained topic not being updated, an RPC reply shape changing, a lock/unlock race, or stale selected object state.
 
+## Reader-style design foundation
+
+The client shares the reader-oriented visual language established by `diaries-web`, but does not load styles or assets from that application at runtime. The central source of truth is `src/styles/_tokens.scss`. It defines the warm reader palette and typography roles, and emits matching `--diaries-*` CSS custom properties for component and CDK overlay use.
+
+The semantic palette is:
+
+| Token | Value | Purpose |
+| --- | --- | --- |
+| `ink` | `#28241f` | Primary text |
+| `muted` | `#655e54` | Metadata and supporting text |
+| `paper` | `#fbf8f1` | Application page background |
+| `surface` | `#fffdf8` | Controls, dialogs and raised reading surfaces |
+| `line` | `#d9cfbd` | Borders and separators |
+| `accent` | `#765326` | Primary actions and emphasis |
+| `accent-dark` | `#4d3417` | Links and high-contrast accent text |
+| `focus` | `#165d9c` | Keyboard focus indicator |
+
+Reader content and prominent reader headings use the Georgia/Times-style serif roles. Controls and metadata use the system UI sans-serif roles, while request and build identifiers can use the monospace role. Angular Material is configured in `src/app/theme.scss` to use the UI typography and the same semantic colours, including dialogs and other CDK overlay content.
+
+New component styles should consume the semantic Sass variables from `src/styles/_tokens.scss` (directly or through the compatibility `constants.scss` entry point), or the generated `--diaries-*` custom properties. Do not create a separate copy of the palette in component styles.
+
 ## Useful commands
 
 ```bash id="j10t5s"

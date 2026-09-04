@@ -1,0 +1,44 @@
+// Reader-style design tokens for diaries-client.
+//
+// diaries-web is the visual reference for these values, but it is not a runtime
+// dependency. Keep palette and typography changes here so Sass consumers and
+// the CSS custom properties emitted below cannot drift apart.
+
+// Reader palette.
+$diaries-ink: #28241f;
+$diaries-muted: #655e54;
+$diaries-paper: #fbf8f1;
+$diaries-surface: #fffdf8;
+$diaries-line: #d9cfbd;
+$diaries-accent: #765326;
+$diaries-accent-dark: #4d3417;
+$diaries-focus: #165d9c;
+$diaries-selected: #f2e6ce;
+
+// Reader content and prominent reader headings use serif type. Application
+// controls and metadata use the system UI stack; identifiers may use monospace.
+$diaries-font-reader: Georgia, "Times New Roman", Times, serif;
+$diaries-font-heading: $diaries-font-reader;
+$diaries-font-ui: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+$diaries-font-metadata: $diaries-font-ui;
+$diaries-font-monospace: ui-monospace, "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+
+// Emit runtime tokens from the Sass source of truth. Components may consume
+// either the Sass variables above or these inherited, overlay-safe properties.
+@mixin emit-css-custom-properties() {
+  --diaries-ink: #{$diaries-ink};
+  --diaries-muted: #{$diaries-muted};
+  --diaries-paper: #{$diaries-paper};
+  --diaries-surface: #{$diaries-surface};
+  --diaries-line: #{$diaries-line};
+  --diaries-accent: #{$diaries-accent};
+  --diaries-accent-dark: #{$diaries-accent-dark};
+  --diaries-focus: #{$diaries-focus};
+  --diaries-selected: #{$diaries-selected};
+
+  --diaries-font-reader: #{$diaries-font-reader};
+  --diaries-font-heading: #{$diaries-font-heading};
+  --diaries-font-ui: #{$diaries-font-ui};
+  --diaries-font-metadata: #{$diaries-font-metadata};
+  --diaries-font-monospace: #{$diaries-font-monospace};
+}

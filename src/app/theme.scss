@@ -1,0 +1,54 @@
+@use '@angular/material' as mat;
+@use '../styles/tokens' as tokens;
+
+// Material remains the control language of the editing client. Its typography
+// is intentionally UI-like; reader content opts into the serif tokens instead.
+// The built-in palette supplies complete Material tonal data, while the system
+// overrides align visible controls and CDK overlay surfaces with Diaries.
+html {
+  @include mat.theme((
+    color: (
+      theme-type: light,
+      primary: mat.$orange-palette,
+      tertiary: mat.$orange-palette,
+    ),
+    typography: (
+      plain-family: tokens.$diaries-font-ui,
+      brand-family: tokens.$diaries-font-ui,
+      regular-weight: 400,
+      medium-weight: 500,
+      bold-weight: 700,
+    ),
+    density: 0,
+  ));
+
+  @include mat.theme-overrides((
+    background: tokens.$diaries-paper,
+    on-background: tokens.$diaries-ink,
+    surface: tokens.$diaries-surface,
+    surface-bright: tokens.$diaries-surface,
+    surface-dim: tokens.$diaries-paper,
+    surface-container-lowest: tokens.$diaries-surface,
+    surface-container-low: tokens.$diaries-surface,
+    surface-container: tokens.$diaries-paper,
+    surface-container-high: tokens.$diaries-paper,
+    surface-container-highest: tokens.$diaries-selected,
+    on-surface: tokens.$diaries-ink,
+    on-surface-variant: tokens.$diaries-muted,
+    outline: tokens.$diaries-line,
+    outline-variant: tokens.$diaries-line,
+    primary: tokens.$diaries-accent,
+    on-primary: tokens.$diaries-surface,
+    primary-container: tokens.$diaries-selected,
+    on-primary-container: tokens.$diaries-accent-dark,
+    secondary: tokens.$diaries-accent,
+    on-secondary: tokens.$diaries-surface,
+    secondary-container: tokens.$diaries-selected,
+    on-secondary-container: tokens.$diaries-accent-dark,
+    tertiary: tokens.$diaries-accent-dark,
+    on-tertiary: tokens.$diaries-surface,
+    tertiary-container: tokens.$diaries-selected,
+    on-tertiary-container: tokens.$diaries-accent-dark,
+    surface-tint: tokens.$diaries-accent,
+  ));
+}

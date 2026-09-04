@@ -1,18 +1,18 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { FullheaderComponent } from './fullheader.component';
+import { FullHeaderComponent } from './fullheader.component';
 
-describe('FullheaderComponent', () => {
-  let component: FullheaderComponent;
-  let fixture: ComponentFixture<FullheaderComponent>;
+describe('FullHeaderComponent', () => {
+  let component: FullHeaderComponent;
+  let fixture: ComponentFixture<FullHeaderComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [FullheaderComponent]
+      imports: [FullHeaderComponent]
     })
     .compileComponents();
 
-    fixture = TestBed.createComponent(FullheaderComponent);
+    fixture = TestBed.createComponent(FullHeaderComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
   });

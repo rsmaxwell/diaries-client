@@ -1,7 +1,7 @@
 import { Component, Input, afterNextRender, inject, Injector, ViewChild } from '@angular/core';
 import { MatTableModule } from '@angular/material/table';
 import { ScrollingModule } from '@angular/cdk/scrolling';
-import { FullheaderComponent } from "../headers/fullheader/fullheader.component";
+import { FullHeaderComponent } from "../headers/fullheader/fullheader.component";
 import { FullfooterComponent } from "../headers/fullfooter/fullfooter.component";
 import { MatCardModule } from '@angular/material/card';
 import { MatListModule } from '@angular/material/list';
@@ -24,7 +24,7 @@ import { AlertBuilder } from '../alerts/alert.builder';
   imports: [
     MatTableModule,
     ScrollingModule,
-    FullheaderComponent,
+    FullHeaderComponent,
     FullfooterComponent,
     MatCardModule,
     MatListModule,

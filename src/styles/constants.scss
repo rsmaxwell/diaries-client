@@ -1,3 +1,6 @@
+// Compatibility entry point for existing component styles. New reader-style
+// work should use the semantic tokens forwarded from _tokens.scss.
+@forward 'tokens';
 
 $slate-50: #F8FAFC;
 $slate-100: #F1F5F9;
