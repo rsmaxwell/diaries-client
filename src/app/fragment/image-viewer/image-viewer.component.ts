@@ -171,9 +171,19 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
 
         const base = config.baseUrl.replace(/\/+$/, '');
         const diariesRoot = config.diaries.replace(/^\/+|\/+$/g, '');
-        this.imageURL = `${base}/${diariesRoot}/${diary.name}/${page.name}${page.extension}`;
-        this.fitPage('page/diary subscription');
-        console.log(`ImageViewer.ngOnInit: imageURL updated to ${this.imageURL}`);
+
+        const newImageURL =
+          `${base}/${diariesRoot}/${diary.name}/${page.name}${page.extension}`;
+
+        const imageChanged = newImageURL !== this.imageURL;
+
+        this.diary = diary;
+        this.page = page;
+        this.imageURL = newImageURL;
+
+        if (imageChanged) {
+          this.fitPage('source image changed');
+        }
       });
 
     // 4) Selected marquee → mode

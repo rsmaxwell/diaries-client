@@ -69,8 +69,32 @@ export class MqttService {
             console.log(`MqttService.getConnection: [MQTT] offline clientId=${clientId}`);
           });
 
+          client.on('disconnect', (packet: any) => {
+            const reasonCode = packet.reasonCode;
+            console.warn('MqttService.getConnection: [MQTT] broker DISCONNECT', {
+              clientId,
+              reasonCode,
+              reasonCodeHex: reasonCode === undefined
+                ? undefined
+                : `0x${reasonCode.toString(16).padStart(2, '0').toUpperCase()}`,
+              reason: this.describeDisconnectReason(reasonCode),
+              reasonString: packet.properties?.reasonString,
+              serverReference: packet.properties?.serverReference,
+              properties: packet.properties
+            });
+          });
+
           client.on('error', (error: any) => {
-            console.error(`MqttService.getConnection: connection error: ${error}`);
+            console.error('MqttService.getConnection: [MQTT] error', {
+              clientId,
+              name: error?.name,
+              message: error?.message ?? String(error),
+              code: error?.code,
+              errno: error?.errno,
+              syscall: error?.syscall,
+              reasonCode: error?.reasonCode,
+              stack: error?.stack
+            });
 
             if (!connectedOnce) {
               this.connectionPromise = null;
@@ -79,7 +103,11 @@ export class MqttService {
           });
 
           client.on('close', () => {
-            console.log(`MqttService.getConnection: [MQTT] close clientId=${clientId}`);
+            console.warn('MqttService.getConnection: [MQTT] close', {
+              clientId,
+              connected: client.connected,
+              reconnecting: client.reconnecting
+            });
           });
 
           client.on('end', () => {
@@ -107,6 +135,34 @@ export class MqttService {
       }
     }
     throw new Error('Unreachable'); // just in case
+  }
+
+  private describeDisconnectReason(reasonCode: number | undefined): string | undefined {
+    if (reasonCode === undefined) {
+      return undefined;
+    }
+
+    const reasons: Record<number, string> = {
+      0x00: 'Normal disconnection',
+      0x04: 'Disconnect with Will Message',
+      0x80: 'Unspecified error',
+      0x81: 'Malformed Packet',
+      0x82: 'Protocol Error',
+      0x87: 'Not authorized',
+      0x89: 'Server busy',
+      0x8B: 'Server shutting down',
+      0x8D: 'Keep Alive timeout',
+      0x8E: 'Session taken over',
+      0x93: 'Receive Maximum exceeded',
+      0x94: 'Topic Alias invalid',
+      0x95: 'Packet too large',
+      0x97: 'Quota exceeded',
+      0x98: 'Administrative action',
+      0x9C: 'Use another server',
+      0x9D: 'Server moved'
+    };
+
+    return reasons[reasonCode] ?? 'Unknown MQTT DISCONNECT reason';
   }
 
   getClientId(): string {
