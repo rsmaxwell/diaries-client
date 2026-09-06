@@ -127,7 +127,9 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   };
 
   ngOnInit(): void {
-    console.log('ImageViewerComponent.ngOnInit');
+    console.log('ImageViewerComponent.ngOnInit', {
+      instance: this
+    });
 
     // header add button
     this.modelContext.addButtonClicked$
@@ -157,11 +159,20 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
 
 
         console.log(`ImageViewer.ngOnInit: config.baseUrl:  ${config.baseUrl}`);
+        console.log('ImageViewer page/image subscription emitted', {
+          diaryId: diary.id,
+          diaryName: diary.name,
+          pageId: page.id,
+          pageName: page.name,
+          pageVersion: page.version,
+          currentImageURL: this.imageURL
+        });
+
 
         const base = config.baseUrl.replace(/\/+$/, '');
         const diariesRoot = config.diaries.replace(/^\/+|\/+$/g, '');
         this.imageURL = `${base}/${diariesRoot}/${diary.name}/${page.name}${page.extension}`;
-        this.fitPage();
+        this.fitPage('page/diary subscription');
         console.log(`ImageViewer.ngOnInit: imageURL updated to ${this.imageURL}`);
       });
 
@@ -215,7 +226,9 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    console.log(`ImageViewerComponent.ngOnDestroy`);
+    console.log('ImageViewerComponent.ngOnDestroy', {
+      pageId: this.page?.id
+    });
 
     this.modelContext.setHasSelectedMarquee(false);
     this.modelContext.setEditMarqueeMode(false);
@@ -1339,7 +1352,17 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.zoomAroundPageCentre(1 / ImageViewerComponent.BUTTON_ZOOM_FACTOR);
   }
 
-  fitPage(): void {
+  fitPage(reason = 'user'): void {
+    console.log('ImageViewerComponent.fitPage', {
+      reason,
+      pageId: this.page?.id,
+      scaleBefore: this.scale,
+      offsetXBefore: this.offsetX,
+      offsetYBefore: this.offsetY
+    });
+
+    console.trace('fitPage stack');
+
     this.scale = 1;
     this.offsetX = 0;
     this.offsetY = 0;

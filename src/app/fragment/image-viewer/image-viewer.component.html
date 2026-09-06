@@ -4,7 +4,7 @@
   <div class="viewer-controls" role="group" aria-label="Source image view controls">
     <button type="button" (click)="zoomOut()" [disabled]="!imageURL" aria-label="Zoom out" title="Zoom out">−</button>
     <button type="button" (click)="zoomIn()" [disabled]="!imageURL" aria-label="Zoom in" title="Zoom in">+</button>
-    <button type="button" (click)="fitPage()" [disabled]="!imageURL">Fit page</button>
+    <button type="button" (click)="fitPage('button')" [disabled]="!imageURL">Fit page</button>
     <button type="button" (click)="fitSelection()" [disabled]="!imageURL || !marquee">Fit selection</button>
     <button
       type="button"
