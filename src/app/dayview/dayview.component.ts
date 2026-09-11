@@ -1,7 +1,7 @@
 import { Component, ElementRef, OnDestroy, OnInit, QueryList, ViewChildren } from '@angular/core';
 import { combineLatest, firstValueFrom, from, Subject, take, takeUntil } from 'rxjs';
 import { ModelContext } from '../model/model-context';
-import { Fragment } from '../model/fragment';
+import { Fragment, hasAuthoritativePage } from '../model/fragment';
 import { CommonModule } from '@angular/common';
 import { DateFormatter } from '../utilities/DateFormatter';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
@@ -12,7 +12,7 @@ import { Router } from '@angular/router';
 import { SafeHtmlPipe } from '../utilities/safe-html.pipe';
 import { FragmentLockService } from '../fragment/fragment-lock.service';
 import { ConfigService } from '../config/config.service';
-import { LegacyFragmentHtmlPipe } from '../utilities/legacy-fragment-html.pipe';
+import { buildLegacyImageBaseUrl, LegacyFragmentHtmlPipe } from '../utilities/legacy-fragment-html.pipe';
 
 @Component({
   selector: 'app-diary',
@@ -92,10 +92,11 @@ export class DayviewComponent implements OnInit, OnDestroy {
     ])
       .pipe(takeUntil(this.destroy$))
       .subscribe(([diary, config]) => {
-        const base = config.baseUrl.replace(/\/+$/, '');
-        const filesRoot = config.files.replace(/^\/+|\/+$/g, '');
-        this.legacyImageBaseUrl =
-          `${base}/${encodeURIComponent(filesRoot)}/${encodeURIComponent(diary.name)}/images`;
+        this.legacyImageBaseUrl = buildLegacyImageBaseUrl(
+          config.baseUrl,
+          config.files,
+          diary.name
+        );
       });
 
     this.modelContext.selectedFragment$
@@ -202,41 +203,25 @@ export class DayviewComponent implements OnInit, OnDestroy {
   goToFragment(fragment: Fragment) {
     console.log(`DayviewComponent.goToFragment: fragmentId: ${fragment.id}`);
 
-    const marqueeId = fragment.marqueeId;
-    if (!marqueeId) {
-      this.modelContext.setFragmentId(fragment.id);
-      this.modelContext.setMarqueeId(null);
+    this.modelContext.setFragmentId(fragment.id);
+    this.modelContext.setMarqueeId(null);
+
+    if (!hasAuthoritativePage(fragment)) {
+      this.alertService.error(`Fragment ${fragment.id} has no authoritative source page`);
       return;
     }
 
-    this.modelContext.getLiveMarquee$(marqueeId)
+    const pageId = fragment.pageId;
+    this.modelContext.getLivePage$(pageId)
       .pipe(take(1))
       .subscribe({
-        next: (marquee) => {
-          if (!marquee) {
-            console.warn(`No marquee found for id ${marqueeId}`);
+        next: (page) => {
+          if (!page) {
+            this.alertService.error(`Source page ${pageId} is unavailable`);
             return;
           }
 
-          const pageId = marquee.pageId;
-
-          this.modelContext.setFragmentId(fragment.id);
-          this.modelContext.setMarqueeId(marquee.id);
-
-          this.modelContext.getLivePage$(pageId)
-            .pipe(take(1))
-            .subscribe({
-              next: (page: { diaryId: any; }) => {
-                if (!page) {
-                  console.warn(`No page found for id ${pageId}`);
-                  return;
-                }
-
-                const diaryId = page.diaryId;
-                this.router.navigate(['/diary', diaryId, pageId, fragment.id]);
-              },
-              error: (err: any) => this.handleError(err)
-            });
+          this.router.navigate(['/diary', page.diaryId, pageId, fragment.id]);
         },
         error: err => this.handleError(err)
       });

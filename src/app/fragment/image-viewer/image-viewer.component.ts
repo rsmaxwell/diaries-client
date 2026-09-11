@@ -22,7 +22,7 @@ import { Config, ConfigService, RuntimeConfig } from '../../config/config.servic
 import { ModelContext } from '../../model/model-context';
 
 import { firstValueFrom } from 'rxjs';
-import { AddFragmentRequest, Fragment } from '../../model/fragment';
+import { AddFragmentRequest, Fragment, isMarqueeFragment } from '../../model/fragment';
 import { AccessTokenService } from '../../user/token/accessTokenService';
 import { FragmentLockService } from '../fragment-lock.service';
 
@@ -994,7 +994,11 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
             this.alertService.info(`Fragment ${fragment.id} added`);
 
             this.modelContext.setFragmentId(fragment.id);
-            this.modelContext.setMarqueeId(fragment.marqueeId);
+            this.modelContext.setMarqueeId(
+              isMarqueeFragment(fragment) && fragment.pageId === this.page.id
+                ? fragment.marqueeId
+                : null
+            );
 
             this.router.navigate([
               '/diary',

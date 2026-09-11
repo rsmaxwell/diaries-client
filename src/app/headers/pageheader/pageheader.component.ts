@@ -14,6 +14,8 @@ import { FilesListDialogComponent } from '../../files-list-dialog/files-list-dia
 import { Router } from '@angular/router';
 import { AlertService } from '../../alerts/alert.service';
 import { AsyncPipe } from '@angular/common';
+import { Fragment, hasAuthoritativePage, isMarqueeFragment } from '../../model/fragment';
+import { Marquee } from '../../model/marquee';
 
 
 @Component({
@@ -50,6 +52,7 @@ export class PageheaderComponent implements OnInit, OnDestroy {
   hasSelectedFragment$: Observable<boolean>;
   hasSelectedMarquee$: Observable<boolean>;
   canCreateMarquee$: Observable<boolean>;
+  canEditMarquee$: Observable<boolean>;
 
 
   private destroy$ = new Subject<void>();
@@ -88,11 +91,38 @@ export class PageheaderComponent implements OnInit, OnDestroy {
       observeOn(asapScheduler)
     );
 
-    this.canCreateMarquee$ = combineLatest([
-      this.hasSelectedFragment$,
-      this.hasSelectedMarquee$
+    const marqueeRelationship$ = combineLatest([
+      this.modelContext.selectedFragment$.pipe(startWith(null)),
+      this.modelContext.selectedPage$.pipe(startWith(null)),
+      this.modelContext.selectedMarquee$.pipe(startWith(null))
     ]).pipe(
-      map(([hasFragment, hasMarquee]) => hasFragment && !hasMarquee),
+      map(([fragment, page, marquee]) => ({
+        fragment,
+        page,
+        marquee,
+        consistent: this.hasConsistentMarquee(fragment, marquee)
+      }))
+    );
+
+    this.canCreateMarquee$ = marqueeRelationship$.pipe(
+      map(({ fragment, page, consistent }) =>
+        isMarqueeFragment(fragment) &&
+        hasAuthoritativePage(fragment) &&
+        page?.id === fragment.pageId &&
+        !consistent
+      ),
+      distinctUntilChanged(),
+      startWith(false),
+      observeOn(asapScheduler)
+    );
+
+    this.canEditMarquee$ = marqueeRelationship$.pipe(
+      map(({ fragment, page, consistent }) =>
+        isMarqueeFragment(fragment) &&
+        hasAuthoritativePage(fragment) &&
+        page?.id === fragment.pageId &&
+        consistent
+      ),
       distinctUntilChanged(),
       startWith(false),
       observeOn(asapScheduler)
@@ -232,6 +262,14 @@ export class PageheaderComponent implements OnInit, OnDestroy {
       return true;
     }
     return false;
+  }
+
+  private hasConsistentMarquee(fragment: Fragment | null, marquee: Marquee | null): boolean {
+    return isMarqueeFragment(fragment) &&
+      hasAuthoritativePage(fragment) &&
+      !!marquee &&
+      marquee.fragmentId === fragment.id &&
+      marquee.pageId === fragment.pageId;
   }
 }
 

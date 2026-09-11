@@ -2,7 +2,7 @@ import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ModelContext } from '../../model/model-context';
 import { EditLockInfo, Fragment } from '../../model/fragment';
-import { auditTime, BehaviorSubject, distinctUntilChanged, firstValueFrom, map, pairwise, startWith, Subject, take, takeUntil } from 'rxjs';
+import { auditTime, BehaviorSubject, combineLatest, distinctUntilChanged, firstValueFrom, from, map, pairwise, startWith, Subject, take, takeUntil } from 'rxjs';
 import { QuillModule } from 'ngx-quill';
 import { FormControl, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { RpcError, RpcService } from '../../mqtt/rpc.service';
@@ -22,6 +22,8 @@ import { RefreshTokenService } from '../../user/token/refreshTokenService';
 import { HttpStatusCode } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { FragmentLockService } from '../fragment-lock.service';
+import { ConfigService } from '../../config/config.service';
+import { buildLegacyImageBaseUrl, resolveLegacyFragmentHtml, restoreLegacyFragmentHtml } from '../../utilities/legacy-fragment-html.pipe';
 
 // minimal shape we need
 type QuillToolbarModule = {
@@ -78,6 +80,8 @@ export class TextPanelComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   private lockRequestedForFragmentId: number | null = null;
   private quill?: Quill;
+  private editorServerText = '';
+  private legacyImageBaseUrl = '';
 
   // Tracks the fragment we are currently "on" so we can unlock when leaving
   private currentFragment: Fragment | null = null;
@@ -89,7 +93,8 @@ export class TextPanelComponent implements OnInit, OnDestroy {
     private accessTokenService: AccessTokenService,
     private refreshTokenService: RefreshTokenService,
     private router: Router,
-    private fragmentLockService: FragmentLockService
+    private fragmentLockService: FragmentLockService,
+    private configService: ConfigService
   ) { }
 
 
@@ -103,7 +108,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
     const bodyCtrl = this.form.get('body')!;
 
     // 1) Keep the panel updated when selected fragment OR lock owner changes
-    this.modelContext.selectedFragment$
+    const selectedFragment$ = this.modelContext.selectedFragment$
       .pipe(
         distinctUntilChanged((a, b) => {
           if (a === b) return true;
@@ -119,13 +124,27 @@ export class TextPanelComponent implements OnInit, OnDestroy {
             && aLock?.lockTimeStamp === bLock?.lockTimeStamp
             && aLock?.lockUserName === bLock?.lockUserName
             && aLock?.lockKnownAs === bLock?.lockKnownAs;
-        }),
-        takeUntil(this.destroy$)
-      )
-      .subscribe(fragment => {
+        })
+      );
+
+    combineLatest([
+      selectedFragment$,
+      this.modelContext.selectedDiary$,
+      from(this.configService.getConfig())
+    ])
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(([fragment, diary, config]) => {
         const prevId = this.fragment?.id ?? null;
         const nextId = fragment?.id ?? null;
         const switchingFragment = prevId !== nextId;
+
+        const nextLegacyImageBaseUrl = buildLegacyImageBaseUrl(
+          config.baseUrl,
+          config.files,
+          diary.name
+        );
+        const legacyImageBaseChanged = this.legacyImageBaseUrl !== nextLegacyImageBaseUrl;
+        this.legacyImageBaseUrl = nextLegacyImageBaseUrl;
 
         const leaving = this.fragment;
 
@@ -141,6 +160,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
         // Capture previous server text before we overwrite this.fragment
         const prevServerText = this.fragment?.text ?? '';
         const nextServerText = fragment?.text ?? '';
+        const nextEditorText = resolveLegacyFragmentHtml(nextServerText, this.legacyImageBaseUrl);
 
         // now update fragment reference
         this.fragment = fragment;
@@ -162,9 +182,10 @@ export class TextPanelComponent implements OnInit, OnDestroy {
 
         const serverTextChanged = prevServerText !== nextServerText;
 
-        if (switchingFragment || serverTextChanged) {
+        if (switchingFragment || serverTextChanged || legacyImageBaseChanged) {
           const sel = this.quill?.getSelection();
-          bodyCtrl.setValue(nextServerText, { emitEvent: false, emitModelToViewChange: true });
+          this.editorServerText = nextEditorText;
+          bodyCtrl.setValue(nextEditorText, { emitEvent: false, emitModelToViewChange: true });
 
           // Restore cursor only when staying on the same fragment
           if (sel && this.quill && !switchingFragment) {
@@ -279,7 +300,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
 
     // 2) check body
     const currentBody = this.form.get('body')!.value as string;
-    const originalBody = this.fragment.text ?? '';
+    const originalBody = this.editorServerText;
     const bodyChanged = currentBody !== originalBody;
 
     // 3) check date
@@ -403,7 +424,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
 
     if (!this.fragment || this.saveInFlight) return;
 
-    const currentBody = this.form.get('body')!.value as string;
+    const currentEditorBody = this.form.get('body')!.value as string;
 
     // Snapshots for rollback
     const prevFragment: Fragment = { ...this.fragment };
@@ -412,6 +433,14 @@ export class TextPanelComponent implements OnInit, OnDestroy {
       m: this.originalMonth,
       d: this.originalDay,
     };
+
+    const currentBody = currentEditorBody === this.editorServerText
+      ? prevFragment.text ?? ''
+      : restoreLegacyFragmentHtml(
+          currentEditorBody,
+          prevFragment.text,
+          this.legacyImageBaseUrl
+        );
 
     // Build "server payload": keep the PREVIOUS version here
     // (typical optimistic concurrency expects the server to bump)
@@ -438,6 +467,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
     this.originalYear = this.fragment.year || 0;
     this.originalMonth = this.fragment.month || 0;
     this.originalDay = this.fragment.day || 0;
+    this.editorServerText = currentEditorBody;
 
     const df = new DateFormatter(this.fragment.year || 0, this.fragment.month || 0, this.fragment.day || 0);
     this.formattedDate = df.formattedDate;
@@ -484,7 +514,12 @@ export class TextPanelComponent implements OnInit, OnDestroy {
         this.isDateValid = rollDf.isDateValid;
 
         // restore editor body without firing change handlers
-        this.form.get('body')!.setValue(prevFragment.text ?? '', {
+        const previousEditorText = resolveLegacyFragmentHtml(
+          prevFragment.text,
+          this.legacyImageBaseUrl
+        );
+        this.editorServerText = previousEditorText;
+        this.form.get('body')!.setValue(previousEditorText, {
           emitEvent: false,
           emitModelToViewChange: true
         });

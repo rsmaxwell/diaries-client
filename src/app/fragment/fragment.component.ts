@@ -7,7 +7,7 @@ import { GoldenLayout, RowOrColumnItemConfig, Side, LayoutConfig } from 'golden-
 import { ImageViewerComponent } from './image-viewer/image-viewer.component';
 import { TextPanelComponent } from './text-panel/text-panel.component';
 import { ModelContext } from '../model/model-context';
-import { BehaviorSubject, combineLatest, distinctUntilChanged, firstValueFrom, map, Observable, Subject, take, takeUntil } from 'rxjs';
+import { BehaviorSubject, combineLatest, distinctUntilChanged, filter, firstValueFrom, map, Observable, Subject, switchMap, take, takeUntil } from 'rxjs';
 import { ActivatedRoute, Router } from '@angular/router';
 import { DayviewComponent } from '../dayview/dayview.component';
 import { Page } from '../model/page';
@@ -18,6 +18,7 @@ import { Marquee } from '../model/marquee';
 import { RpcService } from '../mqtt/rpc.service';
 import { AlertService } from '../alerts/alert.service';
 import { FragmentLockService } from './fragment-lock.service';
+import { Fragment, hasAuthoritativePage, isMarqueeFragment } from '../model/fragment';
 
 
 @Component({
@@ -86,6 +87,32 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
           this.modelContext.setMarqueeId(null);
         }
       });
+
+    // A Fragment's retained pageId is authoritative. Correct a stale/mistyped
+    // route only after the retained Fragment for that same route ID has arrived.
+    combineLatest([
+      this.modelContext.selectedFragment$,
+      pageId$,
+      fragmentIdOrNull$
+    ]).pipe(
+      filter(([fragment, routePageId, routeFragmentId]) =>
+        hasAuthoritativePage(fragment) &&
+        fragment.id === routeFragmentId &&
+        fragment.pageId !== routePageId
+      ),
+      switchMap(([fragment]) =>
+        this.modelContext.getLivePage$(fragment!.pageId as number).pipe(
+          take(1),
+          map(page => ({ fragment: fragment!, page }))
+        )
+      ),
+      takeUntil(this.destroy$)
+    ).subscribe(({ fragment, page }) => {
+      this.router.navigate(
+        ['/diary', page.diaryId, fragment.pageId, fragment.id],
+        { replaceUrl: true }
+      );
+    });
 
     // Pages list - ordered by sequence number (unchanged)
     this.modelContext.pages$
@@ -238,19 +265,31 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  onEditMarqueeClick() {
+  async onEditMarqueeClick(): Promise<void> {
     console.log(`FragmentComponent.onEditMarqueeClick`);
+
+    const [fragment, page, marquee] = await firstValueFrom(combineLatest([
+      this.modelContext.selectedFragment$,
+      this.modelContext.selectedPage$,
+      this.modelContext.selectedMarquee$
+    ]).pipe(take(1)));
+
+    if (!this.isConsistentMarquee(fragment, page, marquee)) {
+      this.alertService.error('The selected fragment does not have an editable marquee on this page');
+      return;
+    }
     this.modelContext.toggleEditMarqueeMode();
   }
 
   async onCreateMarqueeClick(): Promise<void> {
     console.log(`FragmentComponent.onCreateMarqueeClick`);
 
-    const [fragment, page, diary] = await firstValueFrom(
+    const [fragment, page, diary, marquee] = await firstValueFrom(
       combineLatest([
         this.modelContext.selectedFragment$,
         this.modelContext.selectedPage$,
-        this.modelContext.selectedDiary$
+        this.modelContext.selectedDiary$,
+        this.modelContext.selectedMarquee$
       ]).pipe(take(1))
     );
 
@@ -269,9 +308,18 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    const marqueeId = fragment.marqueeId;
-    if (marqueeId != null) {
-      this.modelContext.setMarqueeId(marqueeId);
+    if (!isMarqueeFragment(fragment)) {
+      this.alertService.error('Marquees can only be added to MARQUEE fragments');
+      return;
+    }
+
+    if (!hasAuthoritativePage(fragment) || fragment.pageId !== page.id) {
+      this.alertService.error('The selected fragment does not belong to this source page');
+      return;
+    }
+
+    if (this.isConsistentMarquee(fragment, page, marquee)) {
+      this.modelContext.setMarqueeId(marquee!.id);
       this.router.navigate(['/diary', diary.id, page.id, fragment.id]);
       this.alertService.info('This fragment already has a marquee');
       return;
@@ -317,11 +365,12 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
   async onDeleteMarqueeClick(): Promise<void> {
     console.log(`FragmentComponent.onDeleteMarqueeClick`);
 
-    const [fragment, page, diary] = await firstValueFrom(
+    const [fragment, page, diary, marquee] = await firstValueFrom(
       combineLatest([
         this.modelContext.selectedFragment$,
         this.modelContext.selectedPage$,
-        this.modelContext.selectedDiary$
+        this.modelContext.selectedDiary$,
+        this.modelContext.selectedMarquee$
       ]).pipe(take(1))
     );
 
@@ -335,12 +384,17 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    if (fragment.marqueeId == null) {
+    if (!isMarqueeFragment(fragment)) {
+      this.alertService.error('IMAGE fragments do not have editable marquees');
+      return;
+    }
+
+    if (!this.isConsistentMarquee(fragment, page, marquee)) {
       this.alertService.info('The selected fragment does not have a marquee');
       return;
     }
 
-    const marqueeId = fragment.marqueeId;
+    const marqueeId = marquee!.id;
 
     const locked = await this.fragmentLockService.lockFragmentForEdit(fragment.id);
     if (!locked) {
@@ -415,6 +469,20 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
       map(v => (v !== null && /^\d+$/.test(v) ? parseInt(v, 10) : null)),
       distinctUntilChanged()
     );
+  }
+
+  private isConsistentMarquee(
+    fragment: Fragment | null,
+    page: Page | null,
+    marquee: Marquee | null
+  ): boolean {
+    return isMarqueeFragment(fragment) &&
+      hasAuthoritativePage(fragment) &&
+      !!page &&
+      !!marquee &&
+      fragment.pageId === page.id &&
+      marquee.pageId === fragment.pageId &&
+      marquee.fragmentId === fragment.id;
   }
 
   // ---------------------------------------------------------------------------

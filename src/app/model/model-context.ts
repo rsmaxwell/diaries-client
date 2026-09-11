@@ -5,8 +5,22 @@ import { Marquee } from "./marquee";
 import { MqttService } from "../mqtt/mqtt.service";
 import { Diary } from "./diary";
 import { Page } from "./page";
-import { Fragment } from "./fragment";
+import { Fragment, hasAuthoritativePage, isMarqueeFragment } from "./fragment";
 import { LiveObjectService } from "../mqtt/live.object.service";
+
+export function matchingMarqueeForFragment(
+  fragment: Fragment | null,
+  marquees: Marquee[]
+): Marquee | null {
+  if (!isMarqueeFragment(fragment) || !hasAuthoritativePage(fragment)) {
+    return null;
+  }
+
+  return marquees.find(marquee =>
+    marquee.fragmentId === fragment.id &&
+    marquee.pageId === fragment.pageId
+  ) ?? null;
+}
 
 @Injectable({ providedIn: 'root' })
 export class ModelContext {
@@ -126,11 +140,14 @@ export class ModelContext {
     );
 
 
-    combineLatest([this.fragmentId$, this.marquees$])
+    combineLatest([this.selectedFragment$, this.marquees$])
       .pipe(
-        map(([fragmentId, marquees]) => {
-          if (!Number.isFinite(fragmentId)) return null;
-          const m = marquees.find(x => x.fragmentId === fragmentId);
+        map(([fragment, marquees]) => {
+          if (!isMarqueeFragment(fragment) || !hasAuthoritativePage(fragment)) {
+            return null;
+          }
+
+          const m = matchingMarqueeForFragment(fragment, marquees);
           return m ? m.id : null;
         }),
         distinctUntilChanged(),
@@ -406,7 +423,11 @@ export class ModelContext {
   }
 
   setMarqueeId(id: number | null) {
-    if (id === null) { this.marqueeIdSubject.next(null); return; }
+    if (id === null) {
+      this.marqueeIdSubject.next(null);
+      this.setEditMarqueeMode(false);
+      return;
+    }
     if (!Number.isFinite(id)) { console.warn('setMarqueeId ignored non-finite value:', id); return; }
     this.marqueeIdSubject.next(id);
   }

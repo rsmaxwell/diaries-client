@@ -19,7 +19,7 @@
         mat-icon-button
         title="Move or resize selected marquee"
         aria-label="Move or resize selected marquee"
-        [disabled]="!(hasSelectedMarquee$ | async)"
+        [disabled]="!(canEditMarquee$ | async)"
         [class.active]="editMarqueeMode"
         [attr.aria-pressed]="editMarqueeMode"
         (click)="onEditMarqueeClick()">
@@ -30,7 +30,7 @@
         mat-icon-button
         title="Delete marquee from selected fragment"
         aria-label="Delete marquee from selected fragment"
-        [disabled]="!(hasSelectedMarquee$ | async)"
+        [disabled]="!(canEditMarquee$ | async)"
         (click)="onDeleteMarqueeClick()">
         <mat-icon svgIcon="delete-marquee"></mat-icon>
       </button>

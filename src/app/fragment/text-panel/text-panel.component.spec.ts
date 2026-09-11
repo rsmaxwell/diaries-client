@@ -25,6 +25,7 @@ describe('TextPanelComponent', () => {
 
   function createComponent(updateResult$ = new Subject<Fragment>()) {
     const selectedFragment$ = new BehaviorSubject<Fragment | null>(null);
+    const selectedDiary$ = new BehaviorSubject({ id: 3, version: 1, sequence: 3, name: 'diary-1831' });
     const rpcService = {
       updateFragment$: jasmine.createSpy('updateFragment$').and.returnValue(updateResult$)
     };
@@ -37,7 +38,7 @@ describe('TextPanelComponent', () => {
     };
 
     const component = new TextPanelComponent(
-      { selectedFragment$ } as any,
+      { selectedFragment$, selectedDiary$ } as any,
       rpcService as any,
       { open: jasmine.createSpy('open') } as any,
       accessTokenService as any,
@@ -46,10 +47,16 @@ describe('TextPanelComponent', () => {
       {
         lockFragmentForEdit: jasmine.createSpy('lockFragmentForEdit'),
         unlockFragment: jasmine.createSpy('unlockFragment')
+      } as any,
+      {
+        getConfig: jasmine.createSpy('getConfig').and.resolveTo({
+          baseUrl: 'https://example.test/diaries-responder',
+          files: 'files'
+        })
       } as any
     );
 
-    return { component, rpcService, updateResult$ };
+    return { component, rpcService, updateResult$, selectedFragment$ };
   }
 
   it('distinguishes a lock owned by another session for read-only presentation', () => {
@@ -89,5 +96,31 @@ describe('TextPanelComponent', () => {
 
     expect(component.saveInFlight).toBeFalse();
     expect(component.fragment?.lock).toBeNull();
+  });
+
+  it('resolves legacy images for editing and restores the legacy URL when saving', async () => {
+    const { component, rpcService, updateResult$, selectedFragment$ } = createComponent();
+    component.ngOnInit();
+    selectedFragment$.next(fragment({
+      text: '<figure><img src="images/img2753-image-white-swan-alnwick.png"></figure>'
+    }));
+    await Promise.resolve();
+
+    const editorText = component.form.get('body')!.value as string;
+    expect(editorText).toContain(
+      'https://example.test/diaries-responder/files/diary-1831/images/img2753-image-white-swan-alnwick.png'
+    );
+    expect(component.hasEdits).toBeFalse();
+
+    component.form.get('body')!.setValue(editorText.replace('</figure>', '<figcaption>White Swan</figcaption></figure>'));
+    component.onSave();
+
+    const payload = rpcService.updateFragment$.calls.mostRecent().args[0] as Fragment;
+    expect(payload.text).toContain('src="images/img2753-image-white-swan-alnwick.png"');
+    expect(payload.text).toContain('<figcaption>White Swan</figcaption>');
+
+    updateResult$.next(payload);
+    updateResult$.complete();
+    component.ngOnDestroy();
   });
 });

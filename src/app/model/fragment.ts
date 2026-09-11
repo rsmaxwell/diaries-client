@@ -1,6 +1,11 @@
 
+export type FragmentType = 'MARQUEE' | 'IMAGE';
+
 export interface Fragment {
   id: number;
+  pageId?: number | null;
+  type?: FragmentType | null;
+  imageId?: number | null;
   marqueeId: number | null;
   year: number;
   month: number;
@@ -10,6 +15,22 @@ export interface Fragment {
   text: string;
 
   lock?: EditLockInfo | null;
+}
+
+export type MarqueeFragment = Fragment & { type?: 'MARQUEE' | null };
+export type PageOwnedFragment = Fragment & { pageId: number };
+
+/** Null/absent type is the documented rolling-migration MARQUEE fallback. */
+export function effectiveFragmentType(fragment: Fragment): FragmentType {
+  return fragment.type ?? 'MARQUEE';
+}
+
+export function isMarqueeFragment(fragment: Fragment | null | undefined): fragment is MarqueeFragment {
+  return !!fragment && effectiveFragmentType(fragment) === 'MARQUEE';
+}
+
+export function hasAuthoritativePage(fragment: Fragment | null | undefined): fragment is PageOwnedFragment {
+  return !!fragment && Number.isInteger(fragment.pageId) && (fragment.pageId as number) > 0;
 }
 
 export class NormaliseFragmentsRequest {

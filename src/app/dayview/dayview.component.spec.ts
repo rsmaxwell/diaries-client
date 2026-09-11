@@ -42,7 +42,7 @@ describe('DayviewComponent', () => {
     router = jasmine.createSpyObj<Router>('Router', ['navigate'], { url: '/day' });
     modelContext = jasmine.createSpyObj<ModelContext>(
       'ModelContext',
-      ['getLiveMarquee$', 'getLivePage$', 'setFragmentId', 'setMarqueeId'],
+      ['getLivePage$', 'setFragmentId', 'setMarqueeId'],
       {
         selectFragmentsForDate$: fragments$,
         selectedFragment$,
@@ -114,7 +114,6 @@ describe('DayviewComponent', () => {
 
   it('keeps fragment navigation separate from the accessible drag handle', () => {
     fragments$.next([fragment(1, 1)]);
-    modelContext.getLiveMarquee$.and.returnValue(of({ id: 101, pageId: 77 } as any));
     modelContext.getLivePage$.and.returnValue(of({ diaryId: 5 } as any));
     fixture.detectChanges();
 
@@ -125,11 +124,10 @@ describe('DayviewComponent', () => {
     expect(handle.closest('.fragment-link')).toBeNull();
 
     link.click();
-    expect(modelContext.getLiveMarquee$).toHaveBeenCalledOnceWith(101);
     expect(modelContext.getLivePage$).toHaveBeenCalledOnceWith(77);
     expect(router.navigate).toHaveBeenCalledOnceWith(['/diary', 5, 77, 1]);
     expect(modelContext.setFragmentId).toHaveBeenCalledWith(1);
-    expect(modelContext.setMarqueeId).toHaveBeenCalledWith(101);
+    expect(modelContext.setMarqueeId).toHaveBeenCalledWith(null);
   });
 
   it('marks the selected fragment and resolves its legacy image URL', async () => {
@@ -147,14 +145,25 @@ describe('DayviewComponent', () => {
     expect(image.src).toBe('http://localhost:8081/files/diary%20one/images/map.png');
   });
 
-  it('selects a marquee-less legacy image fragment without changing the source page', () => {
-    const legacyImage = { ...fragment(7, 1), marqueeId: null } as Fragment;
+  it('keeps an unresolved legacy fragment selected without guessing its source page', () => {
+    const legacyImage = { ...fragment(7, 1), pageId: null, marqueeId: null } as Fragment;
 
     component.goToFragment(legacyImage);
 
     expect(modelContext.setFragmentId).toHaveBeenCalledOnceWith(7);
     expect(modelContext.setMarqueeId).toHaveBeenCalledOnceWith(null);
     expect(router.navigate).not.toHaveBeenCalled();
+    expect(alertService.error).toHaveBeenCalledWith('Fragment 7 has no authoritative source page');
+  });
+
+  it('navigates a page-owned fragment even when it has no marquee', () => {
+    const withoutMarquee = { ...fragment(7, 1), marqueeId: null } as Fragment;
+    modelContext.getLivePage$.and.returnValue(of({ diaryId: 5 } as any));
+
+    component.goToFragment(withoutMarquee);
+
+    expect(modelContext.getLivePage$).toHaveBeenCalledOnceWith(77);
+    expect(router.navigate).toHaveBeenCalledOnceWith(['/diary', 5, 77, 7]);
   });
 
   it('locks the fragment and sends a cloned temporary sequence when moving bottom to top', async () => {
@@ -233,6 +242,8 @@ describe('DayviewComponent', () => {
   ): Fragment {
     return {
       id,
+      pageId: 77,
+      type: 'MARQUEE',
       marqueeId: id + 100,
       year,
       month,
