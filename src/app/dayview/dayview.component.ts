@@ -1,5 +1,5 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
-import { firstValueFrom, Subject, take, takeUntil } from 'rxjs';
+import { Component, ElementRef, OnDestroy, OnInit, QueryList, ViewChildren } from '@angular/core';
+import { combineLatest, firstValueFrom, from, Subject, take, takeUntil } from 'rxjs';
 import { ModelContext } from '../model/model-context';
 import { Fragment } from '../model/fragment';
 import { CommonModule } from '@angular/common';
@@ -11,6 +11,8 @@ import { AlertService } from '../alerts/alert.service';
 import { Router } from '@angular/router';
 import { SafeHtmlPipe } from '../utilities/safe-html.pipe';
 import { FragmentLockService } from '../fragment/fragment-lock.service';
+import { ConfigService } from '../config/config.service';
+import { LegacyFragmentHtmlPipe } from '../utilities/legacy-fragment-html.pipe';
 
 @Component({
   selector: 'app-diary',
@@ -18,7 +20,8 @@ import { FragmentLockService } from '../fragment/fragment-lock.service';
   imports: [
     CommonModule,
     DragDropModule,
-    SafeHtmlPipe
+    SafeHtmlPipe,
+    LegacyFragmentHtmlPipe
   ],
   templateUrl: './dayview.component.html',
   styleUrl: './dayview.component.scss'
@@ -34,6 +37,11 @@ export class DayviewComponent implements OnInit, OnDestroy {
 
   dataSource = new MatTableDataSource<Fragment>();
   reorderInFlight = false;
+  selectedFragmentId: number | null = null;
+  legacyImageBaseUrl = '';
+
+  @ViewChildren('fragmentItem', { read: ElementRef })
+  private fragmentItems!: QueryList<ElementRef<HTMLElement>>;
 
   private destroy$ = new Subject<void>();
 
@@ -42,7 +50,8 @@ export class DayviewComponent implements OnInit, OnDestroy {
     private modelContext: ModelContext,
     private alertService: AlertService,
     private router: Router,
-    private fragmentLockService: FragmentLockService
+    private fragmentLockService: FragmentLockService,
+    private configService: ConfigService
   ) { }
 
   ngOnInit(): void {
@@ -73,6 +82,27 @@ export class DayviewComponent implements OnInit, OnDestroy {
           this.formattedDate = '';
           this.isDateValid = false;
         }
+
+        this.scrollSelectedFragmentIntoView();
+      });
+
+    combineLatest([
+      this.modelContext.selectedDiary$,
+      from(this.configService.getConfig())
+    ])
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(([diary, config]) => {
+        const base = config.baseUrl.replace(/\/+$/, '');
+        const filesRoot = config.files.replace(/^\/+|\/+$/g, '');
+        this.legacyImageBaseUrl =
+          `${base}/${encodeURIComponent(filesRoot)}/${encodeURIComponent(diary.name)}/images`;
+      });
+
+    this.modelContext.selectedFragment$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(fragment => {
+        this.selectedFragmentId = fragment?.id ?? null;
+        this.scrollSelectedFragmentIntoView();
       });
   }
 
@@ -174,7 +204,8 @@ export class DayviewComponent implements OnInit, OnDestroy {
 
     const marqueeId = fragment.marqueeId;
     if (!marqueeId) {
-      console.warn(`No marqueeId for fragment ${fragment.id}`);
+      this.modelContext.setFragmentId(fragment.id);
+      this.modelContext.setMarqueeId(null);
       return;
     }
 
@@ -188,6 +219,9 @@ export class DayviewComponent implements OnInit, OnDestroy {
           }
 
           const pageId = marquee.pageId;
+
+          this.modelContext.setFragmentId(fragment.id);
+          this.modelContext.setMarqueeId(marquee.id);
 
           this.modelContext.getLivePage$(pageId)
             .pipe(take(1))
@@ -206,5 +240,19 @@ export class DayviewComponent implements OnInit, OnDestroy {
         },
         error: err => this.handleError(err)
       });
+  }
+
+  private scrollSelectedFragmentIntoView(): void {
+    queueMicrotask(() => {
+      const selectedId = this.selectedFragmentId;
+      if (!Number.isFinite(selectedId) || !this.fragmentItems) {
+        return;
+      }
+
+      const selected = this.fragmentItems.find(item =>
+        Number(item.nativeElement.dataset['fragmentId']) === selectedId
+      );
+      selected?.nativeElement.scrollIntoView({ block: 'nearest' });
+    });
   }
 }

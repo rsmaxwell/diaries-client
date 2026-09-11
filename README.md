@@ -198,6 +198,13 @@ Large image data is not carried directly in MQTT messages.
 
 Images and uploaded files are served by the static file server. The client displays them using URLs or metadata supplied by the responder/live object state.
 
+As a temporary migration compatibility measure, day-reader fragment HTML can
+resolve the old importer form `images/<filename>` beneath the selected diary's
+files directory. Only a single image filename with a supported image extension
+is accepted; nested paths, traversal, query strings and fragments are rejected.
+Absolute URLs and other non-legacy values are left unchanged. New data should
+use explicit IMAGE-fragment metadata instead of relying on this resolver.
+
 ## Development notes
 
 When debugging client/server behaviour, consider all of the following together:
@@ -236,7 +243,7 @@ Shared application headers and footers use `src/styles/_shell.scss` for their to
 
 Diary and page browsing use semantic ordered lists rather than Material data tables. Their common layout and drag-state rules live in `src/styles/_reader-navigation.scss`: names are the primary serif content, IDs and sequence positions are muted metadata, and navigation buttons are separate from labelled CDK drag handles so selecting and reordering remain unambiguous.
 
-The day view follows the same document-oriented approach inside the fragment workspace. It renders the date as a reader heading and Quill transcription fragments as a semantic ordered passage list in a constrained reading column. Fragment articles remain navigation targets, while separate labelled drag handles preserve the lock-protected resequencing flow. Dynamically inserted Quill content must retain the day-view containment rules for long strings, preformatted text and embedded images.
+The day view follows the same document-oriented approach inside the fragment workspace. It renders the date as a reader heading and Quill transcription fragments as a semantic ordered passage list in a constrained reading column. Fragment articles remain navigation targets, while separate labelled drag handles preserve the lock-protected resequencing flow. The selected source-page marquee and selected passage stay synchronised in both directions; selecting a passage navigates to its owning page and marquee, while selecting a marquee highlights and scrolls its passage into view. Marquee-less fragments remain selectable in the passage list without inventing a source-page location. Dynamically inserted Quill content must retain the day-view containment rules for long strings, preformatted text and embedded images.
 
 The fragment editor keeps its Golden Layout image/transcription split while presenting it as a working reader surface. Decorative image backing belongs on the outer `.viewer-frame` so the SVG remains the coordinate-bearing element for pan, zoom and marquee interaction. Only the selected marquee is rendered, with a focus-colour outline. The transcription pane uses reader typography for Quill content and system UI typography for its toolbar, metadata, lock state and save controls; read-only and save-in-progress states are announced in the panel as well as reflected by disabled controls.
 

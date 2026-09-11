@@ -22,7 +22,10 @@
           [cdkDropListData]="dataSource.data" [cdkDropListDisabled]="reorderInFlight"
           (cdkDropListDropped)="drop($event)">
           @for (fragment of dataSource.data; track fragment.id) {
-            <li class="fragment-item" cdkDrag cdkDragLockAxis="y" [cdkDragData]="fragment">
+            <li #fragmentItem class="fragment-item" cdkDrag cdkDragLockAxis="y" [cdkDragData]="fragment"
+              [class.is-selected]="fragment.id === selectedFragmentId"
+              [attr.data-fragment-id]="fragment.id"
+              [attr.aria-current]="fragment.id === selectedFragmentId ? 'true' : null">
               <button type="button" class="drag-handle" cdkDragHandle [disabled]="reorderInFlight"
                 title="Drag to reorder fragment {{fragment.id}}"
                 [attr.aria-label]="'Drag to reorder fragment ' + fragment.id">
@@ -38,7 +41,8 @@
                 </p>
 
                 <div class="ql-snow fragment-content">
-                  <div class="ql-editor ql-editor--viewer" [innerHTML]="fragment.text | safeHtml"></div>
+                  <div class="ql-editor ql-editor--viewer"
+                    [innerHTML]="fragment.text | legacyFragmentHtml:legacyImageBaseUrl | safeHtml"></div>
                 </div>
               </article>
 

@@ -4,6 +4,8 @@ import { Router } from '@angular/router';
 import { BehaviorSubject, of, throwError } from 'rxjs';
 
 import { AlertService } from '../alerts/alert.service';
+import { ConfigService } from '../config/config.service';
+import { Diary } from '../model/diary';
 import { FragmentLockService } from '../fragment/fragment-lock.service';
 import { Fragment } from '../model/fragment';
 import { ModelContext } from '../model/model-context';
@@ -19,9 +21,18 @@ describe('DayviewComponent', () => {
   let router: jasmine.SpyObj<Router>;
   let modelContext: jasmine.SpyObj<ModelContext>;
   let fragments$: BehaviorSubject<Fragment[]>;
+  let selectedFragment$: BehaviorSubject<Fragment | null>;
+  let selectedDiary$: BehaviorSubject<Diary>;
 
   beforeEach(async () => {
     fragments$ = new BehaviorSubject<Fragment[]>([]);
+    selectedFragment$ = new BehaviorSubject<Fragment | null>(null);
+    selectedDiary$ = new BehaviorSubject<Diary>({
+      id: 5,
+      version: 0,
+      name: 'diary one',
+      sequence: 1
+    });
     rpcService = jasmine.createSpyObj<RpcService>('RpcService', ['updateFragment$']);
     fragmentLockService = jasmine.createSpyObj<FragmentLockService>('FragmentLockService', [
       'lockFragmentForEdit',
@@ -31,8 +42,12 @@ describe('DayviewComponent', () => {
     router = jasmine.createSpyObj<Router>('Router', ['navigate'], { url: '/day' });
     modelContext = jasmine.createSpyObj<ModelContext>(
       'ModelContext',
-      ['getLiveMarquee$', 'getLivePage$'],
-      { selectFragmentsForDate$: fragments$ }
+      ['getLiveMarquee$', 'getLivePage$', 'setFragmentId', 'setMarqueeId'],
+      {
+        selectFragmentsForDate$: fragments$,
+        selectedFragment$,
+        selectedDiary$
+      }
     );
 
     await TestBed.configureTestingModule({
@@ -42,7 +57,16 @@ describe('DayviewComponent', () => {
         { provide: ModelContext, useValue: modelContext },
         { provide: AlertService, useValue: alertService },
         { provide: Router, useValue: router },
-        { provide: FragmentLockService, useValue: fragmentLockService }
+        { provide: FragmentLockService, useValue: fragmentLockService },
+        {
+          provide: ConfigService,
+          useValue: {
+            getConfig: () => Promise.resolve({
+              baseUrl: 'http://localhost:8081',
+              files: 'files'
+            })
+          }
+        }
       ]
     }).compileComponents();
 
@@ -90,7 +114,7 @@ describe('DayviewComponent', () => {
 
   it('keeps fragment navigation separate from the accessible drag handle', () => {
     fragments$.next([fragment(1, 1)]);
-    modelContext.getLiveMarquee$.and.returnValue(of({ pageId: 77 } as any));
+    modelContext.getLiveMarquee$.and.returnValue(of({ id: 101, pageId: 77 } as any));
     modelContext.getLivePage$.and.returnValue(of({ diaryId: 5 } as any));
     fixture.detectChanges();
 
@@ -104,6 +128,33 @@ describe('DayviewComponent', () => {
     expect(modelContext.getLiveMarquee$).toHaveBeenCalledOnceWith(101);
     expect(modelContext.getLivePage$).toHaveBeenCalledOnceWith(77);
     expect(router.navigate).toHaveBeenCalledOnceWith(['/diary', 5, 77, 1]);
+    expect(modelContext.setFragmentId).toHaveBeenCalledWith(1);
+    expect(modelContext.setMarqueeId).toHaveBeenCalledWith(101);
+  });
+
+  it('marks the selected fragment and resolves its legacy image URL', async () => {
+    const selected = fragment(7, 1, '<img src="images/map.png">');
+    fragments$.next([selected]);
+    selectedFragment$.next(selected);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const item = fixture.nativeElement.querySelector('.fragment-item') as HTMLElement;
+    const image = fixture.nativeElement.querySelector('.fragment-content img') as HTMLImageElement;
+
+    expect(item.classList).toContain('is-selected');
+    expect(item.getAttribute('aria-current')).toBe('true');
+    expect(image.src).toBe('http://localhost:8081/files/diary%20one/images/map.png');
+  });
+
+  it('selects a marquee-less legacy image fragment without changing the source page', () => {
+    const legacyImage = { ...fragment(7, 1), marqueeId: null } as Fragment;
+
+    component.goToFragment(legacyImage);
+
+    expect(modelContext.setFragmentId).toHaveBeenCalledOnceWith(7);
+    expect(modelContext.setMarqueeId).toHaveBeenCalledOnceWith(null);
+    expect(router.navigate).not.toHaveBeenCalled();
   });
 
   it('locks the fragment and sends a cloned temporary sequence when moving bottom to top', async () => {
