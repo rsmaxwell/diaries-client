@@ -48,6 +48,24 @@ describe('File RPC captured compatibility', () => {
     await Promise.resolve();
   });
 
+  for (const generic of [false, true]) {
+    it(`reads the catalogue upload response including explicit nulls (generic=${generic})`, async () => {
+      // Use any captured successful upload as the stable five-field compatibility baseline.
+      reply = structuredClone(fileRpcBaseline.find(c => c.function === 'uploadFile' && c.status.code === 200));
+      const image = generic ? null : {
+        id: 101, version: 0, relativePath: reply.payload.name, mimeType: 'image/png',
+        originalFilename: reply.payload.name, width: 16, height: 12, checksum: 'ab'.repeat(32), caption: '', altText: ''
+      };
+      reply.payload.imageId = image?.id ?? null;
+      reply.payload.image = image;
+      const value: any = await firstValueFrom(service.uploadFile$(new File(['synthetic'], 'plain.png')));
+      expect(value).toEqual(reply.payload);
+      expect(Object.hasOwn(value, 'imageId')).toBeTrue();
+      expect(Object.hasOwn(value, 'image')).toBeTrue();
+      expect(value.image).toEqual(image);
+    });
+  }
+
   for (const additions of [false, true]) {
     it(`reads the captured upload response through uploadFile$ (additions=${additions})`, async () => {
       reply = baseline('upload-image-root'); addFields = additions;
