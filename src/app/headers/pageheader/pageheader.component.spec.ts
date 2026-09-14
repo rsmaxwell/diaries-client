@@ -3,7 +3,7 @@ import { Dialog } from '@angular/cdk/dialog';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { Router } from '@angular/router';
-import { BehaviorSubject, of } from 'rxjs';
+import { BehaviorSubject, of, Subject } from 'rxjs';
 
 import { AlertService } from '../../alerts/alert.service';
 import { ModelContext } from '../../model/model-context';
@@ -103,5 +103,34 @@ describe('PageheaderComponent', () => {
     ) as HTMLButtonElement[];
     expect(controls).toHaveSize(3);
     expect(controls.every(button => button.disabled)).toBeTrue();
+  });
+
+  it('refreshes and opens the file browser after a catalogue-aware upload without changing selection', () => {
+    const rpc = TestBed.inject(RpcService);
+    const uploaded = new Subject<any>();
+    const upload = spyOn(rpc, 'uploadFile$').and.returnValue(uploaded);
+    const list = spyOn(rpc, 'listFiles$').and.returnValue(of({ subdir: '', items: [] }));
+    const dialog = TestBed.inject(Dialog);
+    const input = document.createElement('input');
+    const file = new File(['synthetic'], 'image.png', { type: 'image/png' });
+    Object.defineProperty(input, 'files', { value: [file] });
+    spyOn(input, 'click');
+    const create = document.createElement.bind(document);
+    spyOn(document, 'createElement').and.callFake(((tag: string, options?: ElementCreationOptions) =>
+      tag === 'input' ? input : create(tag, options)) as typeof document.createElement);
+    const fragment = selectedFragment$.value;
+    const marquee = selectedMarquee$.value;
+
+    component.onUploadClick();
+    input.dispatchEvent(new Event('change'));
+    expect(upload).toHaveBeenCalledOnceWith(file);
+    expect(list).not.toHaveBeenCalled();
+    uploaded.next({ name: 'image.png', size: 9, url: '/files/image.png', imageId: 101,
+      image: { id: 101, relativePath: 'image.png', mimeType: 'image/png' } });
+
+    expect(list).toHaveBeenCalledTimes(1);
+    expect(dialog.open).toHaveBeenCalledTimes(1);
+    expect(selectedFragment$.value).toBe(fragment);
+    expect(selectedMarquee$.value).toBe(marquee);
   });
 });

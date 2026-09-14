@@ -6,6 +6,7 @@ import { fileRpcBaseline } from '../testing/file-rpc-baseline.fixture';
 
 describe('File RPC captured compatibility', () => {
   let service: RpcService;
+  let client: any;
   let received: (topic: string, payload: Buffer, packet: unknown) => void;
   let reply: any;
   let addFields: boolean;
@@ -17,7 +18,7 @@ describe('File RPC captured compatibility', () => {
 
   beforeEach(async () => {
     addFields = false;
-    const client = {
+    client = {
       on: (_event: string, callback: typeof received) => { received = callback; },
       listenerCount: () => 1,
       subscribe: (_topic: string, _options: unknown, callback: (error?: Error) => void) => callback(),
@@ -136,5 +137,35 @@ describe('File RPC captured compatibility', () => {
     expect(next).not.toHaveBeenCalled();
     received('expected/reply', Buffer.from('{}'), packet);
     expect(next).toHaveBeenCalledOnceWith({});
+  });
+
+  for (const caseId of ['delete-generic-existing', 'delete-generic-missing']) {
+    it(`preserves DeleteFile transport compatibility (${caseId})`, async () => {
+      reply = baseline(caseId);
+      // The current client has no public DeleteFile method; exercise its shared MQTT transport.
+      const request = { function: 'deleteFile', args: { name: 'generic.bin', subdir: '' } };
+      const value = await firstValueFrom((service as any).rpcRequest(
+        client, 'diaries/rpc/request', 'test/delete/reply', request,
+        'synthetic-client-token', ReplyHandler.getBufferAsObject));
+      expect(outgoing).toEqual(request);
+      expect(value).toEqual(reply.payload);
+    });
+  }
+
+  it('delivers a catalogue DeleteFile conflict as RpcError and clears the request', async () => {
+    reply = { status: { code: 409, message: 'Catalogued file cannot be deleted' }, payload: { name: 'protected.png' } };
+    const deserialize = jasmine.createSpy('deserialize');
+    try {
+      await firstValueFrom((service as any).rpcRequest(
+        client, 'diaries/rpc/request', 'test/delete/reply',
+        { function: 'deleteFile', args: { name: 'protected.png' } },
+        'synthetic-client-token', deserialize));
+      fail('Expected a catalogue conflict');
+    } catch (error) {
+      expect(error instanceof RpcError).toBeTrue();
+      expect((error as RpcError).status).toBe(409);
+      expect(deserialize).not.toHaveBeenCalled();
+      expect((service as any).responseHandlers.size).toBe(0);
+    }
   });
 });
