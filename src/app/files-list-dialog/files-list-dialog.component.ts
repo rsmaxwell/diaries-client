@@ -43,7 +43,7 @@ export class FilesListDialogComponent implements OnInit {
   loading = false;
   error?: string;
   subdirPath = '/';
-  fileOrigin = '';
+  fileBaseUrl = '';
   viewMode: ViewMode = 'medium';
 
   items$!: Observable<FileEntry[]>;
@@ -109,7 +109,7 @@ export class FilesListDialogComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     const cfg = await this.configService.getConfig();
-    this.fileOrigin = new URL(cfg.baseUrl).origin;
+    this.fileBaseUrl = cfg.baseUrl.replace(/\/+$/, '') + '/';
 
     this.items$ = this.data.path$.pipe(
       distinctUntilChanged(), // avoid duplicate reloads
@@ -178,7 +178,8 @@ export class FilesListDialogComponent implements OnInit {
   // ---- URL helpers ----
   resolveUrl(u?: string): string {
     if (!u) return '';
-    try { return new URL(u, this.fileOrigin).toString(); }
+    // ListFiles paths are relative to the responder, including its proxy prefix.
+    try { return new URL(u.replace(/^\/(?!\/)/, ''), this.fileBaseUrl).toString(); }
     catch { return ''; }
   }
 

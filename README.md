@@ -198,6 +198,20 @@ Large image data is not carried directly in MQTT messages.
 
 Images and uploaded files are served by the static file server. The client displays them using URLs or metadata supplied by the responder/live object state.
 
+The file browser resolves responder file paths such as `/files/img2230.jpg`
+against the complete runtime responder base URL, retaining proxy prefixes such
+as `/diaries-responder`. Previews, open-file links and selected-file URLs all
+use this same resolution; direct responder URLs also remain supported.
+Thumbnails fit the complete image inside their available space, preserving its
+aspect ratio without cropping in tile, list and details views.
+
+The page toolbar uploads images into `<current diary name>/images/` beneath the
+configured files root, then opens that folder in the file browser. A diary must
+be selected before uploading. The destination is captured when Upload is clicked;
+changing the selected diary while an upload is pending does not change it.
+The responder creates missing folders and applies its existing path validation
+and filename conflict checks. Existing images are not moved by this change.
+
 As a temporary migration compatibility measure, day-reader fragment HTML can
 resolve the old importer form `images/<filename>` beneath the selected diary's
 files directory. Only a single image filename with a supported image extension

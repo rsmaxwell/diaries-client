@@ -60,6 +60,7 @@
         title="Upload file"
         class="upload shell-action"
         aria-label="Upload file"
+        [disabled]="!diary?.name?.trim()"
         (click)="onUploadClick()">
         <mat-icon svgIcon="upload"></mat-icon>
       </button>

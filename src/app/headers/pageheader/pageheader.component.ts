@@ -139,7 +139,7 @@ export class PageheaderComponent implements OnInit, OnDestroy {
       .subscribe(diary => {
         console.log(`PageheaderComponent.ngOnInit: diary: ${JSON.stringify(diary)}`);
         this.diary = diary;
-        this.title = `${this.diary.name} - ${this.page?.name} `;
+        this.title = `${this.diary?.name} - ${this.page?.name} `;
       });
 
     this.modelContext.selectedPage$
@@ -204,6 +204,12 @@ export class PageheaderComponent implements OnInit, OnDestroy {
   }
 
   onUploadClick() {
+    if (!this.diary?.name?.trim()) {
+      this.alertService.warning('Select a diary before uploading an image.');
+      return;
+    }
+    // Capture the destination before the picker opens, even if selection later changes.
+    const subdir = `${this.diary.name}/images`;
     console.log('Upload button clicked');
     this.upload.emit(); // keep existing Output if others listen
 
@@ -214,13 +220,13 @@ export class PageheaderComponent implements OnInit, OnDestroy {
       const file = input.files?.[0];
       if (!file) { return; }
 
-      this.rpcService.uploadFile$(file).pipe(
+      this.rpcService.uploadFile$(file, subdir).pipe(
         // after upload, refresh the list and show it
-        switchMap(() => this.rpcService.listFiles$()),
+        switchMap(() => this.rpcService.listFiles$(subdir)),
         take(1)
       ).subscribe({
         next: () => {
-          const path$ = new BehaviorSubject<string>('/');
+          const path$ = new BehaviorSubject<string>(`/${subdir}`);
 
           this.dialog.open(FilesListDialogComponent, {
             width: '80vw',
@@ -235,7 +241,7 @@ export class PageheaderComponent implements OnInit, OnDestroy {
         },
         error: (err) => {
           console.error('Upload failed:', err);
-          // optionally surface via a toast/snackbar
+          this.alertService.error('Could not upload the image or refresh the folder. Please try again.');
         }
       });
     };

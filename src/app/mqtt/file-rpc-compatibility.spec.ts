@@ -72,6 +72,7 @@ describe('File RPC captured compatibility', () => {
       reply = baseline('upload-image-root'); addFields = additions;
       const value: any = await firstValueFrom(service.uploadFile$(new File(['synthetic'], 'plain.png', { type: 'image/png' })));
       expect(outgoing.function).toBe('uploadFile');
+      expect(Object.hasOwn(outgoing.args, 'subdir')).toBeFalse();
       expect(value.name).toBe(reply.payload.name);
       expect(value.size).toBe(reply.payload.size);
       expect(value.url).toBe(reply.payload.url);
@@ -90,6 +91,21 @@ describe('File RPC captured compatibility', () => {
       expect(value.items[3].dateTaken).toBe(1577934245000);
     });
   }
+
+  it('sends the diary upload directory without URL encoding or enabling overwrite', async () => {
+    reply = baseline('upload-image-root');
+    const file = new File(['synthetic'], 'plain.png', { type: 'image/png' });
+    await firstValueFrom(service.uploadFile$(file, 'Diary with spaces/images'));
+
+    expect(outgoing).toEqual({
+      function: 'uploadFile',
+      args: {
+        name: 'plain.png', subdir: 'Diary with spaces/images',
+        contentType: 'image/png', size: file.size,
+        bytes: Buffer.from('synthetic').toString('base64')
+      }
+    });
+  });
 
   it('preserves the nested listing URL and request path', async () => {
     reply = baseline('list-populated-nested');

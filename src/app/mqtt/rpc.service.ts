@@ -653,7 +653,7 @@ export class RpcService {
         );
     }
 
-    uploadFile$(file: File): Observable<FileEntry> {
+    uploadFile$(file: File, subdir?: string): Observable<FileEntry> {
         return forkJoin({
             cfg: this.configService.getConfig(),
             client: this.mqtt.getConnection()
@@ -673,6 +673,7 @@ export class RpcService {
                     function: 'uploadFile',
                     args: {
                         name: file.name,
+                        ...(subdir !== undefined ? { subdir } : {}),
                         contentType: file.type || 'application/octet-stream',
                         size: file.size,
                         bytes: b64

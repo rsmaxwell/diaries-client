@@ -9,6 +9,7 @@ import { AlertService } from '../../alerts/alert.service';
 import { ModelContext } from '../../model/model-context';
 import { RpcService } from '../../mqtt/rpc.service';
 import { PageheaderComponent } from './pageheader.component';
+import { FilesListDialogComponent } from '../../files-list-dialog/files-list-dialog.component';
 
 describe('PageheaderComponent', () => {
   let component: PageheaderComponent;
@@ -31,6 +32,7 @@ describe('PageheaderComponent', () => {
   };
 
   beforeEach(async () => {
+    modelContext.selectedDiary$.next({ id: 11, name: 'diary-1830' });
     selectedFragment$.next({ id: 33, pageId: 22, type: 'MARQUEE', marqueeId: 44 });
     selectedPage$.next({ id: 22 });
     selectedMarquee$.next({ id: 44, fragmentId: 33, pageId: 22 });
@@ -105,7 +107,7 @@ describe('PageheaderComponent', () => {
     expect(controls.every(button => button.disabled)).toBeTrue();
   });
 
-  it('refreshes and opens the file browser after a catalogue-aware upload without changing selection', () => {
+  it('uploads to the original diary folder and opens it after success, preserving fragment selection', () => {
     const rpc = TestBed.inject(RpcService);
     const uploaded = new Subject<any>();
     const upload = spyOn(rpc, 'uploadFile$').and.returnValue(uploaded);
@@ -122,15 +124,34 @@ describe('PageheaderComponent', () => {
     const marquee = selectedMarquee$.value;
 
     component.onUploadClick();
+    modelContext.selectedDiary$.next({ id: 12, name: 'diary-1831' });
     input.dispatchEvent(new Event('change'));
-    expect(upload).toHaveBeenCalledOnceWith(file);
+    expect(upload).toHaveBeenCalledOnceWith(file, 'diary-1830/images');
     expect(list).not.toHaveBeenCalled();
-    uploaded.next({ name: 'image.png', size: 9, url: '/files/image.png', imageId: 101,
-      image: { id: 101, relativePath: 'image.png', mimeType: 'image/png' } });
+    uploaded.next({ name: 'image.png', size: 9, url: '/files/diary-1830/images/image.png', imageId: 101,
+      image: { id: 101, relativePath: 'diary-1830/images/image.png', mimeType: 'image/png' } });
 
-    expect(list).toHaveBeenCalledTimes(1);
+    expect(list).toHaveBeenCalledOnceWith('diary-1830/images');
     expect(dialog.open).toHaveBeenCalledTimes(1);
+    const [dialogComponent, options] = (dialog.open as jasmine.Spy).calls.mostRecent().args;
+    expect(dialogComponent).toBe(FilesListDialogComponent);
+    expect(options.data.path$.value).toBe('/diary-1830/images');
     expect(selectedFragment$.value).toBe(fragment);
     expect(selectedMarquee$.value).toBe(marquee);
+  });
+
+  it('prevents uploads without a selected diary instead of falling back to the root', () => {
+    modelContext.selectedDiary$.next(null);
+    fixture.detectChanges();
+    const upload = spyOn(TestBed.inject(RpcService), 'uploadFile$');
+    const create = spyOn(document, 'createElement').and.callThrough();
+    const warning = spyOn(TestBed.inject(AlertService), 'warning');
+
+    expect(fixture.nativeElement.querySelector('[aria-label="Upload file"]').disabled).toBeTrue();
+    component.onUploadClick();
+
+    expect(create).not.toHaveBeenCalled();
+    expect(upload).not.toHaveBeenCalled();
+    expect(warning).toHaveBeenCalled();
   });
 });
