@@ -4,6 +4,38 @@
 
 @use '../../styles/tokens' as tokens;
 
+.operation-message {
+  padding: 12px;
+  color: tokens.$diaries-ink;
+  background: tokens.$diaries-paper;
+  border-bottom: 1px solid tokens.$diaries-line;
+  button { margin-left: 8px; }
+}
+
+.image-context-menu {
+  padding: 4px;
+  border: 1px solid tokens.$diaries-muted;
+  border-radius: 4px;
+  background: tokens.$diaries-paper;
+  color: tokens.$diaries-ink;
+
+  button {
+    display: block;
+    min-width: 150px;
+    padding: 10px 16px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover, &:focus-visible {
+      background: tokens.$diaries-selected;
+    }
+  }
+}
+
 /* ---------- 1) Variables -------------------------------------------------- */
 .dialog-container {
   /* Details grid: thumb | name | size | modified | taken */

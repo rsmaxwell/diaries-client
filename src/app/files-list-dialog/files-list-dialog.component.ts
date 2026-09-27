@@ -1,8 +1,11 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, DestroyRef, EventEmitter, Inject, OnInit, Output, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { DeleteImageConfirmationComponent } from './delete-image-confirmation.component';
+import { CdkMenuModule } from '@angular/cdk/menu';
 import { CommonModule, DatePipe } from '@angular/common';
 
 import { Router } from '@angular/router';
-import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
+import { DIALOG_DATA, Dialog, DialogRef } from '@angular/cdk/dialog';
 
 import { MatIconModule, MatIconRegistry } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
@@ -12,7 +15,7 @@ import { FileEntry } from '../model/FileEntry';
 import { ConfigService } from '../config/config.service';
 import { RpcService } from '../mqtt/rpc.service';
 import {
-  BehaviorSubject, EMPTY, Observable, of
+  BehaviorSubject, EMPTY, Observable, of, combineLatest, defer
 } from 'rxjs';
 import {
   switchMap, map, catchError, finalize, tap, shareReplay,
@@ -26,11 +29,17 @@ export interface FileSelection {
   name: string;
 }
 
+export interface ImageDeletionRequest {
+  name: string;
+  subdir: string;
+}
+
 @Component({
   selector: 'app-files-list-dialog',
   standalone: true,
   imports: [
     CommonModule,
+    CdkMenuModule,
     DatePipe,
     MatIconModule,
     MatSelectModule,
@@ -40,6 +49,59 @@ export interface FileSelection {
   styleUrls: ['./files-list-dialog.component.scss'],
 })
 export class FilesListDialogComponent implements OnInit {
+  private readonly dialogs = inject(Dialog);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly refresh$ = new BehaviorSubject(0);
+  confirmingDeletion = false;
+  deleting = false;
+  deletionError?: string;
+
+  @Output() readonly deleteImageRequested = new EventEmitter<ImageDeletionRequest>();
+
+  canRequestImageDeletion(file: FileEntry): boolean {
+    // UI affordance only. The responder's catalogue lookup remains authoritative.
+    return !file.dir && /\.(jpe?g|png|gif|webp|bmp|tiff?)$/i.test(file.name);
+  }
+
+  requestImageDeletion(file: FileEntry): void {
+    if (this.confirmingDeletion || this.deleting || this.loading || !this.canRequestImageDeletion(file)) return;
+    const request = { name: file.name, subdir: this.subdirPath.replace(/^\/+/, '') };
+    this.confirmingDeletion = true;
+    this.deleteImageRequested.emit(request);
+    const confirmation = this.dialogs.open<boolean>(DeleteImageConfirmationComponent, {
+      data: [request.subdir, request.name].filter(Boolean).join('/'),
+      ariaLabelledBy: 'delete-image-title', autoFocus: 'first-tabbable', width: '420px', maxWidth: '90vw'
+    });
+    const unregister = this.destroyRef.onDestroy(() => confirmation.close());
+    confirmation.closed.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(confirmed => {
+      unregister();
+      this.confirmingDeletion = false;
+      if (confirmed !== true) return;
+      this.deleting = true;
+      this.deletionError = undefined;
+      const previousDisableClose = this.ref.disableClose;
+      this.ref.disableClose = true;
+      defer(() => this.rpc.deleteImage$(request.name, request.subdir)).pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => { this.deleting = false; this.ref.disableClose = previousDisableClose; })
+      ).subscribe({
+        next: () => this.refreshDirectory(),
+        error: err => {
+          const messages: Record<number, string> = {
+            400: 'The image path is invalid.',
+            401: 'You need to sign in with an active editor account to delete images.',
+            404: 'This image is no longer in the catalogue. Refresh the folder to check its current state.',
+            409: 'This image cannot be deleted because its file is missing or it is in use.',
+            500: 'Deletion could not be confirmed. Refresh the folder and ask an administrator to check before retrying.'
+          };
+          this.deletionError = messages[err?.status] ?? 'Deletion could not be confirmed. Refresh the folder to check before retrying.';
+        }
+      });
+    });
+  }
+
+  refreshDirectory(): void { this.refresh$.next(this.refresh$.value + 1); }
+
   loading = false;
   error?: string;
   subdirPath = '/';
@@ -100,6 +162,7 @@ export class FilesListDialogComponent implements OnInit {
 
   // add a click helper
   onFileClick(file: FileEntry, ev?: Event): void {
+    if (this.deleting) { ev?.preventDefault(); return; }
     if (!this.data?.select) return;         // normal open-in-new-tab behaviour
     ev?.preventDefault();
     ev?.stopPropagation();
@@ -111,10 +174,9 @@ export class FilesListDialogComponent implements OnInit {
     const cfg = await this.configService.getConfig();
     this.fileBaseUrl = cfg.baseUrl.replace(/\/+$/, '') + '/';
 
-    this.items$ = this.data.path$.pipe(
-      distinctUntilChanged(), // avoid duplicate reloads
+    this.items$ = combineLatest([this.data.path$.pipe(distinctUntilChanged()), this.refresh$]).pipe(
       tap(() => { this.loading = true; this.error = undefined; }),
-      switchMap(path =>
+      switchMap(([path]) =>
         this.rpc.listFiles$(path).pipe(
           tap(res => this.subdirPath = res.subdir || '/'),
           map(res => res.items),
@@ -233,7 +295,7 @@ export class FilesListDialogComponent implements OnInit {
     console.warn('Preview failed:', { requested: item.url, resolved: this.resolveUrl(item.url), src: img?.src });
   }
 
-  close(): void { this.ref.close(); }
+  close(): void { if (!this.deleting) this.ref.close(); }
 }
 
 

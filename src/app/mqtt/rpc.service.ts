@@ -24,6 +24,7 @@ import { FileEntry } from "../model/FileEntry";
 import { FileListResponse } from "../model/FileListResponse";
 import { Router } from "@angular/router";
 import { BuildInfo } from "../model/build-info";
+import { DeleteImageReply } from '../model/delete-image-reply';
 
 export class RpcError extends Error {
     constructor(
@@ -648,6 +649,25 @@ export class RpcService {
                     replyTopic,
                     payload,
                     deserialize
+                );
+            })
+        );
+    }
+
+    /** Delete a catalogued image; omitted subdir means the image root. */
+    deleteImage$(name: string, subdir?: string): Observable<DeleteImageReply> {
+        return forkJoin({
+            cfg: this.configService.getConfig(),
+            client: this.mqtt.getConnection()
+        }).pipe(
+            switchMap(({ client }) => {
+                const replyTopic = Constants.replyTopic(this.mqtt.getClientId());
+                const payload = {
+                    function: 'deleteImage',
+                    args: { name, ...(subdir !== undefined ? { subdir } : {}) }
+                };
+                return this.authorisedRpcRequest<DeleteImageReply>(
+                    client, replyTopic, payload, ReplyHandler.getBufferAsObject<DeleteImageReply>
                 );
             })
         );

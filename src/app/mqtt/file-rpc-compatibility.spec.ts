@@ -1,8 +1,10 @@
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, of } from 'rxjs';
+import { fakeAsync, flushMicrotasks, tick } from '@angular/core/testing';
 import { Buffer } from 'buffer';
 import { RpcError, RpcService } from './rpc.service';
 import { ReplyHandler } from '../utilities/replyHandler';
 import { fileRpcBaseline } from '../testing/file-rpc-baseline.fixture';
+import { deleteImageRpcContract } from '../testing/delete-image-rpc.fixture';
 
 describe('File RPC captured compatibility', () => {
   let service: RpcService;
@@ -11,6 +13,8 @@ describe('File RPC captured compatibility', () => {
   let reply: any;
   let addFields: boolean;
   let outgoing: any;
+  let outgoingTopic: string;
+  let outgoingOptions: any;
 
   function baseline(id: string): any {
     return structuredClone(fileRpcBaseline.find(c => c.caseId === id));
@@ -23,6 +27,8 @@ describe('File RPC captured compatibility', () => {
       listenerCount: () => 1,
       subscribe: (_topic: string, _options: unknown, callback: (error?: Error) => void) => callback(),
       publish: (_topic: string, payload: string, options: any, callback: (error?: Error) => void) => {
+        outgoingTopic = _topic;
+        outgoingOptions = options;
         outgoing = JSON.parse(payload);
         const body = structuredClone(reply.payload);
         if (addFields && body && typeof body === 'object') {
@@ -154,6 +160,103 @@ describe('File RPC captured compatibility', () => {
     received('expected/reply', Buffer.from('{}'), packet);
     expect(next).toHaveBeenCalledOnceWith({});
   });
+
+  for (const subdir of [undefined, '', 'Diary with spaces/images']) {
+    it(`deletes through the public wrapper with an unencoded path (${subdir})`, async () => {
+      reply = structuredClone(deleteImageRpcContract[0]);
+      const result = await firstValueFrom(service.deleteImage$('image space.png', subdir));
+      expect(result).toEqual(reply.payload);
+      expect(outgoing).toEqual({ function: 'deleteImage', args: {
+        name: 'image space.png', ...(subdir !== undefined ? { subdir } : {})
+      } });
+      expect(outgoingTopic).toBe('diaries/rpc/request');
+      expect(outgoingOptions.qos).toBe(0);
+      expect(outgoingOptions.retain).toBeFalse();
+      expect(outgoingOptions.properties.responseTopic).toBe('diaries/rpc/fixture-client/response');
+      expect(outgoingOptions.properties.correlationData.length).toBeGreaterThan(0);
+      expect(outgoingOptions.properties.userProperties.accessToken).toBe('synthetic-client-token');
+      expect((service as any).responseHandlers.size).toBe(0);
+    });
+  }
+
+  for (const code of [400, 404, 409, 500]) {
+    it(`preserves deletion status ${code} without retrying`, async () => {
+      reply = deleteImageRpcContract.find(c => c.status.code === code);
+      const publish = spyOn(client, 'publish').and.callThrough();
+      await expectAsync(firstValueFrom(service.deleteImage$('image.png'))).toBeRejectedWith(
+        jasmine.objectContaining({ status: code, payload: Buffer.from(JSON.stringify(reply.payload)) })
+      );
+      expect(publish).toHaveBeenCalledTimes(1);
+      expect((service as any).responseHandlers.size).toBe(0);
+    });
+  }
+
+  it('uses shared refresh handling to retry a rejected deletion with the new token', async () => {
+    reply = deleteImageRpcContract.find(c => c.status.code === 401);
+    let currentToken = 'expired-token';
+    (service as any).accessTokenService = {
+      getCurrentToken: () => currentToken,
+      setToken: (value: string) => { currentToken = value; }
+    };
+    const refresh = spyOn(service, 'refreshToken$').and.callFake(() => {
+      reply = deleteImageRpcContract[0];
+      return of({ accessToken: 'refreshed-token' } as any);
+    });
+    const publish = spyOn(client, 'publish').and.callThrough();
+    expect(await firstValueFrom(service.deleteImage$('image.png'))).toEqual({
+      id: 85, relativePath: 'diary-1830/images/img2221.jpg', deleted: true
+    });
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(publish).toHaveBeenCalledTimes(2);
+    expect(outgoingOptions.properties.userProperties.accessToken).toBe('refreshed-token');
+  });
+
+  it('keeps the standard five-second timeout and clears an unanswered deletion', fakeAsync(() => {
+    const publish = spyOn(client, 'publish').and.callFake(() => {});
+    const error = jasmine.createSpy('error');
+    service.deleteImage$('image.png').subscribe({ error });
+    flushMicrotasks();
+    tick(4999);
+    expect(error).not.toHaveBeenCalled();
+    tick(1);
+    expect(error).toHaveBeenCalledOnceWith(jasmine.objectContaining({ statusMessage: 'Timeout' }));
+    expect(publish).toHaveBeenCalledTimes(1);
+    expect((service as any).responseHandlers.size).toBe(0);
+  }));
+
+  for (const fixture of deleteImageRpcContract) {
+    it(`supports the synthetic deleteImage contract via shared transport (${fixture.caseId})`, async () => {
+      reply = fixture;
+      const deserialize = jasmine.createSpy('deserialize').and.callFake(ReplyHandler.getBufferAsObject);
+      const token = fixture.auth === 'missing' ? undefined : `synthetic-${fixture.auth}-token`;
+      const request = firstValueFrom((service as any).rpcRequest(
+        client, 'diaries/rpc/request', 'test/delete-image/reply', fixture.request,
+        token, deserialize));
+
+      if (fixture.status.code === 200) {
+        expect(await request).toEqual(fixture.payload);
+        expect(deserialize).toHaveBeenCalledTimes(1);
+      } else {
+        try {
+          await request;
+          fail('Expected RpcError');
+        } catch (error) {
+          expect(error instanceof RpcError).toBeTrue();
+          expect((error as RpcError).status).toBe(fixture.status.code);
+          expect((error as RpcError).payload).toEqual(Buffer.from(JSON.stringify(fixture.payload)));
+          expect(deserialize).not.toHaveBeenCalled();
+        }
+      }
+      expect(outgoingTopic).toBe('diaries/rpc/request');
+      expect(outgoing).toEqual(fixture.request);
+      expect(outgoingOptions.qos).toBe(0);
+      expect(outgoingOptions.retain).toBeFalse();
+      expect(outgoingOptions.properties.responseTopic).toBe('test/delete-image/reply');
+      expect(outgoingOptions.properties.correlationData.length).toBeGreaterThan(0);
+      expect(outgoingOptions.properties.userProperties?.accessToken).toBe(token);
+      expect((service as any).responseHandlers.size).toBe(0);
+    });
+  }
 
   for (const caseId of ['delete-generic-existing', 'delete-generic-missing']) {
     it(`preserves DeleteFile transport compatibility (${caseId})`, async () => {

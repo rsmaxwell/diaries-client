@@ -34,6 +34,13 @@
   </div>
 
   <!-- Empty state -->
+  @if (deletionError) {
+  <div role="alert" class="operation-message">{{ deletionError }}
+    <button type="button" (click)="refreshDirectory()" [disabled]="loading || deleting">Refresh folder</button>
+  </div>
+  }
+  @if (error) { <div role="alert" class="operation-message">{{ error }}</div> }
+  @if (deleting) { <div role="status" class="operation-message">Deleting image…</div> }
   @if (isEmpty$ | async) {
   <div class="empty">No files found.</div>
   }
@@ -135,7 +142,8 @@
     <!-- Files -->
     <ng-container *ngFor="let f of items; trackBy: trackByName">
       @if (!f.dir) {
-      <a class="file-card" [href]="resolveUrl(f.url)" target="_blank" rel="noopener" (click)="onFileClick(f, $event)">
+      <a class="file-card" [href]="resolveUrl(f.url)" target="_blank" rel="noopener" (click)="onFileClick(f, $event)"
+        [cdkContextMenuTriggerFor]="imageMenu" [cdkContextMenuDisabled]="deleting || confirmingDeletion || loading || !canRequestImageDeletion(f)">
 
         @if (isActive('list')) {
         <!-- Details: single, tiny inline thumb + aligned columns -->
@@ -180,6 +188,11 @@
         </div>
         }
       </a>
+      <ng-template #imageMenu>
+        <div cdkMenu class="image-context-menu" [attr.aria-label]="'Actions for ' + f.name">
+          <button type="button" cdkMenuItem (cdkMenuItemTriggered)="requestImageDeletion(f)">Delete image</button>
+        </div>
+      </ng-template>
       }
     </ng-container>
   </div>
@@ -191,7 +204,7 @@
       {{ fileCount$ | async | i18nPlural: {'=0':'0 files','=1':'1 file','other':'# files'} }}
     </div>
     <div class="footer-actions">
-      <button type="button" class="close-button" (click)="close()">Close</button>
+      <button type="button" class="close-button" [disabled]="deleting" (click)="close()">Close</button>
     </div>
   </div>
 

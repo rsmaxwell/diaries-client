@@ -340,3 +340,21 @@ See also:
 ```
 
 
+
+
+## Catalogued image deletion RPC (0030 Step 6)
+
+`RpcService.deleteImage$(name, subdir?)` returns `Observable<DeleteImageReply>`
+with `id`, canonical `relativePath` and `deleted: true`. Omit `subdir` for the
+image root; pass a raw relative directory for nested images. The wrapper uses
+the existing authenticated RPC mechanism, refresh-on-401 handling and standard
+five-second timeout. Errors retain their RPC status and payload. A timeout is
+an unconfirmed outcome, not proof of rollback; retained Image topics remain
+the source of live client state. The Files dialog uses this wrapper after confirmation (0030 Step 8).
+
+
+### Files-dialog image deletion (0030 Steps 7–8)
+
+Right-click an image file card in any view mode to open the CDK context menu.
+Delete image opens a confirmation showing the relative image path. Cancel or Escape leaves the image unchanged. Confirming calls the authenticated wrapper, blocks duplicate submissions, and refreshes the current folder on success. Errors stay visible in the Files dialog with a Refresh folder action; an unconfirmed outcome is not automatically retried. Directories and non-image files do not offer this action. Filename
+extension filtering is only a UI affordance; the responder remains authoritative.
