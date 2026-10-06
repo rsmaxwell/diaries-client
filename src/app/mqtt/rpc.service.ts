@@ -40,6 +40,8 @@ export class RpcError extends Error {
 
 @Injectable({ providedIn: 'root' })
 export class RpcService {
+    private static readonly FILE_LIST_RPC_TIMEOUT_MS = 30_000;
+
     private readonly reqTopic = 'request';
     private subscribedTopics = new Set<string>();
     private listenerAttached = false;
@@ -706,11 +708,16 @@ export class RpcService {
                 const payload = { function: 'listFiles', args };
                 const deserialize = ReplyHandler.getBufferAsObject as (buffer: Buffer) => FileListResponse;
 
+                // Files metadata may live on NAS-backed storage and image metadata inspection
+                // is intentionally more expensive than ordinary control RPCs. Keep the generic
+                // five-second RPC deadline for control operations, but give catalogue listing a
+                // deliberate longer budget.
                 return this.authorisedRpcRequest<FileListResponse>(
                     client,
                     replyTopic,
                     payload,
-                    deserialize
+                    deserialize,
+                    RpcService.FILE_LIST_RPC_TIMEOUT_MS
                 );
             })
         );

@@ -212,6 +212,21 @@ describe('File RPC captured compatibility', () => {
     expect(outgoingOptions.properties.userProperties.accessToken).toBe('refreshed-token');
   });
 
+  it('allows NAS-backed listFiles RPCs up to thirty seconds before timing out', fakeAsync(() => {
+    const publish = spyOn(client, 'publish').and.callFake(() => {});
+    const error = jasmine.createSpy('error');
+    service.listFiles$('diary/images').subscribe({ error });
+    flushMicrotasks();
+    tick(5_000);
+    expect(error).not.toHaveBeenCalled();
+    tick(24_999);
+    expect(error).not.toHaveBeenCalled();
+    tick(1);
+    expect(error).toHaveBeenCalledOnceWith(jasmine.objectContaining({ statusMessage: 'Timeout' }));
+    expect(publish).toHaveBeenCalledTimes(1);
+    expect((service as any).responseHandlers.size).toBe(0);
+  }));
+
   it('keeps the standard five-second timeout and clears an unanswered deletion', fakeAsync(() => {
     const publish = spyOn(client, 'publish').and.callFake(() => {});
     const error = jasmine.createSpy('error');
