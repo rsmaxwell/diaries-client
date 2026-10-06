@@ -1,5 +1,5 @@
 import { Injectable } from "@angular/core";
-import { BehaviorSubject, combineLatest, distinctUntilChanged, filter, from, map, Observable, of, shareReplay, Subject, switchMap, takeUntil } from "rxjs";
+import { BehaviorSubject, combineLatest, distinctUntilChanged, filter, from, map, Observable, of, shareReplay, startWith, Subject, switchMap } from "rxjs";
 import { LiveObjectListService } from "../mqtt/live.object.list.service";
 import { Marquee } from "./marquee";
 import { MqttService } from "../mqtt/mqtt.service";
@@ -7,6 +7,7 @@ import { Diary } from "./diary";
 import { Page } from "./page";
 import { Fragment, hasAuthoritativePage, isMarqueeFragment } from "./fragment";
 import { LiveObjectService } from "../mqtt/live.object.service";
+import { CatalogueImage } from "./image";
 
 export function matchingMarqueeForFragment(
   fragment: Fragment | null,
@@ -62,8 +63,6 @@ export class ModelContext {
     distinctUntilChanged()
   );
 
-  private destroy$ = new Subject<void>();
-
   private livePages = new Map<number, Observable<Page>>();
   private liveDiaries = new Map<number, Observable<Diary>>();
 
@@ -72,6 +71,7 @@ export class ModelContext {
 
   selectedMarquee$: Observable<Marquee | null>;
   selectedFragment$: Observable<Fragment | null>;
+  selectedImage$: Observable<CatalogueImage | null>;
   selectedPage$: Observable<Page>;
   selectedDiary$: Observable<Diary>;
 
@@ -98,6 +98,23 @@ export class ModelContext {
       distinctUntilChanged(),
       switchMap(id =>
         Number.isFinite(id) ? this.getLiveFragment$(id as number) : of(null)
+      ),
+      shareReplay({ bufferSize: 1, refCount: true })
+    );
+
+    this.selectedImage$ = this.selectedFragment$.pipe(
+      map(fragment =>
+        fragment?.type === 'IMAGE' &&
+        Number.isInteger(fragment.imageId) &&
+        (fragment.imageId as number) > 0
+          ? fragment.imageId as number
+          : null
+      ),
+      distinctUntilChanged(),
+      switchMap(imageId =>
+        imageId !== null
+          ? this.getLiveImage$(imageId).pipe(startWith(null))
+          : of(null)
       ),
       shareReplay({ bufferSize: 1, refCount: true })
     );
@@ -140,6 +157,9 @@ export class ModelContext {
     );
 
 
+    // Root-service relationship synchronizer. cleanupTopicTree() only tears down
+    // transport/topic-tree state; it must not permanently disable Fragment ->
+    // Marquee selection for later route navigations in the same application.
     combineLatest([this.selectedFragment$, this.marquees$])
       .pipe(
         map(([fragment, marquees]) => {
@@ -150,8 +170,7 @@ export class ModelContext {
           const m = matchingMarqueeForFragment(fragment, marquees);
           return m ? m.id : null;
         }),
-        distinctUntilChanged(),
-        takeUntil(this.destroy$)
+        distinctUntilChanged()
       )
       .subscribe((marqueeId) => this.setMarqueeId(marqueeId));
 
@@ -252,6 +271,21 @@ export class ModelContext {
 
 
 
+
+
+
+  getLiveImage$(id: number): Observable<CatalogueImage | null> {
+    const topic = `diaries/images/${id}`;
+
+    return this.liveObjectService
+      .getObjectById$<CatalogueImage>(
+        topic,
+        buf => JSON.parse(buf.toString()) as CatalogueImage
+      )
+      .pipe(
+        shareReplay({ bufferSize: 1, refCount: true })
+      );
+  }
 
 
 
@@ -387,9 +421,9 @@ export class ModelContext {
   cleanupTopicTree(): void {
     console.log(`ModelContext.cleanupTopicTree`);
 
-    this.destroy$.next();
-    this.destroy$.complete();
-
+    // This is transport cleanup, not ModelContext lifetime teardown. The
+    // root-service Fragment -> Marquee synchronizer must remain active so
+    // subsequent route/day-reader selections can derive marqueeId again.
     this.activeTopicFilters.forEach(filter => {
       this.liveObjectListService.unsubscribeTopicTree([filter]);
     });

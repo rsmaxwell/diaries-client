@@ -47,6 +47,17 @@
 
       <button
         mat-icon-button
+        [title]="(addImageFragmentInFlight$ | async) ? 'Adding Image Fragment…' : 'Add Image Fragment'"
+        class="add-image-fragment shell-action"
+        aria-label="Add Image Fragment"
+        [attr.aria-busy]="(addImageFragmentInFlight$ | async) ? 'true' : null"
+        [disabled]="!(canAddImageFragment$ | async)"
+        (click)="onAddImageFragmentClick()">
+        <mat-icon>add_photo_alternate</mat-icon>
+      </button>
+
+      <button
+        mat-icon-button
         title="Delete selected fragment"
         class="delete shell-action"
         aria-label="Delete selected fragment"

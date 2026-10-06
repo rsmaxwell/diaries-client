@@ -7,7 +7,7 @@ import { GoldenLayout, RowOrColumnItemConfig, Side, LayoutConfig } from 'golden-
 import { ImageViewerComponent } from './image-viewer/image-viewer.component';
 import { TextPanelComponent } from './text-panel/text-panel.component';
 import { ModelContext } from '../model/model-context';
-import { BehaviorSubject, combineLatest, distinctUntilChanged, filter, firstValueFrom, map, Observable, Subject, switchMap, take, takeUntil } from 'rxjs';
+import { BehaviorSubject, combineLatest, distinctUntilChanged, filter, firstValueFrom, map, Observable, Subject, switchMap, take, takeUntil, timeout } from 'rxjs';
 import { ActivatedRoute, Router } from '@angular/router';
 import { DayviewComponent } from '../dayview/dayview.component';
 import { Page } from '../model/page';
@@ -18,7 +18,12 @@ import { Marquee } from '../model/marquee';
 import { RpcService } from '../mqtt/rpc.service';
 import { AlertService } from '../alerts/alert.service';
 import { FragmentLockService } from './fragment-lock.service';
-import { Fragment, hasAuthoritativePage, isMarqueeFragment } from '../model/fragment';
+import { AddImageFragmentRequest, Fragment, hasAuthoritativePage, ImageFragment, isImageFragment, isMarqueeFragment } from '../model/fragment';
+import { canAddImageFragment, nextFragmentSequence } from './image-fragment-authoring';
+import { ImageFragmentReferenceComponent } from './image-fragment-reference.component';
+import { ClearImageConfirmationComponent } from './clear-image-confirmation.component';
+import { ImageFragmentActionStateService } from './image-fragment-action-state.service';
+import { imageFragmentAuthoringErrorMessage } from './image-fragment-authoring-errors';
 
 
 @Component({
@@ -28,10 +33,12 @@ import { Fragment, hasAuthoritativePage, isMarqueeFragment } from '../model/frag
     CommonModule,
     PageheaderComponent,
     PagefooterComponent,
+    ImageFragmentReferenceComponent,
     DialogModule
   ],
   templateUrl: './fragment.component.html',
-  styleUrls: ['./fragment.component.scss']
+  styleUrls: ['./fragment.component.scss'],
+  providers: [ImageFragmentActionStateService]
 })
 export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
 
@@ -55,7 +62,8 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
     private dialog: Dialog,
     private rpcService: RpcService,
     private alertService: AlertService,
-    private fragmentLockService: FragmentLockService
+    private fragmentLockService: FragmentLockService,
+    private imageFragmentActionState: ImageFragmentActionStateService
   ) { }
 
   // ---------------------------------------------------------------------------
@@ -239,6 +247,332 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
   onDeleteButtonClick(): void {
     console.log(`FragmentComponent.onDeleteButtonClick`);
     this.modelContext.fireDeleteButtonClick();
+  }
+
+  async onAddImageFragmentClick(): Promise<void> {
+    console.log('FragmentComponent.onAddImageFragmentClick');
+
+    if (!this.imageFragmentActionState.tryBeginAddImageFragment()) {
+      return;
+    }
+
+    try {
+      const [sourceFragment, sourcePage, sourceDiary] = await firstValueFrom(
+        combineLatest([
+          this.modelContext.selectedFragment$,
+          this.modelContext.selectedPage$,
+          this.modelContext.selectedDiary$
+        ]).pipe(take(1))
+      );
+
+      if (!canAddImageFragment(sourceDiary, sourcePage, sourceFragment)) {
+        this.alertService.warning('Select a fragment with a valid diary, page and day before adding an Image Fragment.');
+        return;
+      }
+
+      const sourceFragmentId = sourceFragment!.id;
+      const sourcePageId = sourcePage!.id;
+      const sourceDiaryId = sourceDiary!.id;
+      const sourceYear = sourceFragment!.year;
+      const sourceMonth = sourceFragment!.month;
+      const sourceDay = sourceFragment!.day;
+      const path$ = new BehaviorSubject<string>(`/${sourceDiary!.name}/images`);
+
+      const ref: DialogRef<FileSelection, FilesListDialogComponent> =
+        this.dialog.open(FilesListDialogComponent, {
+          width: '80vw',
+          height: '70vh',
+          minWidth: 'min(560px, 96vw)',
+          minHeight: 'min(380px, 92vh)',
+          maxWidth: '96vw',
+          maxHeight: '92vh',
+          panelClass: 'files-dialog-panel',
+          ariaLabel: 'Choose a catalogued Image for the new Image Fragment',
+          autoFocus: 'first-tabbable',
+          restoreFocus: true,
+          data: {
+            path$,
+            select: true,
+            selectionMode: 'catalogue-image'
+          }
+        });
+
+      let selection: FileSelection | undefined;
+      try {
+        selection = await firstValueFrom(ref.closed.pipe(take(1)));
+      } finally {
+        path$.complete();
+      }
+
+      if (!selection) {
+        return;
+      }
+
+      if (!Number.isInteger(selection.imageId) || (selection.imageId as number) <= 0) {
+        this.alertService.error('The selected file is not a catalogued Image.');
+        return;
+      }
+
+      // The chooser can remain open while navigation or retained state changes.
+      // Re-read the live context and abort rather than creating against a new day/page.
+      const [fragment, page, diary, fragments] = await firstValueFrom(
+        combineLatest([
+          this.modelContext.selectedFragment$,
+          this.modelContext.selectedPage$,
+          this.modelContext.selectedDiary$,
+          this.modelContext.fragments$
+        ]).pipe(take(1))
+      );
+
+      const contextUnchanged =
+        canAddImageFragment(diary, page, fragment) &&
+        fragment!.id === sourceFragmentId &&
+        page!.id === sourcePageId &&
+        diary!.id === sourceDiaryId &&
+        fragment!.year === sourceYear &&
+        fragment!.month === sourceMonth &&
+        fragment!.day === sourceDay;
+
+      if (!contextUnchanged) {
+        this.alertService.warning('The active fragment or page changed while choosing the image. No Image Fragment was created.');
+        return;
+      }
+
+      const request = new AddImageFragmentRequest(
+        page!.id,
+        fragment!.year,
+        fragment!.month,
+        fragment!.day,
+        nextFragmentSequence(fragments, fragment!.sequence),
+        '',
+        selection.imageId as number
+      );
+
+      try {
+        // addImageFragment is not idempotent. Deliberately make exactly one RPC
+        // attempt and require the user to reconcile/refresh an ambiguous failure.
+        const created = await firstValueFrom(this.rpcService.addImageFragment$(request).pipe(take(1)));
+
+        if (created.type !== 'IMAGE' || created.marqueeId !== null || !hasAuthoritativePage(created)) {
+          this.alertService.error(
+            'The Image Fragment may have been created, but the reply was incomplete. Refresh before attempting another creation.'
+          );
+          return;
+        }
+
+        this.modelContext.setPageId(created.pageId);
+        this.modelContext.setFragmentId(created.id);
+        this.modelContext.setMarqueeId(null);
+
+        await this.router.navigate([
+          '/diary',
+          diary!.id,
+          created.pageId,
+          created.id
+        ]);
+
+        this.alertService.info(`Image Fragment ${created.id} added`);
+      } catch (err: any) {
+        console.warn('FragmentComponent.onAddImageFragmentClick failed', err);
+        this.alertService.error(imageFragmentAuthoringErrorMessage(err, 'create'));
+      }
+    } finally {
+      this.imageFragmentActionState.endAddImageFragment();
+    }
+  }
+
+  async onSelectImageForFragmentClick(): Promise<void> {
+    console.log('FragmentComponent.onSelectImageForFragmentClick');
+
+    if (!this.imageFragmentActionState.tryBeginImageMutation()) {
+      return;
+    }
+
+    try {
+      const [sourceFragment, sourcePage, sourceDiary] = await firstValueFrom(
+        combineLatest([
+          this.modelContext.selectedFragment$,
+          this.modelContext.selectedPage$,
+          this.modelContext.selectedDiary$
+        ]).pipe(take(1))
+      );
+
+      if (!isImageFragment(sourceFragment) || !hasAuthoritativePage(sourceFragment) ||
+          sourcePage?.id !== sourceFragment.pageId || sourceDiary?.id !== sourcePage.diaryId ||
+          !sourceDiary.name?.trim()) {
+        this.alertService.warning('Select an IMAGE Fragment with a valid diary and page before choosing an Image.');
+        return;
+      }
+
+      const sourceFragmentId = sourceFragment.id;
+      const sourcePageId = sourcePage.id;
+      const sourceDiaryId = sourceDiary.id;
+      const path$ = new BehaviorSubject<string>(`/${sourceDiary.name}/images`);
+
+      const ref: DialogRef<FileSelection, FilesListDialogComponent> =
+        this.dialog.open(FilesListDialogComponent, {
+          width: '80vw',
+          height: '70vh',
+          minWidth: 'min(560px, 96vw)',
+          minHeight: 'min(380px, 92vh)',
+          maxWidth: '96vw',
+          maxHeight: '92vh',
+          panelClass: 'files-dialog-panel',
+          ariaLabel: 'Choose a catalogued Image for the selected Image Fragment',
+          autoFocus: 'first-tabbable',
+          restoreFocus: true,
+          data: {
+            path$,
+            select: true,
+            selectionMode: 'catalogue-image'
+          }
+        });
+
+      let selection: FileSelection | undefined;
+      try {
+        selection = await firstValueFrom(ref.closed.pipe(take(1)));
+      } finally {
+        path$.complete();
+      }
+
+      if (!selection) {
+        return;
+      }
+
+      const selectedImageId = selection.imageId;
+      if (!Number.isInteger(selectedImageId) || (selectedImageId as number) <= 0) {
+        this.alertService.error('The selected file is not a catalogued Image.');
+        return;
+      }
+
+      const [currentFragment, currentPage, currentDiary] = await firstValueFrom(
+        combineLatest([
+          this.modelContext.selectedFragment$,
+          this.modelContext.selectedPage$,
+          this.modelContext.selectedDiary$
+        ]).pipe(take(1))
+      );
+
+      if (!isImageFragment(currentFragment) || currentFragment.id !== sourceFragmentId ||
+          !hasAuthoritativePage(currentFragment) || currentFragment.pageId !== sourcePageId ||
+          currentPage?.id !== sourcePageId || currentDiary?.id !== sourceDiaryId) {
+        this.alertService.warning('The active IMAGE Fragment or page changed while choosing the image. No change was made.');
+        return;
+      }
+
+      if (currentFragment.imageId === selectedImageId) {
+        return;
+      }
+
+      await this.mutateImageReference(currentFragment, selectedImageId as number);
+    } finally {
+      this.imageFragmentActionState.endImageMutation();
+    }
+  }
+
+  async onClearImageForFragmentClick(): Promise<void> {
+    console.log('FragmentComponent.onClearImageForFragmentClick');
+
+    if (!this.imageFragmentActionState.tryBeginImageMutation()) {
+      return;
+    }
+
+    try {
+      const sourceFragment = await firstValueFrom(this.modelContext.selectedFragment$.pipe(take(1)));
+      if (!isImageFragment(sourceFragment) || !Number.isInteger(sourceFragment.imageId) ||
+          (sourceFragment.imageId as number) <= 0) {
+        this.alertService.warning('The selected IMAGE Fragment does not currently reference an Image.');
+        return;
+      }
+
+      const sourceImageId = sourceFragment.imageId as number;
+      const confirmation = this.dialog.open<boolean>(ClearImageConfirmationComponent, {
+        data: { fragmentId: sourceFragment.id, imageId: sourceImageId },
+        ariaLabelledBy: 'clear-image-title',
+        autoFocus: 'first-tabbable',
+        restoreFocus: true,
+        width: '440px',
+        maxWidth: '90vw'
+      });
+
+      const confirmed = await firstValueFrom(confirmation.closed.pipe(take(1)));
+      if (confirmed !== true) {
+        return;
+      }
+
+      const currentFragment = await firstValueFrom(this.modelContext.selectedFragment$.pipe(take(1)));
+      if (!isImageFragment(currentFragment) || currentFragment.id !== sourceFragment.id ||
+          currentFragment.imageId !== sourceImageId) {
+        this.alertService.warning('The active IMAGE Fragment or Image reference changed while confirming. No change was made.');
+        return;
+      }
+
+      await this.mutateImageReference(currentFragment, null);
+    } finally {
+      this.imageFragmentActionState.endImageMutation();
+    }
+  }
+
+  private async mutateImageReference(fragment: ImageFragment, imageId: number | null): Promise<void> {
+    const locked = await this.fragmentLockService.lockFragmentForEdit(fragment.id);
+    if (!locked) {
+      return;
+    }
+
+    try {
+      // LockFragment publishes the locked Fragment before replying. Resolve the
+      // retained object again after the lock so the update carries the latest
+      // authoritative version and fields rather than the pre-dialog snapshot.
+      const priorLockTimestamp = fragment.lock?.lockTimeStamp ?? null;
+      const latest = await firstValueFrom(
+        this.modelContext.getLiveFragment$(fragment.id).pipe(
+          filter(candidate =>
+            isImageFragment(candidate) &&
+            candidate.id === fragment.id &&
+            candidate.lock?.lockTimeStamp != null &&
+            candidate.lock.lockTimeStamp !== priorLockTimestamp
+          ),
+          take(1),
+          timeout({ first: 5000 })
+        )
+      );
+      const selected = await firstValueFrom(this.modelContext.selectedFragment$.pipe(take(1)));
+
+      if (!isImageFragment(latest) || !isImageFragment(selected) || selected.id !== fragment.id ||
+          latest.id !== fragment.id || !hasAuthoritativePage(latest)) {
+        await this.fragmentLockService.unlockFragmentAfterFailedEdit(fragment.id);
+        this.alertService.warning('The active IMAGE Fragment changed before the Image update. No change was made.');
+        return;
+      }
+
+      if (latest.imageId === imageId) {
+        // We acquired the lock, but retained state already has the requested
+        // value (for example another completed edit became visible). No update
+        // is needed, so explicitly release the otherwise-unused lock.
+        await this.fragmentLockService.unlockFragment(fragment.id, 'Image reference already current');
+        return;
+      }
+
+      await firstValueFrom(
+        this.rpcService.updateImageFragment$(latest, imageId).pipe(take(1))
+      );
+
+      // Successful updateFragment clears the lock on the responder. Do not
+      // issue an additional unlock and do not optimistically patch local state;
+      // retained Fragment/Image topics remain authoritative.
+      this.alertService.info(
+        imageId === null
+          ? `Image cleared from Fragment ${fragment.id}`
+          : `Image ${imageId} selected for Fragment ${fragment.id}`
+      );
+
+    } catch (err: any) {
+      console.warn('FragmentComponent.mutateImageReference failed', err);
+      await this.fragmentLockService.unlockFragmentAfterFailedEdit(fragment.id);
+
+      this.alertService.error(imageFragmentAuthoringErrorMessage(err, 'image-reference'));
+
+    }
   }
 
   openFilesDialog() {

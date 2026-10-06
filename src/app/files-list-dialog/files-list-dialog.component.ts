@@ -11,7 +11,8 @@ import { MatIconModule, MatIconRegistry } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { DomSanitizer } from '@angular/platform-browser';
-import { FileEntry } from '../model/FileEntry';
+import { FileEntry, hasCatalogueImage } from '../model/FileEntry';
+import { CatalogueImage } from '../model/image';
 import { ConfigService } from '../config/config.service';
 import { RpcService } from '../mqtt/rpc.service';
 import {
@@ -24,9 +25,20 @@ import {
 
 type ViewMode = 'large' | 'medium' | 'small' | 'list' | 'details';
 
+export type FileSelectionMode = 'file' | 'catalogue-image';
+
 export interface FileSelection {
   url: string;
   name: string;
+  imageId?: number;
+  image?: CatalogueImage | null;
+  relativePath?: string;
+}
+
+export interface FilesListDialogData {
+  path$: BehaviorSubject<string>;
+  select?: boolean;
+  selectionMode?: FileSelectionMode;
 }
 
 export interface ImageDeletionRequest {
@@ -91,13 +103,31 @@ export class FilesListDialogComponent implements OnInit {
             400: 'The image path is invalid.',
             401: 'You need to sign in with an active editor account to delete images.',
             404: 'This image is no longer in the catalogue. Refresh the folder to check its current state.',
-            409: 'This image cannot be deleted because its file is missing or it is in use.',
             500: 'Deletion could not be confirmed. Refresh the folder and ask an administrator to check before retrying.'
           };
-          this.deletionError = messages[err?.status] ?? 'Deletion could not be confirmed. Refresh the folder to check before retrying.';
+          this.deletionError = err?.status === 409
+            ? this.imageDeletionConflictMessage(err)
+            : messages[err?.status] ?? 'Deletion could not be confirmed. Refresh the folder to check before retrying.';
         }
       });
     });
+  }
+
+  private imageDeletionConflictMessage(err: any): string {
+    try {
+      const payloadText = err?.payload?.toString?.();
+      const payload = payloadText ? JSON.parse(payloadText) : null;
+      if (typeof payload === 'string' && /referenced/i.test(payload)) {
+        return 'This Image is still referenced by one or more Fragments. Clear or delete every Fragment reference before deleting the Image.';
+      }
+      if (typeof payload === 'string' && /missing/i.test(payload)) {
+        return 'This Image cannot be deleted because its catalogued file is missing. Refresh and reconcile the Image catalogue before retrying.';
+      }
+    } catch {
+      // The responder status remains authoritative even if its optional payload cannot be decoded.
+    }
+
+    return 'This Image cannot be deleted because it is still referenced by a Fragment or its catalogued file is missing.';
   }
 
   refreshDirectory(): void { this.refresh$.next(this.refresh$.value + 1); }
@@ -125,7 +155,7 @@ export class FilesListDialogComponent implements OnInit {
 
   constructor(
     @Inject(DIALOG_DATA)
-    public data: { path$: BehaviorSubject<string>; select?: boolean },
+    public data: FilesListDialogData,
     private ref: DialogRef<FileSelection, FilesListDialogComponent>,
     private configService: ConfigService,
     private rpc: RpcService,
@@ -160,14 +190,59 @@ export class FilesListDialogComponent implements OnInit {
     );
   }
 
+  get isCatalogueImageSelectionMode(): boolean {
+    return this.data?.select === true && this.data.selectionMode === 'catalogue-image';
+  }
+
+  canSelectFile(file: FileEntry): boolean {
+    if (!this.data?.select || file.dir) return false;
+    return !this.isCatalogueImageSelectionMode || hasCatalogueImage(file);
+  }
+
+  selectionTitle(file: FileEntry): string {
+    if (this.isCatalogueImageSelectionMode && !hasCatalogueImage(file)) {
+      return `${file.name} — not registered in the Image catalogue`;
+    }
+    return file.name;
+  }
+
+  fileAriaLabel(file: FileEntry): string {
+    if (this.isCatalogueImageSelectionMode) {
+      return hasCatalogueImage(file)
+        ? `Select catalogued Image ${file.name}`
+        : `${file.name}, not registered in the Image catalogue`;
+    }
+    return this.data?.select ? `Select file ${file.name}` : file.name;
+  }
+
+  onFileSpace(file: FileEntry, ev: Event): void {
+    if (!this.data?.select || !this.canSelectFile(file)) return;
+    ev.preventDefault();
+    this.onFileClick(file, ev);
+  }
+
   // add a click helper
   onFileClick(file: FileEntry, ev?: Event): void {
     if (this.deleting) { ev?.preventDefault(); return; }
     if (!this.data?.select) return;         // normal open-in-new-tab behaviour
     ev?.preventDefault();
     ev?.stopPropagation();
-    const url = this.resolveUrl(file.url);
-    this.ref.close({ url, name: file.name }); // <- return selection to caller
+    if (!this.canSelectFile(file)) return;
+
+    const url = this.resolveUrl(file.url ?? undefined);
+    if (!this.isCatalogueImageSelectionMode) {
+      // Preserve the historical generic-file selection contract exactly.
+      this.ref.close({ url, name: file.name });
+      return;
+    }
+
+    this.ref.close({
+      url,
+      name: file.name,
+      imageId: file.imageId as number,
+      image: file.image ?? null,
+      ...(file.image?.relativePath ? { relativePath: file.image.relativePath } : {})
+    });
   }
 
   async ngOnInit(): Promise<void> {
@@ -238,7 +313,7 @@ export class FilesListDialogComponent implements OnInit {
   onModeSelect(val: unknown): void { this.setView(val as ViewMode); } // wire from (selectionChange)
 
   // ---- URL helpers ----
-  resolveUrl(u?: string): string {
+  resolveUrl(u?: string | null): string {
     if (!u) return '';
     // ListFiles paths are relative to the responder, including its proxy prefix.
     try { return new URL(u.replace(/^\/(?!\/)/, ''), this.fileBaseUrl).toString(); }

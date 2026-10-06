@@ -1,7 +1,7 @@
 import { Component, ElementRef, OnDestroy, OnInit, QueryList, ViewChildren } from '@angular/core';
 import { combineLatest, firstValueFrom, from, Subject, take, takeUntil } from 'rxjs';
 import { ModelContext } from '../model/model-context';
-import { Fragment, hasAuthoritativePage } from '../model/fragment';
+import { effectiveFragmentType, Fragment, hasAuthoritativePage } from '../model/fragment';
 import { CommonModule } from '@angular/common';
 import { DateFormatter } from '../utilities/DateFormatter';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
@@ -181,6 +181,21 @@ export class DayviewComponent implements OnInit, OnDestroy {
     }
   }
 
+
+  fragmentTypeLabel(fragment: Fragment): 'MARQUEE' | 'IMAGE' {
+    return effectiveFragmentType(fragment);
+  }
+
+  imageReferenceLabel(fragment: Fragment): string | null {
+    if (effectiveFragmentType(fragment) !== 'IMAGE') {
+      return null;
+    }
+
+    return Number.isInteger(fragment.imageId) && (fragment.imageId as number) > 0
+      ? `Image ${fragment.imageId}`
+      : 'No Image selected';
+  }
+
   /** error handler */
   private handleError(err: any) {
     console.log(`DayviewComponent.handleError: RPC error: ${err}`);
@@ -204,7 +219,10 @@ export class DayviewComponent implements OnInit, OnDestroy {
     console.log(`DayviewComponent.goToFragment: fragmentId: ${fragment.id}`);
 
     this.modelContext.setFragmentId(fragment.id);
-    this.modelContext.setMarqueeId(null);
+    // ModelContext is the single authority for Fragment -> Marquee selection.
+    // A MARQUEE Fragment resolves its matching retained Marquee; an IMAGE
+    // Fragment resolves to no Marquee. Clearing here would erase valid MARQUEE
+    // selection before that relationship can be applied.
 
     if (!hasAuthoritativePage(fragment)) {
       this.alertService.error(`Fragment ${fragment.id} has no authoritative source page`);

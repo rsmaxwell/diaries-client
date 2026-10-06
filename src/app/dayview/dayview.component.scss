@@ -172,6 +172,33 @@
   line-height: 1.35;
 }
 
+
+.fragment-type {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.25rem;
+  padding: 0.05rem 0.4rem;
+  border: 1px solid tokens.$diaries-line;
+  border-radius: 999px;
+  background: tokens.$diaries-paper;
+  color: tokens.$diaries-muted;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.fragment-type--image {
+  border-color: tokens.$diaries-accent;
+  color: tokens.$diaries-accent-dark;
+}
+
+.fragment-image-reference {
+  font-weight: 650;
+}
+
+.fragment-image-reference.is-unattached {
+  font-style: italic;
+}
+
 .fragment-content,
 .ql-editor.ql-editor--viewer {
   min-width: 0;

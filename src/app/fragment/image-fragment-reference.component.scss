@@ -1,0 +1,137 @@
+@use '../../styles/tokens' as tokens;
+
+:host {
+  display: block;
+  flex: 0 0 auto;
+}
+
+.image-reference {
+  display: grid;
+  grid-template-columns: minmax(5.5rem, 8rem) 1fr;
+  gap: 0.75rem;
+  align-items: stretch;
+  margin: 0 0.55rem;
+  padding: 0.55rem;
+  border: 1px solid tokens.$diaries-line;
+  border-top: 0;
+  background: tokens.$diaries-surface;
+  color: tokens.$diaries-ink;
+}
+
+.preview {
+  min-height: 5rem;
+  max-height: 7rem;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid tokens.$diaries-line;
+  background: tokens.$diaries-paper;
+}
+
+.preview img {
+  width: 100%;
+  height: 100%;
+  max-height: 7rem;
+  object-fit: contain;
+}
+
+.placeholder {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.6rem;
+  text-align: center;
+  font-family: tokens.$diaries-font-ui;
+  font-size: 0.75rem;
+  color: tokens.$diaries-muted;
+}
+
+.placeholder.unresolved strong {
+  color: tokens.$diaries-ink;
+}
+
+.metadata {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.2rem;
+  font-family: tokens.$diaries-font-ui;
+  font-size: 0.78rem;
+}
+
+.identity,
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.path,
+.secondary {
+  overflow-wrap: anywhere;
+}
+
+.secondary {
+  color: tokens.$diaries-muted;
+}
+
+.retention-note {
+  margin: 0.25rem 0 0;
+  color: tokens.$diaries-muted;
+  font-size: 0.74rem;
+  line-height: 1.35;
+}
+
+.actions {
+  margin-top: 0.35rem;
+}
+
+button {
+  padding: 0.35rem 0.7rem;
+  border: 1px solid tokens.$diaries-line;
+  border-radius: 4px;
+  background: tokens.$diaries-paper;
+  color: tokens.$diaries-ink;
+  font: inherit;
+  cursor: pointer;
+}
+
+button.primary {
+  border-color: tokens.$diaries-accent;
+}
+
+button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+button:focus-visible {
+  outline: 2px solid tokens.$diaries-focus;
+  outline-offset: 2px;
+}
+
+@media (max-width: 42rem) {
+  .image-reference {
+    grid-template-columns: 1fr;
+  }
+
+  .preview {
+    max-height: 5.5rem;
+  }
+}
+
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

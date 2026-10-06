@@ -1,0 +1,64 @@
+<section
+  *ngIf="viewModel$ | async as vm"
+  class="image-reference"
+  aria-label="Image Fragment image reference">
+
+  <div class="preview" aria-live="polite">
+    <img
+      *ngIf="vm.imageUrl && vm.image; else imagePlaceholder"
+      [src]="vm.imageUrl"
+      [alt]="vm.image.altText || vm.image.originalFilename || ('Image ' + vm.imageId)" />
+
+    <ng-template #imagePlaceholder>
+      <div class="placeholder" [class.unresolved]="vm.unresolved">
+        <strong *ngIf="vm.unresolved">Image reference unresolved</strong>
+        <strong *ngIf="!vm.unresolved">No Image selected</strong>
+        <span *ngIf="vm.unresolved">Image {{ vm.imageId }} is referenced, but its retained catalogue metadata is unavailable.</span>
+        <span *ngIf="!vm.unresolved">This IMAGE Fragment currently has no catalogue Image reference.</span>
+      </div>
+    </ng-template>
+  </div>
+
+  <div class="metadata">
+    <div class="identity">
+      <strong>IMAGE Fragment {{ vm.fragmentId }}</strong>
+      <span>Image ID: {{ vm.imageId ?? 'none' }}</span>
+    </div>
+
+    <ng-container *ngIf="vm.image as image">
+      <div class="path" title="{{ image.relativePath }}">{{ image.relativePath }}</div>
+      <div *ngIf="image.originalFilename" class="secondary">Original: {{ image.originalFilename }}</div>
+      <div *ngIf="image.caption" class="secondary">Caption: {{ image.caption }}</div>
+      <div *ngIf="image.altText" class="secondary">Alt text: {{ image.altText }}</div>
+    </ng-container>
+
+    <p class="retention-note">
+      Deleting this IMAGE Fragment removes only the Fragment. The catalogued Image and file are kept.
+    </p>
+
+    <div class="actions">
+      <button
+        type="button"
+        class="primary"
+        aria-label="Select or replace Image for selected Image Fragment"
+        [attr.aria-busy]="vm.mutationInFlight ? 'true' : null"
+        [title]="vm.mutationInFlight ? 'Image reference edit in progress' : 'Select or replace the catalogued Image for this Image Fragment'"
+        [disabled]="!vm.canSelectOrReplace"
+        (click)="selectImage.emit()">
+        Select/replace Image
+      </button>
+      <button
+        type="button"
+        aria-label="Clear Image from selected Image Fragment"
+        [attr.aria-busy]="vm.mutationInFlight ? 'true' : null"
+        [title]="vm.mutationInFlight ? 'Image reference edit in progress' : 'Clear the Image reference without deleting the catalogued Image'"
+        [disabled]="!vm.canClear"
+        (click)="clearImage.emit()">
+        Clear Image
+      </button>
+      <span *ngIf="vm.mutationInFlight" class="visually-hidden" role="status" aria-live="polite">
+        Image reference edit in progress
+      </span>
+    </div>
+  </div>
+</section>

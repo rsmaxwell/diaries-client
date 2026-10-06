@@ -15,6 +15,7 @@ import { Router } from '@angular/router';
 import { AlertService } from '../../alerts/alert.service';
 import { AsyncPipe } from '@angular/common';
 import { Fragment, hasAuthoritativePage, isMarqueeFragment } from '../../model/fragment';
+import { ImageFragmentActionStateService } from '../../fragment/image-fragment-action-state.service';
 import { Marquee } from '../../model/marquee';
 
 
@@ -33,6 +34,7 @@ import { Marquee } from '../../model/marquee';
 export class PageheaderComponent implements OnInit, OnDestroy {
 
   @Output() add = new EventEmitter<void>();
+  @Output() addImageFragment = new EventEmitter<void>();
   @Output() delete = new EventEmitter<void>();
   @Output() view = new EventEmitter<void>();
   @Output() select = new EventEmitter<void>();
@@ -53,6 +55,8 @@ export class PageheaderComponent implements OnInit, OnDestroy {
   hasSelectedMarquee$: Observable<boolean>;
   canCreateMarquee$: Observable<boolean>;
   canEditMarquee$: Observable<boolean>;
+  canAddImageFragment$: Observable<boolean>;
+  addImageFragmentInFlight$: Observable<boolean>;
 
 
   private destroy$ = new Subject<void>();
@@ -64,7 +68,8 @@ export class PageheaderComponent implements OnInit, OnDestroy {
     private rpcService: RpcService,
     private dialog: Dialog,
     private router: Router,
-    private alertService: AlertService
+    private alertService: AlertService,
+    private imageFragmentActionState: ImageFragmentActionStateService
   ) {
     this.iconRegistry.addSvgIcon('hand-pointer', this.sanitizer.bypassSecurityTrustResourceUrl('assets/icons/hand-pointer.svg'));
     this.iconRegistry.addSvgIcon('select', this.sanitizer.bypassSecurityTrustResourceUrl('assets/icons/select.svg'));
@@ -127,6 +132,16 @@ export class PageheaderComponent implements OnInit, OnDestroy {
       startWith(false),
       observeOn(asapScheduler)
     );
+
+    this.canAddImageFragment$ = this.imageFragmentActionState.canAddImageFragment$.pipe(
+      startWith(false),
+      observeOn(asapScheduler)
+    );
+
+    this.addImageFragmentInFlight$ = this.imageFragmentActionState.addInFlight$.pipe(
+      startWith(false),
+      observeOn(asapScheduler)
+    );
   }
 
   ngOnInit(): void {
@@ -181,6 +196,11 @@ export class PageheaderComponent implements OnInit, OnDestroy {
   onAddClick() {
     console.log('Add button clicked');
     this.add.emit();
+  }
+
+  onAddImageFragmentClick() {
+    console.log('Add Image Fragment button clicked');
+    this.addImageFragment.emit();
   }
 
   onDeleteClick() {

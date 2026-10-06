@@ -1,11 +1,17 @@
 <app-pageheader
     (add)="onAddButtonClick()"
+    (addImageFragment)="onAddImageFragmentClick()"
     (delete)="onDeleteButtonClick()"
     (listFiles)="openFilesDialog()"
     (createMarquee)="onCreateMarqueeClick()"
     (editMarquee)="onEditMarqueeClick()"
     (deleteMarquee)="onDeleteMarqueeClick()">
 </app-pageheader>
+
+<app-image-fragment-reference
+    (selectImage)="onSelectImageForFragmentClick()"
+    (clearImage)="onClearImageForFragmentClick()">
+</app-image-fragment-reference>
 
 <div #layoutContainer class="layout-container" role="region" aria-label="Fragment image and transcription workspace"></div>
 

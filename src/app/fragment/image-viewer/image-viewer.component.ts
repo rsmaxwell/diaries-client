@@ -22,9 +22,10 @@ import { Config, ConfigService, RuntimeConfig } from '../../config/config.servic
 import { ModelContext } from '../../model/model-context';
 
 import { firstValueFrom } from 'rxjs';
-import { AddFragmentRequest, Fragment, isMarqueeFragment } from '../../model/fragment';
+import { AddFragmentRequest, Fragment, isImageFragment, isMarqueeFragment } from '../../model/fragment';
 import { AccessTokenService } from '../../user/token/accessTokenService';
 import { FragmentLockService } from '../fragment-lock.service';
+import { nextFragmentSequence } from '../image-fragment-authoring';
 
 
 interface ResizeEdge {
@@ -965,7 +966,7 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       const day = selectedFragment?.day ?? 0;
 
       const sequence = selectedFragment
-        ? this.nextFragmentSequence(fragments, selectedFragment.sequence)
+        ? nextFragmentSequence(fragments, selectedFragment.sequence)
         : 1000;
 
       const rectangle = this.defaultMarqueeRectangle();
@@ -1190,10 +1191,6 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
   // -----------------------------------------------------------------------------
 
   onKeyDown(event: KeyboardEvent): void {
-    if (this.marquee == null) {
-      return;
-    }
-
     if (event.key === 'Delete' && event.ctrlKey) {
       event.preventDefault();
 
@@ -1229,8 +1226,14 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
+    const deletingImageFragment = isImageFragment(fragment);
+    const retainedImageId = deletingImageFragment && Number.isInteger(fragment.imageId) && (fragment.imageId as number) > 0
+      ? fragment.imageId as number
+      : null;
+
     console.log(
-      `ImageViewerComponent.deleteSelectedFragment: deleting fragment ${fragment.id}, marquee ${fragment.marqueeId}`
+      `ImageViewerComponent.deleteSelectedFragment: deleting ${deletingImageFragment ? 'IMAGE' : 'MARQUEE'} fragment ${fragment.id}; ` +
+      `marquee=${fragment.marqueeId}, imageId=${fragment.imageId ?? null}`
     );
 
     this.rpcService.deleteFragment$(fragment.id)
@@ -1252,6 +1255,13 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
             this.diary.id,
             this.page.id
           ]);
+
+          if (deletingImageFragment) {
+            const retainedImage = retainedImageId !== null ? ` ${retainedImageId}` : '';
+            this.alertService.info(
+              `Image Fragment ${fragment.id} deleted. Catalogued Image${retainedImage} and its file were kept.`
+            );
+          }
         },
 
         error: (err: unknown) => {
@@ -1456,27 +1466,4 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
     );
   }
 
-  private nextFragmentSequence(fragments: Fragment[], selectedSequence: number): number {
-    const sorted = fragments
-      .slice()
-      .sort((a, b) => a.sequence - b.sequence);
-
-    const selectedIndex = sorted.findIndex(f => f.sequence === selectedSequence);
-    const selected = selectedIndex >= 0 ? sorted[selectedIndex] : null;
-    const next = selectedIndex >= 0 ? sorted[selectedIndex + 1] : null;
-
-    if (selected && next) {
-      return (selected.sequence + next.sequence) / 2;
-    }
-
-    if (selected) {
-      return selected.sequence + 1000;
-    }
-
-    if (sorted.length > 0) {
-      return sorted[sorted.length - 1].sequence + 1000;
-    }
-
-    return 1000;
-  }
 }

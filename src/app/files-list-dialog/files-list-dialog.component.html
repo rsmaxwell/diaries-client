@@ -142,7 +142,15 @@
     <!-- Files -->
     <ng-container *ngFor="let f of items; trackBy: trackByName">
       @if (!f.dir) {
-      <a class="file-card" [href]="resolveUrl(f.url)" target="_blank" rel="noopener" (click)="onFileClick(f, $event)"
+      <a class="file-card" [class.selection-disabled]="isCatalogueImageSelectionMode && !canSelectFile(f)"
+        [attr.aria-disabled]="isCatalogueImageSelectionMode && !canSelectFile(f) ? 'true' : null"
+        [attr.aria-label]="fileAriaLabel(f)"
+        [attr.tabindex]="isCatalogueImageSelectionMode && !canSelectFile(f) ? -1 : null"
+        [attr.title]="selectionTitle(f)"
+        [attr.href]="isCatalogueImageSelectionMode && !canSelectFile(f) ? null : resolveUrl(f.url ?? undefined)"
+        target="_blank" rel="noopener"
+        (click)="onFileClick(f, $event)"
+        (keydown.space)="onFileSpace(f, $event)"
         [cdkContextMenuTriggerFor]="imageMenu" [cdkContextMenuDisabled]="deleting || confirmingDeletion || loading || !canRequestImageDeletion(f)">
 
         @if (isActive('list')) {
@@ -150,7 +158,7 @@
         <div class="file-meta list-meta">
           <div class="list-row">
             <div class="list-thumb">
-              <img class="thumb-img" [src]="resolveUrl(f.url)" alt="{{ f.name }}" (error)="onImgError($event, f)" />
+              <img class="thumb-img" [src]="resolveUrl(f.url ?? undefined)" alt="{{ f.name }}" (error)="onImgError($event, f)" />
             </div>
             <div class="col-name" title="{{ f.name }}">{{ f.name }}</div>
           </div>
@@ -160,7 +168,7 @@
         <div class="file-meta details-meta">
           <div class="details-row">
             <div class="details-thumb">
-              <img class="thumb-img" [src]="resolveUrl(f.url)" alt="{{ f.name }}" (error)="onImgError($event, f)" />
+              <img class="thumb-img" [src]="resolveUrl(f.url ?? undefined)" alt="{{ f.name }}" (error)="onImgError($event, f)" />
             </div>
             <div class="col-name" title="{{ f.name }}">{{ f.name }}</div>
             <div class="col-size">{{ f.size | number }}</div>
@@ -175,7 +183,7 @@
         } @else {
         <!-- Non-details (tile/list): outer thumb + simple meta -->
         <div class="thumb">
-          <img class="thumb-img" [src]="resolveUrl(f.url)" alt="{{ f.name }}" (error)="onImgError($event, f)" />
+          <img class="thumb-img" [src]="resolveUrl(f.url ?? undefined)" alt="{{ f.name }}" (error)="onImgError($event, f)" />
         </div>
 
         <div class="file-meta">

@@ -65,11 +65,12 @@ describe('File RPC captured compatibility', () => {
       };
       reply.payload.imageId = image?.id ?? null;
       reply.payload.image = image;
-      const value: any = await firstValueFrom(service.uploadFile$(new File(['synthetic'], 'plain.png')));
+      const value = await firstValueFrom(service.uploadFile$(new File(['synthetic'], 'plain.png')));
       expect(value).toEqual(reply.payload);
       expect(Object.hasOwn(value, 'imageId')).toBeTrue();
       expect(Object.hasOwn(value, 'image')).toBeTrue();
       expect(value.image).toEqual(image);
+      expect(value.imageId).toBe(image?.id ?? null);
     });
   }
 

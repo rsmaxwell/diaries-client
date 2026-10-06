@@ -167,6 +167,36 @@ describe('Files dialog image context menu', () => {
     expect(close).not.toHaveBeenCalled();
   });
 
+  it('explains a 409 referenced-Image conflict without exposing server internals', () => {
+    const operation = new Subject<any>();
+    rpc.deleteImage$.and.returnValue(operation);
+    chooseDelete();
+    answer('Delete image');
+    operation.error({
+      status: 409,
+      payload: { toString: () => JSON.stringify('Image is referenced by a Fragment. Remove its references before deleting it.') }
+    });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('still referenced by one or more Fragments');
+    expect(fixture.nativeElement.textContent).toContain('Clear or delete every Fragment reference');
+    expect(rpc.listFiles$).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the distinct missing-file 409 explanation', () => {
+    const operation = new Subject<any>();
+    rpc.deleteImage$.and.returnValue(operation);
+    chooseDelete();
+    answer('Delete image');
+    operation.error({
+      status: 409,
+      payload: { toString: () => JSON.stringify('Image file is missing.') }
+    });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('catalogued file is missing');
+  });
+
   for (const status of [400, 401, 404, 409, 500, undefined]) {
     it(`keeps the dialog usable after deletion error ${status}`, () => {
       const operation = new Subject<any>();

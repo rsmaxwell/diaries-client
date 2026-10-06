@@ -64,4 +64,75 @@ describe('FilesListDialog captured additive compatibility', () => {
       });
     }
   }
+
+  it('returns persisted catalogue identity in catalogue-image selection mode and blocks uncatalogued files', async () => {
+    const baseUrl = 'http://localhost:8081';
+    const reply: any = structuredClone(fileRpcBaseline.find(c => c.caseId === 'list-populated-root')!.payload);
+    const catalogued = reply.items.find((item: any) => item.name === 'dated.jpg');
+    const uncatalogued = reply.items.find((item: any) => item.name === 'plain.png');
+    catalogued.imageId = 101;
+    catalogued.image = {
+      id: 101, version: 0, relativePath: 'dated.jpg', mimeType: 'image/jpeg',
+      originalFilename: 'dated.jpg', width: 16, height: 12, checksum: 'ab'.repeat(32), caption: '', altText: ''
+    };
+    const path$ = new BehaviorSubject('/');
+    const close = jasmine.createSpy('close');
+    await TestBed.configureTestingModule({
+      imports: [FilesListDialogComponent],
+      providers: [
+        { provide: DIALOG_DATA, useValue: { path$, select: true, selectionMode: 'catalogue-image' } },
+        { provide: DialogRef, useValue: { close } },
+        { provide: ConfigService, useValue: { getConfig: () => Promise.resolve({ baseUrl }) } },
+        { provide: RpcService, useValue: { listFiles$: () => of(reply) } },
+        { provide: MatIconRegistry, useValue: {
+          addSvgIcon: () => {},
+          getNamedSvgIcon: () => of(document.createElementNS('http://www.w3.org/2000/svg', 'svg'))
+        } },
+        { provide: Router, useValue: {} }
+      ]
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(FilesListDialogComponent);
+    fixture.componentInstance.viewMode = 'details';
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const cards = Array.from(element.querySelectorAll<HTMLAnchorElement>('a.file-card'));
+    const datedCard = cards.find(card => card.textContent?.includes('dated.jpg'))!;
+    const plainCard = cards.find(card => card.textContent?.includes('plain.png'))!;
+    expect(datedCard.getAttribute('aria-disabled')).toBeNull();
+    expect(datedCard.getAttribute('aria-label')).toBe('Select catalogued Image dated.jpg');
+    expect(datedCard.tabIndex).toBe(0);
+    expect(plainCard.getAttribute('aria-disabled')).toBe('true');
+    expect(plainCard.getAttribute('aria-label')).toContain('not registered in the Image catalogue');
+    expect(plainCard.getAttribute('tabindex')).toBe('-1');
+    expect(plainCard.hasAttribute('href')).toBeFalse();
+    expect(plainCard.classList).toContain('selection-disabled');
+    expect(plainCard.title).toContain('not registered in the Image catalogue');
+
+    plainCard.click();
+    expect(close).not.toHaveBeenCalled();
+    datedCard.click();
+    expect(close).toHaveBeenCalledOnceWith({
+      url: `${baseUrl}/files/dated.jpg`,
+      name: 'dated.jpg',
+      imageId: 101,
+      image: catalogued.image,
+      relativePath: 'dated.jpg'
+    });
+
+    close.calls.reset();
+    datedCard.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+    expect(close).toHaveBeenCalledOnceWith({
+      url: `${baseUrl}/files/dated.jpg`,
+      name: 'dated.jpg',
+      imageId: 101,
+      image: catalogued.image,
+      relativePath: 'dated.jpg'
+    });
+    fixture.destroy();
+  });
+
 });

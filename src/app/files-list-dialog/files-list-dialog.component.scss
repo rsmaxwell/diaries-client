@@ -385,6 +385,15 @@
     outline-offset: -3px;
     background: var(--row-hover-bg);
   }
+
+  &.selection-disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+
+    &:hover {
+      background: transparent;
+    }
+  }
 }
 
 /* ---------- 6) Thumbs (grid/list/tile) ----------------------------------- */

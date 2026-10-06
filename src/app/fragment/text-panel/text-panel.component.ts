@@ -77,6 +77,8 @@ export class TextPanelComponent implements OnInit, OnDestroy {
   formattedDate = '';
   isDateValid = false;
   saveInFlight = false;
+  private saveFragmentIdInFlight: number | null = null;
+  private destroyed = false;
   private destroy$ = new Subject<void>();
   private lockRequestedForFragmentId: number | null = null;
   private quill?: Quill;
@@ -151,7 +153,15 @@ export class TextPanelComponent implements OnInit, OnDestroy {
         console.log(`TextPanelComponent: we are leaving fragment.id=${leaving?.id}`);
 
         if (switchingFragment) {
-          void this.unlockCurrentFragment('switching fragment');
+          /*
+           * If an update for the fragment we are leaving is already in flight,
+           * do not race that update with a separate unlock RPC. UpdateFragment
+           * clears the lock atomically on success; its error path performs the
+           * failed-edit unlock for the original fragment id.
+           */
+          if (leaving?.id !== this.saveFragmentIdInFlight) {
+            void this.unlockCurrentFragment('switching fragment');
+          }
         }
 
         // Track current fragment after any switch logic
@@ -271,7 +281,10 @@ export class TextPanelComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     console.log(`TextPanelComponent.ngOnDestroy`);
 
-    void this.unlockCurrentFragment('destroy');
+    this.destroyed = true;
+    if (this.fragment?.id !== this.saveFragmentIdInFlight) {
+      void this.unlockCurrentFragment('destroy');
+    }
 
     this.destroy$.next();
     this.destroy$.complete();
@@ -345,10 +358,12 @@ export class TextPanelComponent implements OnInit, OnDestroy {
        * The user may have selected another fragment while the lock RPC
        * was in flight. If so, immediately unlock the fragment we just locked.
        */
-      if (this.fragment?.id !== fragmentId) {
+      if (this.destroyed || this.fragment?.id !== fragmentId) {
         await this.fragmentLockService.unlockFragment(
           fragmentId,
-          'date edit lock completed after fragment switch'
+          this.destroyed
+            ? 'date edit lock completed after editor destroy'
+            : 'date edit lock completed after fragment switch'
         );
         return;
       }
@@ -477,19 +492,61 @@ export class TextPanelComponent implements OnInit, OnDestroy {
     this.form.markAsPristine();
 
     // ---- SERVER CALL ----
+    const savedFragmentId = requestPayload.id;
     this.saveInFlight = true;
+    this.saveFragmentIdInFlight = savedFragmentId;
     this.rpcService.updateFragment$(requestPayload).subscribe({
       next: () => {
         this.saveInFlight = false;
+        this.saveFragmentIdInFlight = null;
         console.log('TextPanelComponent.onSave: success (optimistic accepted)');
 
-        // ✅ SERVER CLEARS LOCK ON SAVE (Responder publishes lock:null)
-        // Mirror that locally so the next edit will re-lock properly.
-        this.markFragmentUnlocked();
+        // UpdateFragment clears the saved fragment's lock atomically. Only
+        // mirror that locally if the user is still looking at that fragment;
+        // a later selection may have acquired its own independent lock.
+        if (this.fragment?.id === savedFragmentId) {
+          this.markFragmentUnlocked();
+        }
       },
       error: (err) => {
         this.saveInFlight = false;
+        this.saveFragmentIdInFlight = null;
         console.log(`TextPanelComponent.onSave: error -> rolling back: ${err}`);
+
+        const stillOnSavedFragment = this.fragment?.id === savedFragmentId;
+
+        if (stillOnSavedFragment) {
+          // ---- ROLLBACK ----
+          this.fragment = prevFragment;
+          this.currentFragment = prevFragment;
+
+          this.originalYear = prevOriginals.y;
+          this.originalMonth = prevOriginals.m;
+          this.originalDay = prevOriginals.d;
+
+          const rollDf = new DateFormatter(prevFragment.year || 0, prevFragment.month || 0, prevFragment.day || 0);
+          this.formattedDate = rollDf.formattedDate;
+          this.isDateValid = rollDf.isDateValid;
+
+          // restore editor body without firing change handlers
+          const previousEditorText = resolveLegacyFragmentHtml(
+            prevFragment.text,
+            this.legacyImageBaseUrl
+          );
+          this.editorServerText = previousEditorText;
+          this.form.get('body')!.setValue(previousEditorText, {
+            emitEvent: false,
+            emitModelToViewChange: true
+          });
+        }
+
+        /*
+         * Release the lock belonging to the request that failed, even if the
+         * user has since navigated to a different Fragment. Using the explicit
+         * fragment id avoids accidentally unlocking or rewriting the new
+         * selection.
+         */
+        void this.fragmentLockService.unlockFragmentAfterFailedEdit(savedFragmentId);
 
         if (err?.status === HttpStatusCode.Unauthorized) {
           // clear auth
@@ -498,33 +555,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
 
           // go to signin; keep current URL so you can return after signing in
           this.router.navigateByUrl(`/signin?returnUrl=${encodeURIComponent(this.router.url)}`);
-          return;
         }
-
-        // ---- ROLLBACK ----
-        this.fragment = prevFragment;
-        this.currentFragment = prevFragment;
-
-        this.originalYear = prevOriginals.y;
-        this.originalMonth = prevOriginals.m;
-        this.originalDay = prevOriginals.d;
-
-        const rollDf = new DateFormatter(prevFragment.year || 0, prevFragment.month || 0, prevFragment.day || 0);
-        this.formattedDate = rollDf.formattedDate;
-        this.isDateValid = rollDf.isDateValid;
-
-        // restore editor body without firing change handlers
-        const previousEditorText = resolveLegacyFragmentHtml(
-          prevFragment.text,
-          this.legacyImageBaseUrl
-        );
-        this.editorServerText = previousEditorText;
-        this.form.get('body')!.setValue(previousEditorText, {
-          emitEvent: false,
-          emitModelToViewChange: true
-        });
-
-        void this.unlockCurrentFragment('save failed rollback');
       }
     });
   }
@@ -709,13 +740,15 @@ export class TextPanelComponent implements OnInit, OnDestroy {
      * Only apply the optimistic lock if we are still looking at the same fragment.
      * If the user navigated away while the RPC was in flight, immediately unlock it.
      */
-    if (this.fragment?.id === fragmentId) {
+    if (!this.destroyed && this.fragment?.id === fragmentId) {
       this.markFragmentLockedByMe();
       this.updateEditorReadOnlyState();
     } else {
       await this.fragmentLockService.unlockFragment(
         fragmentId,
-        'body edit lock completed after fragment switch'
+        this.destroyed
+          ? 'body edit lock completed after editor destroy'
+          : 'body edit lock completed after fragment switch'
       );
     }
   }

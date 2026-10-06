@@ -10,15 +10,17 @@ import { ModelContext } from '../../model/model-context';
 import { RpcService } from '../../mqtt/rpc.service';
 import { PageheaderComponent } from './pageheader.component';
 import { FilesListDialogComponent } from '../../files-list-dialog/files-list-dialog.component';
+import { ImageFragmentActionStateService } from '../../fragment/image-fragment-action-state.service';
 
 describe('PageheaderComponent', () => {
   let component: PageheaderComponent;
   let fixture: ComponentFixture<PageheaderComponent>;
 
   const selectedFragment$ = new BehaviorSubject<any>({
-    id: 33, pageId: 22, type: 'MARQUEE', marqueeId: 44
+    id: 33, pageId: 22, type: 'MARQUEE', marqueeId: 44,
+    year: 1830, month: 2, day: 3, sequence: 1000
   });
-  const selectedPage$ = new BehaviorSubject<any>({ id: 22 });
+  const selectedPage$ = new BehaviorSubject<any>({ id: 22, diaryId: 11 });
   const selectedMarquee$ = new BehaviorSubject<any>({ id: 44, fragmentId: 33, pageId: 22 });
   const modelContext = {
     hasSelectedPage$: new BehaviorSubject(true),
@@ -33,8 +35,11 @@ describe('PageheaderComponent', () => {
 
   beforeEach(async () => {
     modelContext.selectedDiary$.next({ id: 11, name: 'diary-1830' });
-    selectedFragment$.next({ id: 33, pageId: 22, type: 'MARQUEE', marqueeId: 44 });
-    selectedPage$.next({ id: 22 });
+    selectedFragment$.next({
+      id: 33, pageId: 22, type: 'MARQUEE', marqueeId: 44,
+      year: 1830, month: 2, day: 3, sequence: 1000
+    });
+    selectedPage$.next({ id: 22, diaryId: 11 });
     selectedMarquee$.next({ id: 44, fragmentId: 33, pageId: 22 });
 
     await TestBed.configureTestingModule({
@@ -65,6 +70,7 @@ describe('PageheaderComponent', () => {
     const editMarquee = spyOn(component.editMarquee, 'emit');
     const deleteMarquee = spyOn(component.deleteMarquee, 'emit');
     const add = spyOn(component.add, 'emit');
+    const addImageFragment = spyOn(component.addImageFragment, 'emit');
     const deleteFragment = spyOn(component.delete, 'emit');
     const listFiles = spyOn(component.listFiles, 'emit');
 
@@ -72,6 +78,7 @@ describe('PageheaderComponent', () => {
     component.onEditMarqueeClick();
     component.onDeleteMarqueeClick();
     component.onAddClick();
+    component.onAddImageFragmentClick();
     component.onDeleteClick();
     component.onListFilesClick();
 
@@ -79,19 +86,24 @@ describe('PageheaderComponent', () => {
     expect(editMarquee).toHaveBeenCalled();
     expect(deleteMarquee).toHaveBeenCalled();
     expect(add).toHaveBeenCalled();
+    expect(addImageFragment).toHaveBeenCalled();
     expect(deleteFragment).toHaveBeenCalled();
     expect(listFiles).toHaveBeenCalled();
   });
 
-  it('gives every toolbar action an accessible name', () => {
+  it('gives every toolbar action an accessible name and title', () => {
     const buttons = Array.from(fixture.nativeElement.querySelectorAll('button')) as HTMLButtonElement[];
 
-    expect(buttons.length).toBe(8);
+    expect(buttons.length).toBe(9);
     expect(buttons.every(button => Boolean(button.getAttribute('aria-label')))).toBeTrue();
+    expect(buttons.every(button => Boolean(button.getAttribute('title')))).toBeTrue();
   });
 
   it('disables all marquee controls for an explicit image fragment', async () => {
-    selectedFragment$.next({ id: 33, pageId: 22, type: 'IMAGE', marqueeId: null });
+    selectedFragment$.next({
+      id: 33, pageId: 22, type: 'IMAGE', marqueeId: null,
+      year: 1830, month: 2, day: 3, sequence: 1000
+    });
     selectedMarquee$.next(null);
     await fixture.whenStable();
     fixture.detectChanges();
@@ -105,6 +117,46 @@ describe('PageheaderComponent', () => {
     ) as HTMLButtonElement[];
     expect(controls).toHaveSize(3);
     expect(controls.every(button => button.disabled)).toBeTrue();
+  });
+
+
+  it('enables Add Image Fragment only when diary/page/day context is authoritative', async () => {
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const button = fixture.nativeElement.querySelector('[aria-label="Add Image Fragment"]') as HTMLButtonElement;
+    expect(button).not.toBeNull();
+    expect(button.disabled).toBeFalse();
+
+    selectedPage$.next({ id: 23, diaryId: 11 });
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(button.disabled).toBeTrue();
+
+    selectedPage$.next({ id: 22, diaryId: 11 });
+    selectedFragment$.next(null);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(button.disabled).toBeTrue();
+  });
+
+
+  it('marks Add Image Fragment busy and disables it while its workflow is active', async () => {
+    const actionState = TestBed.inject(ImageFragmentActionStateService);
+    const button = fixture.nativeElement.querySelector('[aria-label="Add Image Fragment"]') as HTMLButtonElement;
+
+    expect(actionState.tryBeginAddImageFragment()).toBeTrue();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(button.disabled).toBeTrue();
+    expect(button.getAttribute('aria-busy')).toBe('true');
+    expect(button.title).toContain('Adding Image Fragment');
+
+    actionState.endAddImageFragment();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(button.getAttribute('aria-busy')).toBeNull();
   });
 
   it('uploads to the original diary folder and opens it after success, preserving fragment selection', () => {

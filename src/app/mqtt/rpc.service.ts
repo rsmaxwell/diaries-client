@@ -4,7 +4,7 @@ import { Buffer } from 'buffer';
 import mqtt, { IClientPublishOptions, IPublishPacket } from "mqtt";
 import { HttpStatusCode } from "@angular/common/http";
 import { v4 as uuidv4 } from 'uuid';
-import { Injectable } from "@angular/core";
+import { Injectable, isDevMode } from "@angular/core";
 
 import { Status } from "./status";
 import { Page, UpdatePageRequest } from "../model/page";
@@ -17,14 +17,15 @@ import { Signin, SigninReply, SigninRequest } from "../model/signin";
 import { Register, RegisterReply, RegisterRequest } from "../model/register";
 import { Diary, UpdateDiaryRequest } from "../model/diary";
 import { RefreshTokenReply, RefreshTokenRequest } from "../model/refresh.token";
-import { AddFragmentRequest, DeleteFragmentRequest, Fragment, LockFragmentRequest, NormaliseFragmentsRequest, UnlockFragmentRequest, UpdateFragmentRequest } from "../model/fragment";
+import { AddFragmentRequest, AddImageFragmentRequest, DeleteFragmentRequest, Fragment, ImageFragment, LockFragmentRequest, NormaliseFragmentsRequest, UnlockFragmentRequest, UpdateFragmentRequest, UpdateImageFragmentRequest } from "../model/fragment";
 import { AccessTokenService } from "../user/token/accessTokenService";
 import { RefreshTokenService } from "../user/token/refreshTokenService";
-import { FileEntry } from "../model/FileEntry";
 import { FileListResponse } from "../model/FileListResponse";
+import { UploadFileResponse } from "../model/UploadFileResponse";
 import { Router } from "@angular/router";
 import { BuildInfo } from "../model/build-info";
 import { DeleteImageReply } from '../model/delete-image-reply';
+import { Step13RpcDiagnostics } from './step13-rpc-diagnostics';
 
 export class RpcError extends Error {
     constructor(
@@ -42,6 +43,7 @@ export class RpcService {
     private readonly reqTopic = 'request';
     private subscribedTopics = new Set<string>();
     private listenerAttached = false;
+    private readonly step13RpcDiagnostics = isDevMode() ? new Step13RpcDiagnostics() : null;
 
     // map of correlationIds to handlers
     private responseHandlers = new Map<string, {
@@ -105,6 +107,7 @@ export class RpcService {
             try {
                 status = JSON.parse(firstStatus) as Status;
             } catch (e) {
+                this.step13RpcDiagnostics?.captureStatusParseError(corr);
                 handler.observer.error(
                     new RpcError(undefined, 'Failed to parse status JSON', payload)
                 );
@@ -112,6 +115,7 @@ export class RpcService {
             }
         }
 
+        this.step13RpcDiagnostics?.captureReply(corr, status, payload);
         console.log(`rpcDispatcher: received status:`, status);
         //      console.log(`rpcDispatcher: raw userProperties.status:`, props?.userProperties?.["status"]);
 
@@ -155,6 +159,7 @@ export class RpcService {
 
             const timer = setTimeout(() => {
                 this.responseHandlers.delete(corr);
+                this.step13RpcDiagnostics?.captureTimeout(corr);
                 obs.error(new RpcError(undefined, 'Timeout'));
             }, timeout);
 
@@ -165,6 +170,8 @@ export class RpcService {
                 deserialize,
                 timer
             });
+
+            this.step13RpcDiagnostics?.captureRequest(corr, payload);
 
             const publishRequest = () => {
                 const publishPayload = JSON.stringify(payload);
@@ -195,6 +202,7 @@ export class RpcService {
                     if (err) {
                         this.responseHandlers.delete(corr);
                         clearTimeout(timer);
+                        this.step13RpcDiagnostics?.capturePublishError(corr, err.message);
                         console.error(`[rpcRequest] Publish failed: ${err.message}`);
                         obs.error(err);
                     } else {
@@ -507,6 +515,35 @@ export class RpcService {
         );
     }
 
+    addImageFragment$(request: AddImageFragmentRequest): Observable<ImageFragment> {
+        return forkJoin({
+            cfg: this.configService.getConfig(),
+            client: this.mqtt.getConnection()
+        }).pipe(
+            switchMap(({ client }) => {
+                const replyTopic = Constants.replyTopic(this.mqtt.getClientId());
+
+                const payload = {
+                    function: 'addImageFragment',
+                    args: request
+                };
+
+                const deserialize = ReplyHandler.getBufferAsObject<ImageFragment>;
+
+                return this.authorisedRpcRequest<ImageFragment>(
+                    client,
+                    replyTopic,
+                    payload,
+                    deserialize
+                );
+            })
+        );
+    }
+
+    /**
+     * Ordinary Fragment edit. imageId is deliberately omitted so the responder
+     * preserves any existing IMAGE reference.
+     */
     updateFragment$(fragment: Fragment): Observable<number> {
         return forkJoin({
             cfg: this.configService.getConfig(),
@@ -516,6 +553,31 @@ export class RpcService {
                 const replyTopic = Constants.replyTopic(this.mqtt.getClientId());
                 const payload = { function: 'updateFragment', args: UpdateFragmentRequest.fromFragment(fragment) };
                 const deserialize = ReplyHandler.getBufferAsNumber
+                return this.authorisedRpcRequest<number>(
+                    client,
+                    replyTopic,
+                    payload,
+                    deserialize
+                );
+            })
+        );
+    }
+
+    /**
+     * Deliberate IMAGE-reference edit. This is the only client update API that
+     * emits imageId: positive values attach/replace; null explicitly clears.
+     */
+    updateImageFragment$(fragment: ImageFragment, imageId: number | null): Observable<number> {
+        const request = UpdateImageFragmentRequest.fromImageFragment(fragment, imageId);
+
+        return forkJoin({
+            cfg: this.configService.getConfig(),
+            client: this.mqtt.getConnection()
+        }).pipe(
+            switchMap(({ client }) => {
+                const replyTopic = Constants.replyTopic(this.mqtt.getClientId());
+                const payload = { function: 'updateFragment', args: request };
+                const deserialize = ReplyHandler.getBufferAsNumber;
                 return this.authorisedRpcRequest<number>(
                     client,
                     replyTopic,
@@ -673,7 +735,7 @@ export class RpcService {
         );
     }
 
-    uploadFile$(file: File, subdir?: string): Observable<FileEntry> {
+    uploadFile$(file: File, subdir?: string): Observable<UploadFileResponse> {
         return forkJoin({
             cfg: this.configService.getConfig(),
             client: this.mqtt.getConnection()
@@ -699,9 +761,9 @@ export class RpcService {
                         bytes: b64
                     }
                 };
-                const deserialize = ReplyHandler.getBufferAsObject as (buffer: Buffer) => FileEntry;
+                const deserialize = ReplyHandler.getBufferAsObject as (buffer: Buffer) => UploadFileResponse;
 
-                return this.authorisedRpcRequest<FileEntry>(
+                return this.authorisedRpcRequest<UploadFileResponse>(
                     client,
                     replyTopic,
                     payload,

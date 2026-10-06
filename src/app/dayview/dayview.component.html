@@ -33,11 +33,22 @@
               </button>
 
               <article class="fragment-link" role="link" tabindex="0"
-                [attr.aria-label]="'Open fragment ' + fragment.id"
+                [attr.aria-label]="'Open ' + fragmentTypeLabel(fragment) + ' fragment ' + fragment.id"
                 (click)="goToFragment(fragment)" (keydown.enter)="goToFragment(fragment)">
                 <p class="fragment-metadata">
+                  <span
+                    class="fragment-type"
+                    [class.fragment-type--image]="fragmentTypeLabel(fragment) === 'IMAGE'"
+                    [class.fragment-type--marquee]="fragmentTypeLabel(fragment) === 'MARQUEE'">
+                    {{ fragmentTypeLabel(fragment) }}
+                  </span>
                   <span>Fragment {{fragment.id}}</span>
                   <span>Position {{fragment.sequence}}</span>
+                  @if (imageReferenceLabel(fragment); as imageLabel) {
+                    <span
+                      class="fragment-image-reference"
+                      [class.is-unattached]="!fragment.imageId">{{ imageLabel }}</span>
+                  }
                 </p>
 
                 <div class="ql-snow fragment-content">
@@ -64,7 +75,7 @@
     <div class="reader-shell">
       <p class="eyebrow">Diary reader</p>
       <h1 id="no-date-heading">Choose a diary day</h1>
-      <p>Select a marquee to view the transcription for its date.</p>
+      <p>Select a fragment to view the transcription for its date.</p>
     </div>
   </section>
 }
