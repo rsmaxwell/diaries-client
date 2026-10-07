@@ -219,6 +219,83 @@ is accepted; nested paths, traversal, query strings and fragments are rejected.
 Absolute URLs and other non-legacy values are left unchanged. New data should
 use explicit IMAGE-fragment metadata instead of relying on this resolver.
 
+
+## ImageFragment authoring
+
+The editor supports two Fragment types in one shared chronology:
+
+```text
+MARQUEE -> Page-owned transcription associated with a Marquee; no Image reference
+IMAGE   -> Page-owned transcription with zero or one reusable catalogue Image; no Marquee
+```
+
+A missing/null `Fragment.type` remains the rolling-migration MARQUEE fallback. `Fragment.pageId` and `Fragment.type` are responder-authoritative after creation and are not changed by ordinary client edits.
+
+### Retained Image catalogue
+
+Reusable catalogue metadata is published by the responder as retained MQTT objects on:
+
+```text
+diaries/images/<imageId>
+```
+
+`CatalogueImage` in `src/app/model/image.ts` is metadata-only. `ModelContext.selectedImage$` resolves the selected IMAGE Fragment's positive `imageId` through `LiveObjectService`; retained tombstones, unresolved references and an unattached IMAGE Fragment resolve to no selected Image. Image file bytes remain on the configured Files/static HTTP route and are never transported through retained MQTT state.
+
+`buildCatalogueImageUrl()` in `src/app/utilities/catalogue-image-url.ts` combines runtime `baseUrl`, the configured Files route and `CatalogueImage.relativePath`, encoding each path segment. Persisted catalogue paths therefore remain environment-neutral rather than storing an absolute deployment URL.
+
+### Creating and selecting an Image
+
+The existing MARQUEE `+` workflow is unchanged. **Add Image Fragment** is a separate action. The client opens the Files dialog in `selectionMode: 'catalogue-image'`, normally at the selected diary's `images` folder. Only a non-directory entry with a positive persisted `imageId` is selectable; the Fragment relationship is never inferred from a filename or URL.
+
+The chooser runs before creation and does not hold a Fragment edit lock. Cancelling creates nothing. After a selection, the client revalidates the diary/page/day context and sends exactly one non-idempotent `addImageFragment` RPC. Creation shares the existing Fragment date/sequence chronology rather than introducing an IMAGE-only sequence space.
+
+For an existing IMAGE Fragment, **Select/replace Image** and **Clear Image** are explicit relationship mutations. The client revalidates the selected Fragment and obtains the normal Fragment edit lock before changing the Image reference. Catalogue browsing itself does not lock a Fragment.
+
+### `imageId` preserve/set/clear semantics
+
+Ordinary text/date/sequence editing must not accidentally become Image authoring. The client therefore has two distinct update paths:
+
+```text
+preserve -> RpcService.updateFragment$()               -> imageId omitted
+set      -> RpcService.updateImageFragment$(..., 123)  -> imageId: 123
+clear    -> RpcService.updateImageFragment$(..., null) -> imageId: null
+```
+
+Omitting `imageId` means preserve the existing Image relationship. A positive ID deliberately attaches/replaces the reference. Explicit `null` deliberately clears it. `UpdateFragmentRequest` also omits responder-authoritative `pageId`, `type` and `marqueeId` relationship fields.
+
+### Deletion boundaries
+
+Deleting an IMAGE Fragment calls `deleteFragment` and removes only the Fragment. It does **not** delete the reusable Image catalogue row, retained Image topic or physical file. Image deletion remains the separate catalogue operation and the responder rejects it while any Fragment still references that Image.
+
+### Authoring gate
+
+The responder remains authoritative for Image-reference authoring through `imageFragmentWritesEnabled`. When disabled, `addImageFragment` and actual `imageId` mutations are rejected with 403, while ordinary IMAGE reads, text/date/sequence edits, locking, normalisation and Fragment deletion remain available because those requests omit `imageId`.
+
+Production deployment uses the Ansible variable `diaries_image_fragment_writes_enabled`. With 0027 completed and the compatible responder, reader and client verified in production, the supported role default is `true`, so IMAGE Fragment creation and Image-reference editing are part of normal operation. Setting the variable to `false` and redeploying/restarting the responder remains the tested non-destructive authoring rollback.
+
+Local modes use the same responder JSON property and normally set it to `true`. Direct development inherits it from `%USERPROFILE%\.diaries\responder.json`; `local-docker-build` and `local-published-smoke` use the external JSON selected by `DIARIES_RESPONDER_DOCKER_CONFIG_FILE` (normally `%USERPROFILE%\.diaries\responder.docker.json`). There is no environment-variable override for the gate. Set the JSON property to `false` only when deliberately exercising the disabled-gate/rollback path.
+
+### 0027 client implementation map
+
+The durable implementation introduced or materially extended these areas:
+
+| Area | Purpose |
+| --- | --- |
+| `src/app/model/fragment.ts` | typed MARQUEE/IMAGE model plus separate add/preserve/set/clear request contracts |
+| `src/app/model/image.ts` | retained metadata-only `CatalogueImage` |
+| `src/app/model/model-context.ts` | retained `diaries/images/<id>` lookup and `selectedImage$` projection |
+| `src/app/model/FileEntry.ts` / `UploadFileResponse.ts` | persisted catalogue `imageId` and Image metadata on file operations |
+| `src/app/utilities/catalogue-image-url.ts` | runtime Files URL construction |
+| `src/app/mqtt/rpc.service.ts` | `addImageFragment$()` and deliberate `updateImageFragment$()` transport |
+| `src/app/files-list-dialog/` | `catalogue-image` selection mode and accessible catalogue-only selection |
+| `src/app/fragment/image-fragment-authoring.ts` | stable creation-context and common sequence helpers |
+| `src/app/fragment/image-fragment-action-state.service.ts` | workspace-scoped add/mutation busy and eligibility state |
+| `src/app/fragment/image-fragment-reference.component.*` | selected Image metadata, preview, replace and clear controls |
+| `src/app/fragment/image-fragment-authoring-errors.ts` | deliberate 400/401/403/409/500 authoring diagnostics |
+| `src/app/dayview/` | mixed MARQUEE/IMAGE chronology, navigation and reorder regression coverage |
+
+The completed feature record and detailed evidence are under `change-control/complete/0027-FEAT - add ImageFragment editing to diaries-client/`.
+
 ## Development notes
 
 When debugging client/server behaviour, consider all of the following together:
