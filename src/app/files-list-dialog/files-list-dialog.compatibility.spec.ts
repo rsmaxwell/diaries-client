@@ -48,16 +48,29 @@ describe('FilesListDialog captured additive compatibility', () => {
         expect(images.length).toBe(2);
         expect(images[0].href).toBe(expectedUrl);
         expect(images[1].textContent).toContain('plain.png');
+        // Details view retains the date column; the catalogue ID is under the filename.
         expect(images[0].textContent).toContain('2020 Jan 02');
+        if (additions) {
+          expect(images[0].querySelector('.catalogue-image-id')?.textContent?.trim()).toBe('Image ID: 101');
+        } else {
+          expect(images[0].querySelector('.catalogue-image-id')).toBeNull();
+        }
         images[0].click();
         expect(close).toHaveBeenCalledOnceWith({ url: expectedUrl, name: 'dated.jpg' });
         fixture.componentInstance.viewMode = 'medium';
         fixture.detectChanges();
         expect(element.querySelector<HTMLImageElement>('a.file-card img')!.src).toBe(expectedUrl);
-        // The generic file picker still shows the date, even when optional
-        // catalogue metadata is available in the listFiles response.
-        expect(element.querySelector('a.file-card .file-sub')?.textContent).toContain('2020 Jan 02');
-        expect(element.querySelector('a.file-card .catalogue-image-id')).toBeNull();
+        // An ordinary file browser displays the catalogue ID when supplied,
+        // and the original date only for files without catalogue metadata.
+        const catalogueId = element.querySelector('a.file-card .catalogue-image-id');
+        const fileSubtitle = element.querySelector('a.file-card .file-sub')?.textContent;
+        if (additions) {
+          expect(catalogueId?.textContent?.trim()).toBe('Image ID: 101');
+          expect(fileSubtitle).not.toContain('2020 Jan 02');
+        } else {
+          expect(catalogueId).toBeNull();
+          expect(fileSubtitle).toContain('2020 Jan 02');
+        }
         expect(fixture.componentInstance.resolveUrl('https://images.example.test/image.jpg'))
           .toBe('https://images.example.test/image.jpg');
         expect(fixture.componentInstance.resolveUrl('/files/a%20b%23c.jpg'))
