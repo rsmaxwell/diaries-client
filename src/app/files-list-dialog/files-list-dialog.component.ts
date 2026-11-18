@@ -199,20 +199,29 @@ export class FilesListDialogComponent implements OnInit {
     return !this.isCatalogueImageSelectionMode || hasCatalogueImage(file);
   }
 
+  // The Image catalogue identity is useful for inspection as well as selection.
+  // Keep generic file-selection behavior unchanged; this only changes presentation.
+  showCatalogueId(file: FileEntry): boolean {
+    return hasCatalogueImage(file);
+  }
+
   selectionTitle(file: FileEntry): string {
-    if (this.isCatalogueImageSelectionMode && !hasCatalogueImage(file)) {
-      return `${file.name} — not registered in the Image catalogue`;
+    if (this.isCatalogueImageSelectionMode) {
+      return hasCatalogueImage(file)
+        ? `${file.name} — Image ID: ${file.imageId}`
+        : `${file.name} — not registered in the Image catalogue`;
     }
-    return file.name;
+    return hasCatalogueImage(file) ? `${file.name} — Image ID: ${file.imageId}` : file.name;
   }
 
   fileAriaLabel(file: FileEntry): string {
     if (this.isCatalogueImageSelectionMode) {
       return hasCatalogueImage(file)
-        ? `Select catalogued Image ${file.name}`
+        ? `Select catalogued Image ${file.name}, Image ID ${file.imageId}`
         : `${file.name}, not registered in the Image catalogue`;
     }
-    return this.data?.select ? `Select file ${file.name}` : file.name;
+    const label = this.data?.select ? `Select file ${file.name}` : file.name;
+    return hasCatalogueImage(file) ? `${label}, Image ID ${file.imageId}` : label;
   }
 
   onFileSpace(file: FileEntry, ev: Event): void {

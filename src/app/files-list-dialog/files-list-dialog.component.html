@@ -1,4 +1,4 @@
-<div class="dialog-container" [class.mode-large]="isActive('large')" [class.mode-medium]="isActive('medium')"
+<div class="dialog-container" [class.catalogue-image-selection]="isCatalogueImageSelectionMode" [class.mode-large]="isActive('large')" [class.mode-medium]="isActive('medium')"
   [class.mode-small]="isActive('small')" [class.mode-list]="isActive('list')"
   [class.mode-details]="isActive('details')">
 
@@ -160,7 +160,14 @@
             <div class="list-thumb">
               <img class="thumb-img" [src]="resolveUrl(f.url ?? undefined)" alt="{{ f.name }}" (error)="onImgError($event, f)" />
             </div>
+            @if (showCatalogueId(f)) {
+            <div class="col-name" [title]="f.name">
+              <div class="file-name">{{ f.name }}</div>
+              <div class="file-sub catalogue-image-id">Image ID: {{ f.imageId }}</div>
+            </div>
+            } @else {
             <div class="col-name" title="{{ f.name }}">{{ f.name }}</div>
+            }
           </div>
         </div>
         } @else if (isActive('details')) {
@@ -170,7 +177,14 @@
             <div class="details-thumb">
               <img class="thumb-img" [src]="resolveUrl(f.url ?? undefined)" alt="{{ f.name }}" (error)="onImgError($event, f)" />
             </div>
+            @if (showCatalogueId(f)) {
+            <div class="col-name" [title]="f.name">
+              <div class="file-name">{{ f.name }}</div>
+              <div class="file-sub catalogue-image-id">Image ID: {{ f.imageId }}</div>
+            </div>
+            } @else {
             <div class="col-name" title="{{ f.name }}">{{ f.name }}</div>
+            }
             <div class="col-size">{{ f.size | number }}</div>
             <div class="col-mtime">{{ f.mtime | date:'yyyy MMM dd' }}</div>
             @if (f.dateTaken) {
@@ -188,7 +202,9 @@
 
         <div class="file-meta">
           <div class="file-name" title="{{ f.name }}">{{ f.name }}</div>
-          @if (f.dateTaken) {
+          @if (showCatalogueId(f)) {
+            <div class="file-sub catalogue-image-id">Image ID: {{ f.imageId }}</div>
+          } @else if (!isCatalogueImageSelectionMode && f.dateTaken) {
           <div class="file-sub">
             {{ f.dateTaken | date:'yyyy MMM dd' }}
           </div>

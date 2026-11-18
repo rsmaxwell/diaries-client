@@ -792,3 +792,35 @@
     min-height: 2.75rem;
   }
 }
+
+/* Show persisted catalogue IDs in all file views, including read-only browsing.
+   Uncatalogued entries still show their normal date when available. */
+.dialog-container {
+  .catalogue-image-id {
+    color: tokens.$diaries-ink;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.25;
+  }
+
+  &.mode-list {
+    .file-meta.list-meta .list-row {
+      height: auto;
+      min-height: 40px;
+    }
+
+    .file-meta.list-meta .col-name {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-width: 0;
+    }
+  }
+
+  &.mode-details .file-meta.details-meta .col-name {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    min-width: 0;
+  }
+}
