@@ -4,10 +4,15 @@
   aria-label="Image Fragment image reference">
 
   <div class="preview" aria-live="polite">
-    <img
-      *ngIf="vm.imageUrl && vm.image; else imagePlaceholder"
-      [src]="vm.imageUrl"
-      [alt]="vm.image.altText || vm.image.originalFilename || ('Image ' + vm.imageId)" />
+    <ng-container *ngIf="vm.imageUrl && vm.image; else imagePlaceholder">
+      <a *ngIf="vm.safeLinkUrl; else plainImage" [href]="vm.safeLinkUrl"
+         [attr.aria-label]="'Open linked Image ' + vm.imageId + ' destination'">
+        <img [src]="vm.imageUrl" [alt]="vm.image.altText || vm.image.originalFilename || ('Image ' + vm.imageId)" />
+      </a>
+      <ng-template #plainImage>
+        <img [src]="vm.imageUrl" [alt]="vm.image.altText || vm.image.originalFilename || ('Image ' + vm.imageId)" />
+      </ng-template>
+    </ng-container>
 
     <ng-template #imagePlaceholder>
       <div class="placeholder" [class.unresolved]="vm.unresolved">
@@ -31,6 +36,29 @@
       <div *ngIf="image.caption" class="secondary">Caption: {{ image.caption }}</div>
       <div *ngIf="image.altText" class="secondary">Alt text: {{ image.altText }}</div>
     </ng-container>
+
+    <div class="link-editor">
+      <label for="image-fragment-link-url">External image-click link (http or https)</label>
+      <input id="image-fragment-link-url" type="url" autocomplete="off" spellcheck="false"
+             [ngModel]="draftImageLinkUrl" (ngModelChange)="onLinkInput($event)"
+             [attr.aria-invalid]="draftImageLinkUrl && !linkDraftValid ? 'true' : null"
+             placeholder="https://example.org/…" [disabled]="vm.mutationInFlight" />
+      <small *ngIf="draftImageLinkUrl && !linkDraftValid" role="alert">
+        Enter a valid absolute http:// or https:// URL, without credentials or spaces.
+      </small>
+      <small *ngIf="vm.savedLinkUrl && !vm.safeLinkUrl" role="status">
+        The stored URL is unsafe and cannot be opened; clear or replace it.
+      </small>
+      <div class="actions">
+        <button type="button" class="primary" [disabled]="vm.mutationInFlight || !linkDraftValid || !linkDraftChanged"
+                (click)="saveLink()">Save link</button>
+        <button type="button" [disabled]="vm.mutationInFlight || !vm.savedLinkUrl"
+                (click)="clearImageLink.emit()">Clear link</button>
+        <button type="button" (click)="showOnSourcePage.emit()">
+          Show on source page{{ vm.hasMarquee ? ' (highlight selection)' : '' }}
+        </button>
+      </div>
+    </div>
 
     <p class="retention-note">
       Deleting this IMAGE Fragment removes only the Fragment. The catalogued Image and file are kept.

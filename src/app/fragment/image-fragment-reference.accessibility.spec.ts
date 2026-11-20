@@ -28,6 +28,7 @@ describe('ImageFragmentReferenceComponent accessibility/action state', () => {
   };
   const selectedFragment$ = new BehaviorSubject<Fragment | null>(fragment);
   const selectedImage$ = new BehaviorSubject<CatalogueImage | null>(image);
+  const selectedMarquee$ = new BehaviorSubject<any>(null);
   const canSelectOrReplaceImage$ = new BehaviorSubject(true);
   const canClearImage$ = new BehaviorSubject(true);
   const imageMutationInFlight$ = new BehaviorSubject(false);
@@ -36,7 +37,7 @@ describe('ImageFragmentReferenceComponent accessibility/action state', () => {
     await TestBed.configureTestingModule({
       imports: [ImageFragmentReferenceComponent],
       providers: [
-        { provide: ModelContext, useValue: { selectedFragment$, selectedImage$ } },
+        { provide: ModelContext, useValue: { selectedFragment$, selectedImage$, selectedMarquee$ } },
         { provide: ConfigService, useValue: { getConfig: () => Promise.resolve({ baseUrl: 'http://localhost', files: 'files' }) } },
         {
           provide: ImageFragmentActionStateService,
@@ -52,10 +53,13 @@ describe('ImageFragmentReferenceComponent accessibility/action state', () => {
   });
 
   it('gives both Image authoring actions accessible labels and explanatory titles', () => {
-    const buttons = Array.from(fixture.nativeElement.querySelectorAll('button')) as HTMLButtonElement[];
+    const buttons = Array.from(fixture.nativeElement.querySelectorAll('button[aria-label]')) as HTMLButtonElement[];
     expect(buttons).toHaveSize(2);
     expect(buttons.every(button => Boolean(button.getAttribute('aria-label')))).toBeTrue();
     expect(buttons.every(button => Boolean(button.getAttribute('title')))).toBeTrue();
+    expect(fixture.nativeElement.querySelector('label[for="image-fragment-link-url"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('input[type="url"]')).not.toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Show on source page');
   });
 
   it('disables both actions and exposes polite busy state during a mutation workflow', async () => {
@@ -66,9 +70,10 @@ describe('ImageFragmentReferenceComponent accessibility/action state', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    const buttons = Array.from(fixture.nativeElement.querySelectorAll('button')) as HTMLButtonElement[];
+    const buttons = Array.from(fixture.nativeElement.querySelectorAll('button[aria-label]')) as HTMLButtonElement[];
     expect(buttons.every(button => button.disabled)).toBeTrue();
     expect(buttons.every(button => button.getAttribute('aria-busy') === 'true')).toBeTrue();
+    expect((fixture.nativeElement.querySelector('input[type="url"]') as HTMLInputElement).disabled).toBeTrue();
     expect(fixture.nativeElement.querySelector('[role="status"]')?.textContent).toContain('Image reference edit in progress');
   });
 });

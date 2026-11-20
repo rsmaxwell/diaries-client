@@ -34,8 +34,8 @@ describe('ModelContext fragment marquee relationship', () => {
     expect(matchingMarqueeForFragment(fragment(), [marquee({ fragmentId: 11 })])).toBeNull();
   });
 
-  it('rejects explicit images and unresolved pages', () => {
-    expect(matchingMarqueeForFragment(fragment({ type: 'IMAGE' }), [marquee()])).toBeNull();
+  it('accepts a matching IMAGE marquee but rejects unresolved pages', () => {
+    expect(matchingMarqueeForFragment(fragment({ type: 'IMAGE', marqueeId: null }), [marquee()])?.id).toBe(30);
     expect(matchingMarqueeForFragment(fragment({ pageId: null }), [marquee()])).toBeNull();
   });
 

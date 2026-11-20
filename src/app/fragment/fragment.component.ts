@@ -18,7 +18,7 @@ import { Marquee } from '../model/marquee';
 import { RpcService } from '../mqtt/rpc.service';
 import { AlertService } from '../alerts/alert.service';
 import { FragmentLockService } from './fragment-lock.service';
-import { AddImageFragmentRequest, Fragment, hasAuthoritativePage, ImageFragment, isImageFragment, isMarqueeFragment } from '../model/fragment';
+import { AddImageFragmentRequest, Fragment, hasAuthoritativePage, ImageFragment, isImageFragment, isMarqueeFragment, requireSafeImageLinkUrl } from '../model/fragment';
 import { canAddImageFragment, nextFragmentSequence } from './image-fragment-authoring';
 import { ImageFragmentReferenceComponent } from './image-fragment-reference.component';
 import { ClearImageConfirmationComponent } from './clear-image-confirmation.component';
@@ -575,6 +575,74 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  async onSetImageLinkClick(value: string): Promise<void> {
+    try {
+      requireSafeImageLinkUrl(value);
+    } catch (error: any) {
+      this.alertService.warning(error.message);
+      return;
+    }
+    await this.mutateImageLink({ set: value });
+  }
+
+  async onClearImageLinkClick(): Promise<void> {
+    await this.mutateImageLink({ clear: true });
+  }
+
+  async onShowOnSourcePageClick(): Promise<void> {
+    const [fragment, page, diary, marquee] = await firstValueFrom(combineLatest([
+      this.modelContext.selectedFragment$, this.modelContext.selectedPage$,
+      this.modelContext.selectedDiary$, this.modelContext.selectedMarquee$
+    ]).pipe(take(1)));
+    if (!isImageFragment(fragment) || !hasAuthoritativePage(fragment) ||
+        page?.id !== fragment.pageId || diary?.id !== page.diaryId) return;
+    this.modelContext.setPageId(fragment.pageId);
+    // Resolve the actual same-page relationship rather than trusting the
+    // optional legacy marqueeId pointer on a retained IMAGE Fragment.
+    this.modelContext.setMarqueeId(this.isConsistentMarquee(fragment, page, marquee) ? marquee!.id : null);
+    await this.router.navigate(['/diary', diary.id, fragment.pageId, fragment.id]);
+  }
+
+  private async mutateImageLink(intent: { set: string } | { clear: true }): Promise<void> {
+    if (!this.imageFragmentActionState.tryBeginImageMutation()) return;
+    let fragmentId: number | null = null;
+    let locked = false;
+    try {
+      const fragment = await firstValueFrom(this.modelContext.selectedFragment$.pipe(take(1)));
+      if (!isImageFragment(fragment) || !hasAuthoritativePage(fragment)) {
+        this.alertService.warning('Select an IMAGE Fragment before editing its link');
+        return;
+      }
+      fragmentId = fragment.id;
+      if ('set' in intent && fragment.imageLinkUrl === intent.set) return;
+      if ('clear' in intent && !fragment.imageLinkUrl) return;
+      locked = await this.fragmentLockService.lockFragmentForEdit(fragment.id);
+      if (!locked) return;
+      const previousTimestamp = fragment.lock?.lockTimeStamp ?? null;
+      const latest = await firstValueFrom(this.modelContext.getLiveFragment$(fragment.id).pipe(
+        filter(candidate => isImageFragment(candidate) && candidate.id === fragment.id &&
+          candidate.lock?.lockTimeStamp != null && candidate.lock.lockTimeStamp !== previousTimestamp),
+        take(1), timeout({ first: 5000 })
+      ));
+      const selected = await firstValueFrom(this.modelContext.selectedFragment$.pipe(take(1)));
+      if (!isImageFragment(latest) || !isImageFragment(selected) || selected.id !== fragment.id ||
+          !hasAuthoritativePage(latest) || latest.pageId !== fragment.pageId) {
+        this.alertService.warning('The selected IMAGE Fragment changed before the link edit');
+        return;
+      }
+      await firstValueFrom(this.rpcService.updateImageLink$(latest, intent).pipe(take(1)));
+      // The responder releases its own lock on successful mutation.
+      locked = false;
+      this.alertService.info('clear' in intent ? 'Image link cleared' : 'Image link saved');
+    } catch (err: any) {
+      // Avoid logging private URL contents from rejected requests.
+      this.alertService.error(imageFragmentAuthoringErrorMessage(err, 'image-reference'));
+    } finally {
+      if (locked && fragmentId !== null) await this.fragmentLockService.unlockFragmentAfterFailedEdit(fragmentId);
+      this.imageFragmentActionState.endImageMutation();
+    }
+  }
+
   openFilesDialog() {
     const path$ = new BehaviorSubject<string>('/');
 
@@ -642,8 +710,8 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    if (!isMarqueeFragment(fragment)) {
-      this.alertService.error('Marquees can only be added to MARQUEE fragments');
+    if (!(isMarqueeFragment(fragment) || isImageFragment(fragment))) {
+      this.alertService.error('Select a MARQUEE or IMAGE fragment before adding a marquee');
       return;
     }
 
@@ -667,33 +735,41 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
     );
 
     const locked = await this.fragmentLockService.lockFragmentForEdit(fragment.id);
-    if (!locked) {
-      return;
+    if (!locked) return;
+
+    let committed = false;
+    try {
+      // IMAGE attach requires the version from the post-lock retained state,
+      // not the stale value captured before the asynchronous RPC.
+      let version: number | undefined;
+      if (isImageFragment(fragment)) {
+        const latest = await this.lockedImageFragment(fragment);
+        if (!latest || latest.pageId !== page.id) throw new Error('IMAGE Fragment changed before Marquee attach');
+        version = latest.version;
+      }
+      const m = await firstValueFrom(this.rpcService.addMarquee$(page, fragment.id, rectangle, version).pipe(take(1)));
+      committed = true;
+      this.modelContext.setFragmentId(fragment.id);
+      this.modelContext.setMarqueeId(m.id);
+      await this.router.navigate(['/diary', diary.id, page.id, fragment.id]);
+      this.alertService.info(`Marquee ${m.id} added`);
+    } catch (err) {
+      this.alertService.error('Could not add marquee. Refresh and check the selected Fragment before retrying.');
+    } finally {
+      if (!committed) await this.fragmentLockService.unlockFragmentAfterFailedEdit(fragment.id);
     }
+  }
 
-    this.rpcService.addMarquee$(page, fragment.id, rectangle)
-      .pipe(take(1))
-      .subscribe({
-        next: (m: Marquee) => {
-          this.alertService.info(`Marquee ${m.id} added`);
-
-          this.modelContext.setFragmentId(fragment.id);
-          this.modelContext.setMarqueeId(m.id);
-
-          this.router.navigate([
-            '/diary',
-            diary.id,
-            page.id,
-            fragment.id
-          ]);
-        },
-
-        error: err => {
-          console.warn('FragmentComponent.onCreateMarqueeClick failed', err);
-          this.fragmentLockService.unlockFragmentAfterFailedEdit(fragment.id);
-          this.alertService.error('Could not add marquee');
-        }
-      });
+  private async lockedImageFragment(fragment: Fragment): Promise<ImageFragment | null> {
+    const previousLockTimestamp = fragment.lock?.lockTimeStamp ?? null;
+    const latest = await firstValueFrom(this.modelContext.getLiveFragment$(fragment.id).pipe(
+      filter(candidate => isImageFragment(candidate) && candidate.id === fragment.id &&
+        candidate.lock?.lockTimeStamp != null && candidate.lock.lockTimeStamp !== previousLockTimestamp),
+      take(1), timeout({ first: 5000 })
+    ));
+    const selected = await firstValueFrom(this.modelContext.selectedFragment$.pipe(take(1)));
+    return isImageFragment(latest) && isImageFragment(selected) && selected.id === fragment.id &&
+      hasAuthoritativePage(latest) && latest.pageId === fragment.pageId ? latest : null;
   }
 
   async onDeleteMarqueeClick(): Promise<void> {
@@ -718,8 +794,8 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    if (!isMarqueeFragment(fragment)) {
-      this.alertService.error('IMAGE fragments do not have editable marquees');
+    if (!(isMarqueeFragment(fragment) || isImageFragment(fragment))) {
+      this.alertService.error('Select a MARQUEE or IMAGE fragment before deleting a marquee');
       return;
     }
 
@@ -731,33 +807,27 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
     const marqueeId = marquee!.id;
 
     const locked = await this.fragmentLockService.lockFragmentForEdit(fragment.id);
-    if (!locked) {
-      return;
+    if (!locked) return;
+
+    let committed = false;
+    try {
+      if (isImageFragment(fragment)) {
+        const latest = await this.lockedImageFragment(fragment);
+        if (!latest || latest.pageId !== page.id) throw new Error('IMAGE Fragment changed before Marquee deletion');
+      }
+      const id = await firstValueFrom(this.rpcService.deleteMarquee$(
+        marqueeId, isImageFragment(fragment) ? marquee!.version : undefined
+      ).pipe(take(1)));
+      committed = true;
+      this.modelContext.setMarqueeId(null);
+      this.modelContext.setFragmentId(fragment.id);
+      await this.router.navigate(['/diary', diary.id, page.id, fragment.id]);
+      this.alertService.info(`Marquee ${id} deleted`);
+    } catch (err) {
+      this.alertService.error('Could not delete marquee. Refresh before trying again.');
+    } finally {
+      if (!committed) await this.fragmentLockService.unlockFragmentAfterFailedEdit(fragment.id);
     }
-
-    this.rpcService.deleteMarquee$(marqueeId)
-      .pipe(take(1))
-      .subscribe({
-        next: id => {
-          this.alertService.info(`Marquee ${id} deleted`);
-
-          this.modelContext.setMarqueeId(null);
-          this.modelContext.setFragmentId(fragment.id);
-
-          this.router.navigate([
-            '/diary',
-            diary.id,
-            page.id,
-            fragment.id
-          ]);
-        },
-
-        error: err => {
-          console.warn('FragmentComponent.onDeleteMarqueeClick failed', err);
-          this.fragmentLockService.unlockFragmentAfterFailedEdit(fragment.id);
-          this.alertService.error('Could not delete marquee');
-        }
-      });
   }
 
   // ---------------------------------------------------------------------------
@@ -810,7 +880,7 @@ export class FragmentComponent implements OnInit, AfterViewInit, OnDestroy {
     page: Page | null,
     marquee: Marquee | null
   ): boolean {
-    return isMarqueeFragment(fragment) &&
+    return (isMarqueeFragment(fragment) || isImageFragment(fragment)) &&
       hasAuthoritativePage(fragment) &&
       !!page &&
       !!marquee &&

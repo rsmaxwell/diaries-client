@@ -1299,7 +1299,9 @@ export class ImageViewerComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    this.rpcService.deleteMarquee$(marqueeId)
+    const selected = await firstValueFrom(this.modelContext.selectedFragment$.pipe(take(1)));
+    const version = isImageFragment(selected) && selected.id === fragmentId ? marquee.version : undefined;
+    this.rpcService.deleteMarquee$(marqueeId, version)
       .pipe(take(1))
       .subscribe({
         next: (id: number) => {

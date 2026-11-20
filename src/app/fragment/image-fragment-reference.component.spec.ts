@@ -21,18 +21,19 @@ describe('ImageFragmentReferenceComponent', () => {
   function createHarness(fragment: Fragment | null, selectedImage: CatalogueImage | null) {
     const selectedFragment$ = new BehaviorSubject<Fragment | null>(fragment);
     const selectedImage$ = new BehaviorSubject<CatalogueImage | null>(selectedImage);
+    const selectedMarquee$ = new BehaviorSubject<any>(null);
     const canSelectOrReplaceImage$ = new BehaviorSubject<boolean>(fragment?.type === 'IMAGE');
     const canClearImage$ = new BehaviorSubject<boolean>(
       fragment?.type === 'IMAGE' && Number.isInteger(fragment.imageId) && (fragment.imageId as number) > 0
     );
     const imageMutationInFlight$ = new BehaviorSubject<boolean>(false);
     const component = new ImageFragmentReferenceComponent(
-      { selectedFragment$, selectedImage$ } as any,
+      { selectedFragment$, selectedImage$, selectedMarquee$ } as any,
       { getConfig: () => Promise.resolve({ baseUrl: 'http://localhost:8081', files: 'files' }) } as any,
       { canSelectOrReplaceImage$, canClearImage$, imageMutationInFlight$ } as any
     );
     return {
-      component, selectedFragment$, selectedImage$,
+      component, selectedFragment$, selectedImage$, selectedMarquee$,
       canSelectOrReplaceImage$, canClearImage$, imageMutationInFlight$
     };
   }
@@ -107,6 +108,27 @@ describe('ImageFragmentReferenceComponent', () => {
     expect(values[values.length - 1].mutationInFlight).toBeTrue();
     expect(values[values.length - 1].canSelectOrReplace).toBeFalse();
     expect(values[values.length - 1].canClear).toBeFalse();
+    sub.unsubscribe();
+  });
+
+  it('tracks IMAGE links separately from same-page source Marquees', async () => {
+    const h = createHarness({
+      id: 84, pageId: 22, type: 'IMAGE', imageId: 101, marqueeId: null,
+      imageLinkUrl: 'https://maps.example.test/zoom?x=1&y=2#source',
+      year: 1830, month: 1, day: 1, sequence: 1, version: 2, text: ''
+    }, image);
+    const values: any[] = [];
+    const sub = h.component.viewModel$.subscribe(v => v && values.push(v));
+    await Promise.resolve();
+    expect(values[values.length - 1].safeLinkUrl).toBe('https://maps.example.test/zoom?x=1&y=2#source');
+    expect(values[values.length - 1].hasMarquee).toBeFalse();
+    // Legacy marqueeId is null, but the current-page retained relationship is valid.
+    h.selectedMarquee$.next({ id: 46, fragmentId: 84, pageId: 22 });
+    expect(values[values.length - 1].hasMarquee).toBeTrue();
+    h.selectedMarquee$.next({ id: 46, fragmentId: 84, pageId: 999 });
+    expect(values[values.length - 1].hasMarquee).toBeFalse();
+    h.selectedFragment$.next({ ...h.selectedFragment$.value!, imageLinkUrl: null });
+    expect(values[values.length - 1].safeLinkUrl).toBeNull();
     sub.unsubscribe();
   });
 

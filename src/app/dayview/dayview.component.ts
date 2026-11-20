@@ -192,7 +192,7 @@ export class DayviewComponent implements OnInit, OnDestroy {
     }
 
     return Number.isInteger(fragment.imageId) && (fragment.imageId as number) > 0
-      ? `Image ${fragment.imageId}`
+      ? `Image ID: ${fragment.imageId}`
       : 'No Image selected';
   }
 

@@ -24,7 +24,7 @@ export class AddMarqueeRequest {
     width: number;
     height: number;
 
-    constructor(pageId: number, fragmentId: number, rectangle: Rectangle) {
+    constructor(pageId: number, fragmentId: number, rectangle: Rectangle, public fragmentVersion?: number) {
         this.pageId = pageId;
         this.fragmentId = fragmentId;
         this.x = rectangle.x;
@@ -58,8 +58,10 @@ export class UpdateMarqueeRequest {
 
 export class DeleteMarqueeRequest {
     id: number;
+    version?: number;
 
-    constructor(id: number) {
+    constructor(id: number, version?: number) {
+        if (version !== undefined) this.version = version;
         this.id = id;
     }
 }

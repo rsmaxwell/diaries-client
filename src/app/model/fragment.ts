@@ -6,6 +6,8 @@ export interface Fragment {
   pageId?: number | null;
   type?: FragmentType | null;
   imageId?: number | null;
+  /** Fragment-owned external destination, independent of the catalogue Image. */
+  imageLinkUrl?: string | null;
   marqueeId: number | null;
   year: number;
   month: number;
@@ -18,7 +20,7 @@ export interface Fragment {
 }
 
 export type MarqueeFragment = Fragment & { type?: 'MARQUEE' | null };
-export type ImageFragment = Fragment & { type: 'IMAGE'; marqueeId: null };
+export type ImageFragment = Fragment & { type: 'IMAGE' };
 export type PageOwnedFragment = Fragment & { pageId: number };
 
 /** Null/absent type is the documented rolling-migration MARQUEE fallback. */
@@ -31,7 +33,7 @@ export function isMarqueeFragment(fragment: Fragment | null | undefined): fragme
 }
 
 export function isImageFragment(fragment: Fragment | null | undefined): fragment is ImageFragment {
-  return !!fragment && fragment.type === 'IMAGE' && fragment.marqueeId === null;
+  return !!fragment && fragment.type === 'IMAGE';
 }
 
 export function hasAuthoritativePage(fragment: Fragment | null | undefined): fragment is PageOwnedFragment {
@@ -71,6 +73,7 @@ export class AddFragmentRequest {
  */
 export class AddImageFragmentRequest {
   declare public imageId?: number | null;
+  declare public imageLinkUrl?: string;
 
   constructor(
     public pageId: number,
@@ -79,10 +82,14 @@ export class AddImageFragmentRequest {
     public day: number,
     public sequence: number,
     public text: string,
-    imageId?: number | null
+    imageId?: number | null,
+    imageLinkUrl?: string
   ) {
     if (imageId !== undefined) {
       this.imageId = imageId;
+    }
+    if (imageLinkUrl !== undefined) {
+      this.imageLinkUrl = requireSafeImageLinkUrl(imageLinkUrl);
     }
   }
 }
@@ -90,8 +97,8 @@ export class AddImageFragmentRequest {
 /**
  * Ordinary Fragment update request. Fragment relationship/identity fields are
  * deliberately omitted: `pageId`, `type`, `marqueeId` and `imageId` remain
- * responder-authoritative. In particular, IMAGE Fragments have marqueeId=null;
- * serialising that null breaks mqtt-rpc 0.0.8 Request's Map.copyOf(args).
+ * responder-authoritative. Null relationship fields are deliberately omitted;
+ * serialising them breaks mqtt-rpc Request's Map.copyOf(args).
  *
  * Omitting imageId also means "preserve the existing Image reference".
  */
@@ -149,8 +156,8 @@ export class UpdateImageFragmentRequest extends UpdateFragmentRequest {
   }
 
   static fromImageFragment(fragment: ImageFragment, imageId: number | null): UpdateImageFragmentRequest {
-    if (fragment.type !== 'IMAGE' || fragment.marqueeId !== null) {
-      throw new Error('Only an IMAGE Fragment without a Marquee can change its Image reference');
+    if (fragment.type !== 'IMAGE') {
+      throw new Error('Only an IMAGE Fragment can change its Image reference');
     }
 
     if (imageId !== null && (!Number.isInteger(imageId) || imageId <= 0)) {
@@ -168,6 +175,37 @@ export class UpdateImageFragmentRequest extends UpdateFragmentRequest {
       imageId
     );
   }
+}
+
+/** Only deliberate link edits add either field; all other updates PRESERVE it. */
+export class UpdateImageLinkRequest extends UpdateFragmentRequest {
+  readonly imageLinkUrl?: string;
+  readonly clearImageLinkUrl?: true;
+
+  constructor(fragment: ImageFragment, intent: { set: string } | { clear: true }) {
+    super(fragment.id, fragment.year, fragment.month, fragment.day,
+      fragment.sequence, fragment.version, fragment.text);
+    if (fragment.type !== 'IMAGE') throw new Error('Only IMAGE fragments may have a link');
+    if ('set' in intent) this.imageLinkUrl = requireSafeImageLinkUrl(intent.set);
+    else this.clearImageLinkUrl = true;
+  }
+}
+
+/** Check untrusted retained URLs before presenting them as clickable links. */
+export function safeImageLinkUrl(value: unknown): string | null {
+  if (typeof value !== 'string' || !value.length || value.length > 4096 || /[\u0000-\u0020\u007f]/.test(value)) return null;
+  if (!/^https?:\/\//i.test(value)) return null;
+  try {
+    const url = new URL(value);
+    if (!['http:', 'https:'].includes(url.protocol.toLowerCase()) ||
+        !url.hostname || url.username || url.password) return null;
+    return value; // Preserve query, fragment and existing percent encoding.
+  } catch { return null; }
+}
+
+export function requireSafeImageLinkUrl(value: string): string {
+  if (safeImageLinkUrl(value) === null) throw new Error('Enter an absolute http:// or https:// URL (maximum 4096 characters)');
+  return value;
 }
 
 export class DeleteFragmentRequest {

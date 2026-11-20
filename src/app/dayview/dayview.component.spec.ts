@@ -137,7 +137,7 @@ describe('DayviewComponent', () => {
     expect(items.map(item => item.querySelector('.fragment-type')?.textContent?.trim())).toEqual([
       'MARQUEE', 'IMAGE', 'IMAGE'
     ]);
-    expect(items[1].querySelector('.fragment-image-reference')?.textContent?.trim()).toBe('Image 101');
+    expect(items[1].querySelector('.fragment-image-reference')?.textContent?.trim()).toBe('Image ID: 101');
     expect(items[2].querySelector('.fragment-image-reference')?.textContent?.trim()).toBe('No Image selected');
     expect(items[1].querySelector('.fragment-link')?.getAttribute('aria-label')).toBe('Open IMAGE fragment 2');
   });

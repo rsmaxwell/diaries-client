@@ -17,7 +17,7 @@ import { Signin, SigninReply, SigninRequest } from "../model/signin";
 import { Register, RegisterReply, RegisterRequest } from "../model/register";
 import { Diary, UpdateDiaryRequest } from "../model/diary";
 import { RefreshTokenReply, RefreshTokenRequest } from "../model/refresh.token";
-import { AddFragmentRequest, AddImageFragmentRequest, DeleteFragmentRequest, Fragment, ImageFragment, LockFragmentRequest, NormaliseFragmentsRequest, UnlockFragmentRequest, UpdateFragmentRequest, UpdateImageFragmentRequest } from "../model/fragment";
+import { AddFragmentRequest, AddImageFragmentRequest, DeleteFragmentRequest, Fragment, ImageFragment, LockFragmentRequest, NormaliseFragmentsRequest, UnlockFragmentRequest, UpdateFragmentRequest, UpdateImageFragmentRequest, UpdateImageLinkRequest } from "../model/fragment";
 import { AccessTokenService } from "../user/token/accessTokenService";
 import { RefreshTokenService } from "../user/token/refreshTokenService";
 import { FileListResponse } from "../model/FileListResponse";
@@ -469,7 +469,7 @@ export class RpcService {
         );
     }
 
-    addMarquee$(page: Page, fragmentId: number, rect: Rectangle): Observable<Marquee> {
+    addMarquee$(page: Page, fragmentId: number, rect: Rectangle, fragmentVersion?: number): Observable<Marquee> {
         return forkJoin({
             cfg: this.configService.getConfig(),
             client: this.mqtt.getConnection()
@@ -478,7 +478,7 @@ export class RpcService {
                 const replyTopic = Constants.replyTopic(this.mqtt.getClientId());
                 const payload = {
                     function: 'addMarquee',
-                    args: new AddMarqueeRequest(page.id, fragmentId, rect)
+                    args: new AddMarqueeRequest(page.id, fragmentId, rect, fragmentVersion)
                 };
                 const deserialize = ReplyHandler.getBufferAsObject<Marquee>;
 
@@ -653,6 +653,18 @@ export class RpcService {
         );
     }
 
+    updateImageLink$(fragment: ImageFragment, intent: { set: string } | { clear: true }): Observable<number> {
+        const request = new UpdateImageLinkRequest(fragment, intent);
+        return forkJoin({ cfg: this.configService.getConfig(), client: this.mqtt.getConnection() }).pipe(
+            switchMap(({ client }) => this.authorisedRpcRequest<number>(
+                client,
+                Constants.replyTopic(this.mqtt.getClientId()),
+                { function: 'updateFragment', args: request },
+                ReplyHandler.getBufferAsNumber
+            ))
+        );
+    }
+
     updateMarquee$(marquee: Marquee): Observable<Marquee> {
         return forkJoin({
             cfg: this.configService.getConfig(),
@@ -673,14 +685,14 @@ export class RpcService {
         );
     }
 
-    deleteMarquee$(id: number): Observable<number> {
+    deleteMarquee$(id: number, version?: number): Observable<number> {
         return forkJoin({
             cfg: this.configService.getConfig(),
             client: this.mqtt.getConnection()
         }).pipe(
             switchMap(({ cfg, client }) => {
                 const replyTopic = Constants.replyTopic(this.mqtt.getClientId());
-                const payload = { function: 'deleteMarquee', args: new DeleteMarqueeRequest(id) };
+                const payload = { function: 'deleteMarquee', args: new DeleteMarqueeRequest(id, version) };
                 const deserialize = ReplyHandler.getBufferAsNumber
 
                 return this.authorisedRpcRequest<number>(

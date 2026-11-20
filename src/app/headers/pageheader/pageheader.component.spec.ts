@@ -99,7 +99,7 @@ describe('PageheaderComponent', () => {
     expect(buttons.every(button => Boolean(button.getAttribute('title')))).toBeTrue();
   });
 
-  it('disables all marquee controls for an explicit image fragment', async () => {
+  it('allows IMAGE marquee creation but not edit/delete without a linked region', async () => {
     selectedFragment$.next({
       id: 33, pageId: 22, type: 'IMAGE', marqueeId: null,
       year: 1830, month: 2, day: 3, sequence: 1000
@@ -116,7 +116,9 @@ describe('PageheaderComponent', () => {
       )
     ) as HTMLButtonElement[];
     expect(controls).toHaveSize(3);
-    expect(controls.every(button => button.disabled)).toBeTrue();
+    expect(controls[0].disabled).toBeFalse();
+    expect(controls[1].disabled).toBeTrue();
+    expect(controls[2].disabled).toBeTrue();
   });
 
 

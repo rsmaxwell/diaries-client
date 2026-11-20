@@ -5,7 +5,7 @@ import { Marquee } from "./marquee";
 import { MqttService } from "../mqtt/mqtt.service";
 import { Diary } from "./diary";
 import { Page } from "./page";
-import { Fragment, hasAuthoritativePage, isMarqueeFragment } from "./fragment";
+import { Fragment, hasAuthoritativePage, isMarqueeFragment, isImageFragment } from "./fragment";
 import { LiveObjectService } from "../mqtt/live.object.service";
 import { CatalogueImage } from "./image";
 
@@ -13,7 +13,7 @@ export function matchingMarqueeForFragment(
   fragment: Fragment | null,
   marquees: Marquee[]
 ): Marquee | null {
-  if (!isMarqueeFragment(fragment) || !hasAuthoritativePage(fragment)) {
+  if (!(isMarqueeFragment(fragment) || isImageFragment(fragment)) || !hasAuthoritativePage(fragment)) {
     return null;
   }
 
@@ -163,7 +163,7 @@ export class ModelContext {
     combineLatest([this.selectedFragment$, this.marquees$])
       .pipe(
         map(([fragment, marquees]) => {
-          if (!isMarqueeFragment(fragment) || !hasAuthoritativePage(fragment)) {
+          if (!(isMarqueeFragment(fragment) || isImageFragment(fragment)) || !hasAuthoritativePage(fragment)) {
             return null;
           }
 

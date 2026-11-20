@@ -1,0 +1,9 @@
+# Keep the Windows dependency tree and local Angular outputs out of Docker.
+node_modules/
+**/node_modules/
+dist/
+.angular/
+coverage/
+.git/
+.vscode/
+*.log

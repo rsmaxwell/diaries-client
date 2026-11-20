@@ -29,6 +29,10 @@
   background: tokens.$diaries-paper;
 }
 
+.preview a { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; }
+
+.preview a:focus-visible { outline: 2px solid tokens.$diaries-focus; outline-offset: -2px; }
+
 .preview img {
   width: 100%;
   height: 100%;
@@ -77,6 +81,11 @@
 .secondary {
   color: tokens.$diaries-muted;
 }
+
+.link-editor { display: grid; gap: 0.35rem; margin-top: 0.35rem; }
+.link-editor input { width: 100%; min-width: 0; box-sizing: border-box; padding: 0.4rem; border: 1px solid tokens.$diaries-line; border-radius: 4px; font: inherit; }
+.link-editor small { color: tokens.$diaries-muted; }
+.link-editor small[role="alert"] { color: #b32928; }
 
 .retention-note {
   margin: 0.25rem 0 0;

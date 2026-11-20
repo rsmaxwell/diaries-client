@@ -14,7 +14,7 @@ import { FilesListDialogComponent } from '../../files-list-dialog/files-list-dia
 import { Router } from '@angular/router';
 import { AlertService } from '../../alerts/alert.service';
 import { AsyncPipe } from '@angular/common';
-import { Fragment, hasAuthoritativePage, isMarqueeFragment } from '../../model/fragment';
+import { Fragment, hasAuthoritativePage, isMarqueeFragment, isImageFragment } from '../../model/fragment';
 import { ImageFragmentActionStateService } from '../../fragment/image-fragment-action-state.service';
 import { Marquee } from '../../model/marquee';
 
@@ -111,7 +111,7 @@ export class PageheaderComponent implements OnInit, OnDestroy {
 
     this.canCreateMarquee$ = marqueeRelationship$.pipe(
       map(({ fragment, page, consistent }) =>
-        isMarqueeFragment(fragment) &&
+        (isMarqueeFragment(fragment) || isImageFragment(fragment)) &&
         hasAuthoritativePage(fragment) &&
         page?.id === fragment.pageId &&
         !consistent
@@ -123,7 +123,7 @@ export class PageheaderComponent implements OnInit, OnDestroy {
 
     this.canEditMarquee$ = marqueeRelationship$.pipe(
       map(({ fragment, page, consistent }) =>
-        isMarqueeFragment(fragment) &&
+        (isMarqueeFragment(fragment) || isImageFragment(fragment)) &&
         hasAuthoritativePage(fragment) &&
         page?.id === fragment.pageId &&
         consistent
@@ -291,7 +291,7 @@ export class PageheaderComponent implements OnInit, OnDestroy {
   }
 
   private hasConsistentMarquee(fragment: Fragment | null, marquee: Marquee | null): boolean {
-    return isMarqueeFragment(fragment) &&
+    return (isMarqueeFragment(fragment) || isImageFragment(fragment)) &&
       hasAuthoritativePage(fragment) &&
       !!marquee &&
       marquee.fragmentId === fragment.id &&
