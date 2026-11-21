@@ -1,7 +1,8 @@
 import { Component, ElementRef, OnDestroy, OnInit, QueryList, ViewChildren } from '@angular/core';
-import { combineLatest, firstValueFrom, from, Subject, take, takeUntil } from 'rxjs';
+import { catchError, combineLatest, firstValueFrom, from, map, Observable, of, shareReplay, startWith, Subject, take, takeUntil } from 'rxjs';
 import { ModelContext } from '../model/model-context';
-import { effectiveFragmentType, Fragment, hasAuthoritativePage } from '../model/fragment';
+import { effectiveFragmentType, Fragment, hasAuthoritativePage, safeImageLinkUrl } from '../model/fragment';
+import { CatalogueImage } from '../model/image';
 import { CommonModule } from '@angular/common';
 import { DateFormatter } from '../utilities/DateFormatter';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
@@ -13,6 +14,13 @@ import { SafeHtmlPipe } from '../utilities/safe-html.pipe';
 import { FragmentLockService } from '../fragment/fragment-lock.service';
 import { ConfigService } from '../config/config.service';
 import { buildLegacyImageBaseUrl, LegacyFragmentHtmlPipe } from '../utilities/legacy-fragment-html.pipe';
+import { buildCatalogueImageUrl } from '../utilities/catalogue-image-url';
+
+interface ReaderImagePreview {
+  url: string | null;
+  alt: string;
+}
+
 
 @Component({
   selector: 'app-diary',
@@ -39,6 +47,7 @@ export class DayviewComponent implements OnInit, OnDestroy {
   reorderInFlight = false;
   selectedFragmentId: number | null = null;
   legacyImageBaseUrl = '';
+  private readonly readerImageCache = new Map<number, Observable<ReaderImagePreview>>();
 
   @ViewChildren('fragmentItem', { read: ElementRef })
   private fragmentItems!: QueryList<ElementRef<HTMLElement>>;
@@ -194,6 +203,43 @@ export class DayviewComponent implements OnInit, OnDestroy {
     return Number.isInteger(fragment.imageId) && (fragment.imageId as number) > 0
       ? `Image ID: ${fragment.imageId}`
       : 'No Image selected';
+  }
+
+  /** Resolve each day-list IMAGE independently of the selected editor fragment. */
+  imagePreview$(fragment: Fragment): Observable<ReaderImagePreview> | null {
+    if (effectiveFragmentType(fragment) !== 'IMAGE' ||
+        !Number.isInteger(fragment.imageId) || (fragment.imageId as number) <= 0) {
+      return null;
+    }
+
+    const imageId = fragment.imageId as number;
+    const cached = this.readerImageCache.get(imageId);
+    if (cached) return cached;
+
+    const preview$ = combineLatest([
+      this.modelContext.getLiveImage$(imageId).pipe(startWith(null)),
+      from(this.configService.getConfig()).pipe(catchError(() => of(null)))
+    ]).pipe(
+      map(([candidate, config]): ReaderImagePreview => {
+        const image: CatalogueImage | null = candidate?.id === imageId ? candidate : null;
+        return {
+          url: image && config
+            ? buildCatalogueImageUrl(config.baseUrl, config.files, image.relativePath)
+            : null,
+          alt: image?.altText || image?.originalFilename || `Image ${imageId}`
+        };
+      }),
+      catchError(() => of({ url: null, alt: `Image ${imageId}` })),
+      shareReplay({ bufferSize: 1, refCount: true })
+    );
+    this.readerImageCache.set(imageId, preview$);
+    return preview$;
+  }
+
+  safeExternalImageLink(fragment: Fragment): string | null {
+    return effectiveFragmentType(fragment) === 'IMAGE'
+      ? safeImageLinkUrl(fragment.imageLinkUrl)
+      : null;
   }
 
   /** error handler */

@@ -6,6 +6,7 @@ import { BehaviorSubject, of, throwError } from 'rxjs';
 import { AlertService } from '../alerts/alert.service';
 import { ConfigService } from '../config/config.service';
 import { Diary } from '../model/diary';
+import { CatalogueImage } from '../model/image';
 import { FragmentLockService } from '../fragment/fragment-lock.service';
 import { Fragment, UpdateFragmentRequest } from '../model/fragment';
 import { ModelContext } from '../model/model-context';
@@ -23,6 +24,7 @@ describe('DayviewComponent', () => {
   let fragments$: BehaviorSubject<Fragment[]>;
   let selectedFragment$: BehaviorSubject<Fragment | null>;
   let selectedDiary$: BehaviorSubject<Diary>;
+  let catalogueImages: Map<number, BehaviorSubject<CatalogueImage | null>>;
 
   beforeEach(async () => {
     fragments$ = new BehaviorSubject<Fragment[]>([]);
@@ -33,6 +35,7 @@ describe('DayviewComponent', () => {
       name: 'diary one',
       sequence: 1
     });
+    catalogueImages = new Map();
     rpcService = jasmine.createSpyObj<RpcService>('RpcService', ['updateFragment$', 'updateImageFragment$']);
     fragmentLockService = jasmine.createSpyObj<FragmentLockService>('FragmentLockService', [
       'lockFragmentForEdit',
@@ -42,13 +45,20 @@ describe('DayviewComponent', () => {
     router = jasmine.createSpyObj<Router>('Router', ['navigate'], { url: '/day' });
     modelContext = jasmine.createSpyObj<ModelContext>(
       'ModelContext',
-      ['getLivePage$', 'setFragmentId', 'setMarqueeId'],
+      ['getLivePage$', 'getLiveImage$', 'setFragmentId', 'setMarqueeId'],
       {
         selectFragmentsForDate$: fragments$,
         selectedFragment$,
         selectedDiary$
       }
     );
+
+    modelContext.getLiveImage$.and.callFake(id => {
+      if (!catalogueImages.has(id)) {
+        catalogueImages.set(id, new BehaviorSubject<CatalogueImage | null>(null));
+      }
+      return catalogueImages.get(id)!.asObservable();
+    });
 
     await TestBed.configureTestingModule({
       imports: [DayviewComponent],
@@ -140,6 +150,91 @@ describe('DayviewComponent', () => {
     expect(items[1].querySelector('.fragment-image-reference')?.textContent?.trim()).toBe('Image ID: 101');
     expect(items[2].querySelector('.fragment-image-reference')?.textContent?.trim()).toBe('No Image selected');
     expect(items[1].querySelector('.fragment-link')?.getAttribute('aria-label')).toBe('Open IMAGE fragment 2');
+  });
+
+  it('renders each catalogued IMAGE immediately under its header, independently of selection', async () => {
+    const first: Fragment = { ...fragment(23, 2, '<p>First caption</p>'),
+      type: 'IMAGE', imageId: 101, marqueeId: null };
+    const second: Fragment = { ...fragment(24, 3, '<p>Second caption</p>'),
+      type: 'IMAGE', imageId: 202, marqueeId: null };
+    fragments$.next([fragment(22, 1, '<p>Legacy transcription</p>'), second, first]);
+    fixture.detectChanges();
+    catalogueImages.get(101)!.next(catalogueImage(101, 'diary-one/images/first map.jpg'));
+    catalogueImages.get(202)!.next(catalogueImage(202, 'diary-one/images/second.png'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const items = Array.from(fixture.nativeElement.querySelectorAll('.fragment-item')) as HTMLElement[];
+    expect(items.map(item => item.dataset['fragmentId'])).toEqual(['22', '23', '24']);
+    expect(items[0].querySelector('.fragment-image-media')).toBeNull();
+
+    const firstImage = items[1].querySelector('.fragment-image-media img') as HTMLImageElement;
+    const secondImage = items[2].querySelector('.fragment-image-media img') as HTMLImageElement;
+    expect(firstImage.src).toBe('http://localhost:8081/files/diary-one/images/first%20map.jpg');
+    expect(secondImage.src).toBe('http://localhost:8081/files/diary-one/images/second.png');
+    expect(firstImage.alt).toBe('Image alt 101');
+    expect(items[1].querySelector('.fragment-image-reference')?.textContent?.trim()).toBe('Image ID: 101');
+    expect(items[1].querySelector('.fragment-metadata')!.compareDocumentPosition(firstImage) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(firstImage.compareDocumentPosition(items[1].querySelector('.fragment-content')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(modelContext.getLiveImage$).toHaveBeenCalledWith(101);
+    expect(modelContext.getLiveImage$).toHaveBeenCalledWith(202);
+
+    // Retained catalogue metadata updates must refresh the image without
+    // changing the selected Fragment or rebinding the entire day list.
+    catalogueImages.get(101)!.next(catalogueImage(101, 'diary-one/images/updated.jpg'));
+    fixture.detectChanges();
+    expect(firstImage.src).toBe('http://localhost:8081/files/diary-one/images/updated.jpg');
+  });
+
+  it('keeps an external image click separate from fragment navigation', async () => {
+    const entry: Fragment = {
+      ...fragment(23, 1, '<p>Link test</p>'), type: 'IMAGE', imageId: 101,
+      imageLinkUrl: 'https://example.org/map?x=1&y=2#part', marqueeId: null
+    };
+    fragments$.next([entry]);
+    fixture.detectChanges();
+    catalogueImages.get(101)!.next(catalogueImage(101, 'diary-one/images/map.jpg'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const anchor = fixture.nativeElement.querySelector('.fragment-image-media a') as HTMLAnchorElement;
+    expect(anchor.href).toBe('https://example.org/map?x=1&y=2#part');
+    anchor.addEventListener('click', event => event.preventDefault());
+    anchor.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    anchor.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Enter' }));
+    expect(modelContext.setFragmentId).not.toHaveBeenCalled();
+    expect(router.navigate).not.toHaveBeenCalled();
+  });
+
+  it('does not make an IMAGE clickable when its stored external URL is unsafe', async () => {
+    const entry: Fragment = {
+      ...fragment(23, 1), type: 'IMAGE', imageId: 101,
+      imageLinkUrl: 'javascript:alert(1)', marqueeId: null
+    };
+    fragments$.next([entry]);
+    fixture.detectChanges();
+    catalogueImages.get(101)!.next(catalogueImage(101, 'diary-one/images/map.png'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.fragment-image-media img')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.fragment-image-media a')).toBeNull();
+  });
+
+  it('shows a non-clickable unavailable state for an unresolved catalogue reference', async () => {
+    fragments$.next([{
+      ...fragment(23, 1, '<p>Keep this text</p>'), type: 'IMAGE', imageId: 999,
+      marqueeId: null
+    }]);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.fragment-image-media img')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.fragment-image-media__unavailable')?.textContent)
+      .toContain('Image 999 preview unavailable');
+    expect(fixture.nativeElement.querySelector('.fragment-content')?.textContent)
+      .toContain('Keep this text');
   });
 
   it('keeps fragment navigation separate from the accessible drag handle', () => {
@@ -351,6 +446,14 @@ describe('DayviewComponent', () => {
     expect(fragmentLockService.lockFragmentForEdit).not.toHaveBeenCalled();
     expect(rpcService.updateFragment$).not.toHaveBeenCalled();
   });
+
+  function catalogueImage(id: number, relativePath: string): CatalogueImage {
+    return {
+      id, version: 0, relativePath, mimeType: 'image/jpeg',
+      originalFilename: `photo-${id}.jpg`, width: 800, height: 600,
+      checksum: 'synthetic', caption: '', altText: `Image alt ${id}`
+    };
+  }
 
   function fragment(
     id: number,

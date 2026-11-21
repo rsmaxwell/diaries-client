@@ -51,6 +51,27 @@
                   }
                 </p>
 
+                @if (imagePreview$(fragment) | async; as preview) {
+                  <figure class="fragment-image-media">
+                    @if (preview.url) {
+                      @if (safeExternalImageLink(fragment); as link) {
+                        <a class="fragment-image-media__link" [href]="link"
+                          [attr.aria-label]="'Open external link for Image ' + fragment.imageId"
+                          (click)="$event.stopPropagation()"
+                          (keydown.enter)="$event.stopPropagation()">
+                          <img [src]="preview.url" [alt]="preview.alt" loading="lazy" />
+                        </a>
+                      } @else {
+                        <img [src]="preview.url" [alt]="preview.alt" loading="lazy" />
+                      }
+                    } @else {
+                      <p class="fragment-image-media__unavailable" role="status">
+                        Image {{fragment.imageId}} preview unavailable.
+                      </p>
+                    }
+                  </figure>
+                }
+
                 <div class="ql-snow fragment-content">
                   <div class="ql-editor ql-editor--viewer"
                     [innerHTML]="fragment.text | legacyFragmentHtml:legacyImageBaseUrl | safeHtml"></div>

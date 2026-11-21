@@ -199,6 +199,41 @@
   font-style: italic;
 }
 
+// IMAGE media is separate from the Fragment's text HTML. This keeps
+// catalogued media visible without changing legacy MARQUEE transcriptions.
+.fragment-image-media {
+  margin: 0 0 0.75rem;
+  min-width: 0;
+}
+
+.fragment-image-media img {
+  display: block;
+  max-width: 100%;
+  max-height: 36rem;
+  width: auto;
+  height: auto;
+  margin: 0 auto;
+  object-fit: contain;
+}
+
+.fragment-image-media__link {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.fragment-image-media__link:focus-visible {
+  outline: 2px solid tokens.$diaries-accent;
+  outline-offset: 3px;
+}
+
+.fragment-image-media__unavailable {
+  margin: 0;
+  color: tokens.$diaries-muted;
+  font: 0.85rem/1.4 tokens.$diaries-font-ui;
+}
+
 .fragment-content,
 .ql-editor.ql-editor--viewer {
   min-width: 0;
