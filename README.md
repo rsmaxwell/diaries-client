@@ -226,7 +226,7 @@ The editor supports two Fragment types in one shared chronology:
 
 ```text
 MARQUEE -> Page-owned transcription associated with a Marquee; no Image reference
-IMAGE   -> Page-owned transcription with zero or one reusable catalogue Image; no Marquee
+IMAGE   -> Page-owned transcription with optional catalogue Image, optional same-Page Marquee and optional per-Fragment HTTP(S) link
 ```
 
 A missing/null `Fragment.type` remains the rolling-migration MARQUEE fallback. `Fragment.pageId` and `Fragment.type` are responder-authoritative after creation and are not changed by ordinary client edits.
@@ -295,6 +295,15 @@ The durable implementation introduced or materially extended these areas:
 | `src/app/dayview/` | mixed MARQUEE/IMAGE chronology, navigation and reorder regression coverage |
 
 The completed feature record and detailed evidence are under `change-control/complete/0027-FEAT - add ImageFragment editing to diaries-client/`.
+
+
+### 0051 — IMAGE links, source Marquees and Day Reader media (21 Nov 2026)
+
+The per-Fragment optional `imageLinkUrl` is separate from the reusable Image catalogue. A valid HTTP/HTTPS destination makes the IMAGE media clickable; clicking the image must not inadvertently select the Fragment or drag the Marquee. A separate source-page/highlight action works when a same-Page Marquee exists. A missing/null link displays ordinary unlinked media. Link mutations use explicit SET/CLEAR, existing edit-lock/version guards, and leave the link unchanged when ordinary Fragment updates omit it.
+
+An IMAGE can have **zero or one same-Page source Marquee**. The selected IMAGE Fragment uses the ordinary Marquee add, move/resize and remove actions; removing its Marquee does not delete the IMAGE, link or catalogue Image. Legacy MARQUEE fragments retain their original flow. The editor's Day Reader displays **Image ID: N immediately after Position** and loads each catalogued IMAGE **beneath its header, above transcription**, independent of which fragment is selected. An unresolved Image should display an unavailable/no-Image state, not a fabricated link.
+
+Production first deployed the compatible client/responder/web with the 0051 extension-write gate disabled; after rehearsal and acceptance the gate was enabled on 21 November 2026 with client `0.0.9-build-79`, responder `0.0.9-build-85`, reader `0.0.9-build-9`. The responder remains authoritative for `imageFragmentWritesEnabled` (ordinary IMAGE creation/reference changes) and **separate** `imageFragmentExtensionsWritesEnabled` (links/optional IMAGE-Marquee writes). Disabling the latter again stops *new* extension writes, but old server binaries are not supported rollback targets after extension-format records exist. See the parent `docs/IMAGE-FRAGMENT-AUTHORING.md` and 0051 change-control evidence.
 
 ## Development notes
 
