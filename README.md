@@ -267,13 +267,14 @@ Omitting `imageId` means preserve the existing Image relationship. A positive ID
 
 Deleting an IMAGE Fragment calls `deleteFragment` and removes only the Fragment. It does **not** delete the reusable Image catalogue row, retained Image topic or physical file. Image deletion remains the separate catalogue operation and the responder rejects it while any Fragment still references that Image.
 
-### Authoring gate
+### Permanent IMAGE authoring
 
-The responder remains authoritative for Image-reference authoring through `imageFragmentWritesEnabled`. When disabled, `addImageFragment` and actual `imageId` mutations are rejected with 403, while ordinary IMAGE reads, text/date/sequence edits, locking, normalisation and Fragment deletion remain available because those requests omit `imageId`.
-
-Production deployment uses the Ansible variable `diaries_image_fragment_writes_enabled`. With 0027 completed and the compatible responder, reader and client verified in production, the supported role default is `true`, so IMAGE Fragment creation and Image-reference editing are part of normal operation. Setting the variable to `false` and redeploying/restarting the responder remains the tested non-destructive authoring rollback.
-
-Local modes use the same responder JSON property and normally set it to `true`. Direct development inherits it from `%USERPROFILE%\.diaries\responder.json`; `local-docker-build` and `local-published-smoke` use the external JSON selected by `DIARIES_RESPONDER_DOCKER_CONFIG_FILE` (normally `%USERPROFILE%\.diaries\responder.docker.json`). There is no environment-variable override for the gate. Set the JSON property to `false` only when deliberately exercising the disabled-gate/rollback path.
+IMAGE creation and reference selection are standard Editor operations. Both
+rollout-only responder switches (`imageFragmentWritesEnabled` and
+`imageFragmentExtensionsWritesEnabled`) were retired in the 0051 Step 5 cleanup.
+The responder still enforces active Editor rights, locks, versions, valid catalogue
+references and link/Marquee constraints. Local developer JSON must omit the old
+keys before running the upgraded responder.
 
 ### 0027 client implementation map
 
@@ -303,7 +304,7 @@ The per-Fragment optional `imageLinkUrl` is separate from the reusable Image cat
 
 An IMAGE can have **zero or one same-Page source Marquee**. The selected IMAGE Fragment uses the ordinary Marquee add, move/resize and remove actions; removing its Marquee does not delete the IMAGE, link or catalogue Image. Legacy MARQUEE fragments retain their original flow. The editor's Day Reader displays **Image ID: N immediately after Position** and loads each catalogued IMAGE **beneath its header, above transcription**, independent of which fragment is selected. An unresolved Image should display an unavailable/no-Image state, not a fabricated link.
 
-Production first deployed the compatible client/responder/web with the 0051 extension-write gate disabled; after rehearsal and acceptance the gate was enabled on 21 November 2026 with client `0.0.9-build-79`, responder `0.0.9-build-85`, reader `0.0.9-build-9`. The responder remains authoritative for `imageFragmentWritesEnabled` (ordinary IMAGE creation/reference changes) and **separate** `imageFragmentExtensionsWritesEnabled` (links/optional IMAGE-Marquee writes). Disabling the latter again stops *new* extension writes, but old server binaries are not supported rollback targets after extension-format records exist. See the parent `docs/IMAGE-FRAGMENT-AUTHORING.md` and 0051 change-control evidence.
+Production first deployed the compatible client/responder/web with the 0051 extension-write gate disabled, then activated it on 21 November 2026 with client build-79, responder build-85 and reader build-9. The Step 5 cleanup retires both deployment gates; the new responder supports ordinary IMAGE authoring and IMAGE links/optional Marquees for authorised Editors without configuration switches. Old pre-extension responder/reader builds remain unsupported rollback targets after new-format records exist. See the parent `docs/IMAGE-FRAGMENT-AUTHORING.md` and 0051 change-control evidence.
 
 ## Development notes
 
