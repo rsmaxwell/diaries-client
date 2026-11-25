@@ -63,6 +63,106 @@ describe('TextPanelComponent', () => {
     return { component, rpcService, updateResult$, selectedFragment$, fragmentLockService };
   }
 
+  it('labels the same user in a different login session as another window', () => {
+    const { component } = createComponent();
+    component.fragment = fragment({ lock: {
+      lockUserId: 7,
+      lockUserName: 'reader',
+      lockKnownAs: 'Reader',
+      lockTimeStamp: 2,
+      lockSessionId: 'different-window-session'
+    } });
+
+    expect(component.isLockedByMe).toBeFalse();
+    expect(component.isLockedByOther).toBeTrue();
+    expect(component.lockButtonText).toBe('Locked by another window');
+  });
+
+  it('releases the lock after a slow ordinary edit-and-undo with canonical HTML', async () => {
+    const { component, fragmentLockService } = createComponent();
+    const baseline = fragment({ lock: null });
+    component.fragment = baseline;
+    (component as any).originalYear = baseline.year;
+    (component as any).originalMonth = baseline.month;
+    (component as any).originalDay = baseline.day;
+    (component as any).editorServerText = baseline.text;
+    component.form.get('body')!.setValue(baseline.text, { emitEvent: false });
+
+    // A Quill-style Delta comparison: superfluous spans are not a text edit.
+    (component as any).quill = {
+      enable: jasmine.createSpy('enable'),
+      clipboard: {
+        convert: ({ html }: { html: string }) => {
+          const element = document.createElement('div');
+          element.innerHTML = html;
+          return { ops: [{ insert: (element.textContent ?? '') + '\n' }] };
+        }
+      }
+    };
+
+    component.form.get('body')!.setValue('<p>Changed text</p>', { emitEvent: false });
+    (component as any).reconcileFragmentLock();
+    await new Promise<void>(resolve => setTimeout(resolve, 0)); // ordinary completed RPC
+    expect(component.isLockedByMe).toBeTrue();
+
+    // The displayed text and its formatting have been fully restored, but the
+    // generated HTML is not byte-identical to the initially loaded HTML.
+    component.form.get('body')!.setValue('<p><span>Original text</span></p>', { emitEvent: false });
+    expect(component.hasEdits).toBeFalse();
+    (component as any).reconcileFragmentLock();
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+    expect(fragmentLockService.unlockFragment).toHaveBeenCalledOnceWith(17, 'edits undone');
+    expect(component.isLockedByMe).toBeFalse();
+  });
+
+  it('releases a successful late lock when undo occurs before the lock reply', async () => {
+    let completeLock!: (locked: boolean) => void;
+    const pendingLock = new Promise<boolean>(resolve => completeLock = resolve);
+    const { component, fragmentLockService } = createComponent();
+    fragmentLockService.lockFragmentForEdit.and.returnValue(pendingLock);
+    const baseline = fragment({ lock: null });
+    component.fragment = baseline;
+    (component as any).originalYear = baseline.year;
+    (component as any).originalMonth = baseline.month;
+    (component as any).originalDay = baseline.day;
+    (component as any).editorServerText = baseline.text;
+
+    component.form.get('body')!.setValue('<p>changed</p>', { emitEvent: false });
+    (component as any).reconcileFragmentLock();
+    component.form.get('body')!.setValue(baseline.text, { emitEvent: false });
+    (component as any).reconcileFragmentLock();
+    completeLock(true);
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+    expect(fragmentLockService.unlockFragment).toHaveBeenCalledOnceWith(17, 'edits undone');
+  });
+
+  it('does not allow a pending unlock to cancel a new edit without reacquiring', async () => {
+    let completeUnlock!: (unlocked: boolean) => void;
+    const pendingUnlock = new Promise<boolean>(resolve => completeUnlock = resolve);
+    const { component, fragmentLockService } = createComponent();
+    fragmentLockService.unlockFragment.and.returnValue(pendingUnlock);
+    const baseline = fragment();
+    component.fragment = baseline;
+    (component as any).originalYear = baseline.year;
+    (component as any).originalMonth = baseline.month;
+    (component as any).originalDay = baseline.day;
+    (component as any).editorServerText = baseline.text;
+    component.form.get('body')!.setValue(baseline.text, { emitEvent: false });
+
+    (component as any).reconcileFragmentLock(); // unchanged, unlock starts
+    component.form.get('body')!.setValue('<p>new edit</p>', { emitEvent: false });
+    (component as any).reconcileFragmentLock();
+    expect(fragmentLockService.lockFragmentForEdit).not.toHaveBeenCalled();
+    expect(component.isLockTransitioning).toBeTrue();
+
+    completeUnlock(true);
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+    expect(fragmentLockService.lockFragmentForEdit).toHaveBeenCalledOnceWith(17);
+    expect(component.isLockedByMe).toBeTrue();
+  });
+
   it('distinguishes a lock owned by another session for read-only presentation', () => {
     const { component } = createComponent();
     component.fragment = fragment({
@@ -195,6 +295,14 @@ describe('TextPanelComponent', () => {
 
     const acquiring = (component as any).lockCurrentFragmentForBodyEdit(image.id) as Promise<void>;
     component.fragment = marquee;
+    // A real selection change loads the new fragment's body/date baseline.
+    // Without this, the fixture incorrectly considers the new fragment dirty
+    // and reconciliation starts an unrelated lock on the new selection.
+    (component as any).editorServerText = marquee.text;
+    (component as any).originalYear = marquee.year;
+    (component as any).originalMonth = marquee.month;
+    (component as any).originalDay = marquee.day;
+    component.form.get('body')!.setValue(marquee.text, { emitEvent: false });
     resolveLock(true);
     await acquiring;
 

@@ -2,7 +2,7 @@ import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ModelContext } from '../../model/model-context';
 import { EditLockInfo, Fragment } from '../../model/fragment';
-import { auditTime, BehaviorSubject, combineLatest, distinctUntilChanged, firstValueFrom, from, map, pairwise, startWith, Subject, take, takeUntil } from 'rxjs';
+import { auditTime, BehaviorSubject, combineLatest, distinctUntilChanged, firstValueFrom, from, Subject, take, takeUntil } from 'rxjs';
 import { QuillModule } from 'ngx-quill';
 import { FormControl, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { RpcError, RpcService } from '../../mqtt/rpc.service';
@@ -80,9 +80,18 @@ export class TextPanelComponent implements OnInit, OnDestroy {
   private saveFragmentIdInFlight: number | null = null;
   private destroyed = false;
   private destroy$ = new Subject<void>();
-  private lockRequestedForFragmentId: number | null = null;
+  // Serialize lock/unlock RPCs per Fragment. Undo, re-edit and navigation can
+  // otherwise overtake an outstanding request and leave a lock stranded.
+  private lockOperations = new Map<number, { kind: 'lock' | 'unlock'; promise: Promise<void> }>();
+  private failedLockForFragmentId: number | null = null;
+  private datePickerOpen = false;
   private quill?: Quill;
   private editorServerText = '';
+  // Quill may normalise loaded markup (e.g. harmless spans or HTML entities).
+  // Compare canonical rich-text operations, not only the serialized HTML.
+  private canonicalSavedHtml: string | null = null;
+  private canonicalEditedHtml: string | null = null;
+  private lastCanonicalEditedSource: string | null = null;
   private legacyImageBaseUrl = '';
 
   // Tracks the fragment we are currently "on" so we can unlock when leaving
@@ -160,7 +169,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
            * failed-edit unlock for the original fragment id.
            */
           if (leaving?.id !== this.saveFragmentIdInFlight) {
-            void this.unlockCurrentFragment('switching fragment');
+            void this.releaseFragmentLockIfOwned(leaving, 'switching fragment');
           }
         }
 
@@ -176,7 +185,8 @@ export class TextPanelComponent implements OnInit, OnDestroy {
         this.fragment = fragment;
 
         if (switchingFragment) {
-          this.lockRequestedForFragmentId = null;
+          this.datePickerOpen = false;
+          this.failedLockForFragmentId = null;
         }
 
         // update baselines from server (important so Save becomes grey after sync)
@@ -195,6 +205,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
         if (switchingFragment || serverTextChanged || legacyImageBaseChanged) {
           const sel = this.quill?.getSelection();
           this.editorServerText = nextEditorText;
+          this.invalidateCanonicalBodyCache();
           bodyCtrl.setValue(nextEditorText, { emitEvent: false, emitModelToViewChange: true });
 
           // Restore cursor only when staying on the same fragment
@@ -210,71 +221,19 @@ export class TextPanelComponent implements OnInit, OnDestroy {
         this.formattedDate = df.formattedDate;
         this.isDateValid = df.isDateValid;
 
-        if (!this.isLockedByMe) {
-          this.lockRequestedForFragmentId = null;
-        }
-
         this.updateEditorReadOnlyState();
+        // Do not release an already-owned lock merely because its retained
+        // state arrived; only an edit/undo or a completed RPC triggers release.
+        if (this.hasEdits) this.reconcileFragmentLock();
       });
 
-    // 2) Lock acquisition: trigger off EVERY body change, and use flags to avoid spamming.
-    //    This avoids the "distinctUntilChanged got stuck at true" problem after save.
+    // Reconcile the complete body/date dirty state on EVERY body change.
+    // A single true->false transition is not enough when an RPC arrives late.
     bodyCtrl.valueChanges
-      .pipe(
-        auditTime(0),
-        takeUntil(this.destroy$)
-      )
+      .pipe(auditTime(0), takeUntil(this.destroy$))
       .subscribe(() => {
-        if (!this.fragment) return;
-
-        // Only attempt lock if there are edits right now
-        if (!this.hasEdits) return;
-
-        // If already locked by me, nothing to do
-        if (this.isLockedByMe) return;
-
-        // So user #2 won’t try to lock while it’s locked by user #1.
-        if (this.isLockedByOther) return;
-
-        // Only request once per fragment per edit-session
-        if (this.lockRequestedForFragmentId === this.fragment.id) return;
-
-        this.lockRequestedForFragmentId = this.fragment.id;
-
-        const fragmentId = this.fragment.id;
-        this.lockRequestedForFragmentId = fragmentId;
-
-        console.log(`TextPanelComponent: edits detected -> lockFragment, fragmentId=${fragmentId}`);
-
-        void this.lockCurrentFragmentForBodyEdit(fragmentId);
-      });
-
-    // 3) Unlock-on-undo: watch hasEdits and detect true -> false
-    bodyCtrl.valueChanges
-      .pipe(
-        auditTime(0),
-
-        // project keystrokes -> boolean state
-        map(() => this.hasEdits),
-
-        // seed with current value so pairwise has a "previous"
-        startWith(this.hasEdits),
-
-        // only react when hasEdits changes
-        distinctUntilChanged(),
-
-        // emit [prev, curr]
-        pairwise(),
-
-        takeUntil(this.destroy$)
-      )
-      .subscribe(([wasDirty, isDirty]) => {
-        if (!this.fragment) return;
-
-        // true -> false: user returned to original content
-        if (wasDirty && !isDirty) {
-          void this.unlockCurrentFragment('edits undone');
-        }
+        this.failedLockForFragmentId = null; // another edit permits a new attempt
+        this.reconcileFragmentLock();
       });
   }
 
@@ -283,7 +242,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
 
     this.destroyed = true;
     if (this.fragment?.id !== this.saveFragmentIdInFlight) {
-      void this.unlockCurrentFragment('destroy');
+      void this.releaseFragmentLockIfOwned(this.fragment, 'destroy');
     }
 
     this.destroy$.next();
@@ -314,7 +273,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
     // 2) check body
     const currentBody = this.form.get('body')!.value as string;
     const originalBody = this.editorServerText;
-    const bodyChanged = currentBody !== originalBody;
+    const bodyChanged = !this.sameEditorContent(currentBody, originalBody);
 
     // 3) check date
     const dateChanged =
@@ -325,50 +284,62 @@ export class TextPanelComponent implements OnInit, OnDestroy {
     return bodyChanged || dateChanged;
   }
 
+  private invalidateCanonicalBodyCache(): void {
+    this.canonicalSavedHtml = null;
+    this.canonicalEditedHtml = null;
+    this.lastCanonicalEditedSource = null;
+  }
+
+  /**
+   * Serialized HTML is not a stable dirty-state representation for Quill.
+   * Compare the editor's Delta operations so visually/semantically restored
+   * text and formatting do not strand an edit lock due to markup differences.
+   */
+  private sameEditorContent(currentHtml: string | null, savedHtml: string | null): boolean {
+    const current = currentHtml ?? '';
+    const saved = savedHtml ?? '';
+    if (current === saved) return true;
+    if (!this.quill) return false;
+
+    try {
+      if (this.canonicalSavedHtml === null) {
+        this.canonicalSavedHtml = JSON.stringify(this.quill.clipboard.convert({ html: saved }).ops);
+      }
+      if (this.lastCanonicalEditedSource !== current || this.canonicalEditedHtml === null) {
+        this.canonicalEditedHtml = JSON.stringify(this.quill.clipboard.convert({ html: current }).ops);
+        this.lastCanonicalEditedSource = current;
+      }
+      return this.canonicalEditedHtml === this.canonicalSavedHtml;
+    } catch (error) {
+      console.warn('TextPanelComponent: unable to compare canonical Quill contents', error);
+      return false; // Conservative: never discard a potentially real edit.
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Date editing
   // ---------------------------------------------------------------------------
 
   async editDate(): Promise<void> {
-    console.log(`TextPanelComponent.editDate`);
+    if (!this.fragment || this.isLockedByOther) return;
 
-    if (!this.fragment) {
-      return;
+    const fragmentId = this.fragment.id;
+    this.datePickerOpen = true;
+
+    // The picker requires an acknowledged lock. In particular, wait for a
+    // pending undo-unlock to finish and reacquire before opening the picker.
+    while (!this.destroyed && this.fragment?.id === fragmentId && !this.isLockedByOther
+        && (!this.isLockedByMe || this.lockOperations.has(fragmentId))) {
+      this.reconcileFragmentLock();
+      const pending = this.lockOperations.get(fragmentId);
+      if (!pending) break; // failed/denied lock; do not open an editable picker
+      await pending.promise;
     }
 
-    if (this.isLockedByOther) {
-      console.log(`TextPanelComponent.editDate: fragment is locked by another session`);
+    if (this.destroyed || this.fragment?.id !== fragmentId || !this.isLockedByMe) {
+      this.datePickerOpen = false;
+      this.reconcileFragmentLock();
       return;
-    }
-
-    if (!this.isLockedByMe) {
-      const fragmentId = this.fragment.id;
-
-      this.lockRequestedForFragmentId = fragmentId;
-
-      const locked = await this.fragmentLockService.lockFragmentForEdit(fragmentId);
-      if (!locked) {
-        if (this.fragment?.id === fragmentId) {
-          this.lockRequestedForFragmentId = null;
-        }
-        return;
-      }
-
-      /*
-       * The user may have selected another fragment while the lock RPC
-       * was in flight. If so, immediately unlock the fragment we just locked.
-       */
-      if (this.destroyed || this.fragment?.id !== fragmentId) {
-        await this.fragmentLockService.unlockFragment(
-          fragmentId,
-          this.destroyed
-            ? 'date edit lock completed after editor destroy'
-            : 'date edit lock completed after fragment switch'
-        );
-        return;
-      }
-
-      this.markFragmentLockedByMe();
     }
 
     this.picker.open();
@@ -400,9 +371,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
      * release the lock. This mirrors your existing "edits undone" logic,
      * but that existing logic only watches bodyCtrl.valueChanges.
      */
-    if (!this.hasEdits && this.isLockedByMe) {
-      void this.unlockCurrentFragment('date selected back to original');
-    }
+    this.reconcileFragmentLock();
   }
 
   /** true if either the body or the date has been edited */
@@ -420,9 +389,8 @@ export class TextPanelComponent implements OnInit, OnDestroy {
      * If they did change the date, keep the lock until Save, undo, destroy,
      * or rollback/error handling.
      */
-    if (!this.hasEdits && this.isLockedByMe) {
-      void this.unlockCurrentFragment('date picker closed without edits');
-    }
+    this.datePickerOpen = false;
+    this.reconcileFragmentLock('date picker closed without edits');
   }
 
 
@@ -437,7 +405,8 @@ export class TextPanelComponent implements OnInit, OnDestroy {
       version: this.fragment?.version
     });
 
-    if (!this.fragment || this.saveInFlight) return;
+    if (!this.fragment || this.saveInFlight || !this.hasEdits || !this.isLockedByMe
+        || this.isLockedByOther || this.lockOperations.has(this.fragment.id)) return;
 
     const currentEditorBody = this.form.get('body')!.value as string;
 
@@ -449,7 +418,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
       d: this.originalDay,
     };
 
-    const currentBody = currentEditorBody === this.editorServerText
+    const currentBody = this.sameEditorContent(currentEditorBody, this.editorServerText)
       ? prevFragment.text ?? ''
       : restoreLegacyFragmentHtml(
           currentEditorBody,
@@ -483,6 +452,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
     this.originalMonth = this.fragment.month || 0;
     this.originalDay = this.fragment.day || 0;
     this.editorServerText = currentEditorBody;
+    this.invalidateCanonicalBodyCache();
 
     const df = new DateFormatter(this.fragment.year || 0, this.fragment.month || 0, this.fragment.day || 0);
     this.formattedDate = df.formattedDate;
@@ -568,6 +538,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
   onEditorCreated(quill: Quill) {
     console.log(`TextPanelComponent.onEditorCreated`);
     this.quill = quill;
+    this.invalidateCanonicalBodyCache();
     const toolbar = quill.getModule('toolbar') as unknown as QuillToolbarModule | undefined;
 
     if (!toolbar || typeof toolbar.addHandler !== 'function') {
@@ -726,55 +697,96 @@ export class TextPanelComponent implements OnInit, OnDestroy {
   // Lock state changes
   // ---------------------------------------------------------------------------
 
-  private async lockCurrentFragmentForBodyEdit(fragmentId: number): Promise<void> {
-    const locked = await this.fragmentLockService.lockFragmentForEdit(fragmentId);
+  get isLockTransitioning(): boolean {
+    return this.fragment != null && this.lockOperations.has(this.fragment.id);
+  }
 
-    if (!locked) {
-      if (this.fragment?.id === fragmentId) {
-        this.lockRequestedForFragmentId = null;
+  /** An operation is never overtaken by another lock/unlock for the same id. */
+  private reconcileFragmentLock(unlockReason = 'edits undone'): void {
+    if (this.destroyed || !this.fragment || this.saveFragmentIdInFlight === this.fragment.id) return;
+
+    const fragmentId = this.fragment.id;
+    if (this.lockOperations.has(fragmentId)) return;
+
+    if (this.hasEdits || this.datePickerOpen) {
+      if (!this.isLockedByMe && !this.isLockedByOther && this.failedLockForFragmentId !== fragmentId) {
+        void this.lockCurrentFragmentForBodyEdit(fragmentId);
       }
-      return;
-    }
-
-    /*
-     * Only apply the optimistic lock if we are still looking at the same fragment.
-     * If the user navigated away while the RPC was in flight, immediately unlock it.
-     */
-    if (!this.destroyed && this.fragment?.id === fragmentId) {
-      this.markFragmentLockedByMe();
-      this.updateEditorReadOnlyState();
-    } else {
-      await this.fragmentLockService.unlockFragment(
-        fragmentId,
-        this.destroyed
-          ? 'body edit lock completed after editor destroy'
-          : 'body edit lock completed after fragment switch'
-      );
+    } else if (this.isLockedByMe) {
+      void this.unlockCurrentFragment(unlockReason);
     }
   }
 
+  private async lockCurrentFragmentForBodyEdit(fragmentId: number): Promise<void> {
+    const existing = this.lockOperations.get(fragmentId);
+    if (existing) {
+      await existing.promise;
+      return;
+    }
+
+    const promise = this.fragmentLockService.lockFragmentForEdit(fragmentId);
+    const operation = { kind: 'lock' as const, promise: Promise.resolve() as Promise<void> };
+    const finished = (async () => {
+      const locked = await promise;
+      if (!locked) {
+        if (this.fragment?.id === fragmentId) this.failedLockForFragmentId = fragmentId;
+      } else if (!this.destroyed && this.fragment?.id === fragmentId) {
+        this.markFragmentLockedByMe();
+      }
+
+      this.lockOperations.delete(fragmentId);
+
+      if (locked && (this.destroyed || this.fragment?.id !== fragmentId)) {
+        // The request succeeded after navigation/destruction; release this id,
+        // not the user's current selection.
+        await this.releaseFragmentLock(
+          fragmentId,
+          this.destroyed
+            ? 'body edit lock completed after editor destroy'
+            : 'body edit lock completed after fragment switch'
+        );
+      } else {
+        // If the user undid the edit before the lock ACK, this releases it.
+        this.reconcileFragmentLock();
+      }
+    })();
+    operation.promise = finished;
+    this.lockOperations.set(fragmentId, operation);
+    await finished;
+  }
+
   private async unlockCurrentFragment(reason: string): Promise<void> {
-    if (!this.fragment) {
+    const fragment = this.fragment;
+    if (!fragment || !this.isLockedByMe) return;
+    await this.releaseFragmentLock(fragment.id, reason);
+  }
+
+  private async releaseFragmentLockIfOwned(fragment: Fragment | null, reason: string): Promise<void> {
+    if (!fragment || !this.isLockedByMeFragment(fragment)) return;
+    await this.releaseFragmentLock(fragment.id, reason);
+  }
+
+  private async releaseFragmentLock(fragmentId: number, reason: string): Promise<void> {
+    const existing = this.lockOperations.get(fragmentId);
+    if (existing) {
+      await existing.promise;
       return;
     }
 
-    if (!this.isLockedByMe) {
-      return;
-    }
-
-    const fragmentId = this.fragment.id;
-
-    console.log(`TextPanelComponent.${reason}: unlockFragment$, id=${fragmentId}`);
-
-    const unlocked = await this.fragmentLockService.unlockFragment(fragmentId, reason);
-
-    /*
-     * Only update local state if we are still looking at the same fragment.
-     * The async unlock could complete after the user has navigated away.
-     */
-    if (unlocked && this.fragment?.id === fragmentId) {
-      this.markFragmentUnlocked();
-    }
+    const operation = { kind: 'unlock' as const, promise: Promise.resolve() as Promise<void> };
+    const finished = (async () => {
+      const unlocked = await this.fragmentLockService.unlockFragment(fragmentId, reason);
+      if (unlocked && this.fragment?.id === fragmentId) {
+        this.markFragmentUnlocked();
+      }
+      this.lockOperations.delete(fragmentId);
+      // If the user re-edited while unlock was pending, acquire a fresh lock
+      // only AFTER the old unlock has completed on the responder.
+      if (unlocked) this.reconcileFragmentLock();
+    })();
+    operation.promise = finished;
+    this.lockOperations.set(fragmentId, operation);
+    await finished;
   }
 
   async unlockFragment(fragmentId: number, reason = 'unlock'): Promise<boolean> {
@@ -855,7 +867,6 @@ export class TextPanelComponent implements OnInit, OnDestroy {
     } as any;
 
     this.currentFragment = this.fragment;
-    this.lockRequestedForFragmentId = null;
     this.updateEditorReadOnlyState();
   }
 

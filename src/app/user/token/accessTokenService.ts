@@ -1,6 +1,16 @@
 import { Injectable } from "@angular/core";
 import { BehaviorSubject } from "rxjs";
 import { TokenService } from "./tokenService";
+import { RefreshTokenService } from "./refreshTokenService";
+
+type TabSessionMessage = {
+  kind: 'hello' | 'present';
+  userId: number;
+  sessionId: string;
+  instanceId: string;
+  startedAt: number;
+  targetId?: string;
+};
 
 @Injectable({ providedIn: "root" })
 export class AccessTokenService extends TokenService {
@@ -15,7 +25,16 @@ export class AccessTokenService extends TokenService {
   private knownAsSubject = new BehaviorSubject<string | null>(null);
   private sessionIdSubject = new BehaviorSubject<string | null>(null);
 
-  constructor() {
+  // sessionStorage is normally tab-scoped, but a browser's "Duplicate tab"
+  // copies its contents, including BOTH the JWT and the lock session id.
+  // Detect that collision with other live tabs before allowing two editors
+  // to claim the same lock. A normal refresh keeps its original session.
+  private channel?: BroadcastChannel;
+  private instanceId = crypto.randomUUID();
+  private startedAt = Date.now();
+  private duplicateSessionDetected = false;
+
+  constructor(private refreshTokenService: RefreshTokenService) {
     super("accessToken");
 
     // Restore identity from sessionStorage (if available)
@@ -39,6 +58,54 @@ export class AccessTokenService extends TokenService {
 
     if (savedSessionId != null) {
       this.sessionIdSubject.next(savedSessionId);
+    }
+    this.startTabSessionCheck();
+  }
+
+  private startTabSessionCheck(): void {
+    if (typeof BroadcastChannel === 'undefined') return;
+    this.channel = new BroadcastChannel('diaries-lock-session-v1');
+    this.channel.onmessage = event => this.onTabSessionMessage(event.data as TabSessionMessage);
+    window.addEventListener('pagehide', () => this.channel?.close(), { once: true });
+    this.announceSession();
+  }
+
+  private announceSession(): void {
+    if (!this.channel || !this.getCurrentToken() || this.userId == null || !this.sessionId) return;
+    this.channel.postMessage({
+      kind: 'hello', userId: this.userId, sessionId: this.sessionId,
+      instanceId: this.instanceId, startedAt: this.startedAt
+    } satisfies TabSessionMessage);
+  }
+
+  private onTabSessionMessage(message: TabSessionMessage): void {
+    if (!message || this.duplicateSessionDetected || !this.getCurrentToken()
+        || this.userId == null || !this.sessionId
+        || message.userId !== this.userId || message.sessionId !== this.sessionId
+        || message.instanceId === this.instanceId) return;
+
+    if (message.kind === 'hello') {
+      // In a simultaneous start, only the older tab answers. The tie-break
+      // prevents both tabs logging one another out.
+      if (this.startedAt < message.startedAt
+          || (this.startedAt === message.startedAt && this.instanceId < message.instanceId)) {
+        this.channel?.postMessage({
+          kind: 'present', userId: this.userId, sessionId: this.sessionId,
+          instanceId: this.instanceId, startedAt: this.startedAt,
+          targetId: message.instanceId
+        } satisfies TabSessionMessage);
+      }
+    } else if (message.kind === 'present' && message.targetId === this.instanceId) {
+      this.duplicateSessionDetected = true;
+      console.warn('Editor tab inherited another active editor session; separate sign-in required');
+      this.clearToken();
+      this.refreshTokenService.clearToken();
+      sessionStorage.removeItem('diaries.sessionId');
+      // A new sign-in creates a new session id inside the signed JWT. Changing
+      // only the local session id would NOT be sufficient for responder locks.
+      const destination = new URL('signin', document.baseURI);
+      destination.searchParams.set('returnUrl', window.location.pathname + window.location.search);
+      window.location.replace(destination.toString());
     }
   }
 
@@ -99,6 +166,7 @@ export class AccessTokenService extends TokenService {
     sessionStorage.setItem(this.usernameKey, username ?? "");
     sessionStorage.setItem(this.knownAsKey, knownAs ?? "");
     sessionStorage.setItem(this.sessionIdKey, sessionId ?? "");
+    this.announceSession();
   }
 
   clearUserInfo(): void {

@@ -43,7 +43,7 @@
       <button
         class="btn save-button"
         type="button"
-        [disabled]="saveInFlight || !hasEdits || isLockedByOther || !isLockedByMe"
+        [disabled]="saveInFlight || !hasEdits || isLockedByOther || !isLockedByMe || isLockTransitioning"
         [ngClass]="{ 'active': hasEdits && isLockedByMe && !isLockedByOther }"
         [attr.aria-busy]="saveInFlight"
         (click)="onSave()">
