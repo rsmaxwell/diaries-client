@@ -1,5 +1,6 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { Diary } from '../model/diary';
+import { AnnualEditorComponent } from './annual-editor/annual-editor.component';
 
 import { ActivatedRoute, Router } from '@angular/router';
 import { FullHeaderComponent } from "../headers/fullheader/fullheader.component";
@@ -20,7 +21,8 @@ import { ModelContext } from '../model/model-context';
   imports: [
     FullHeaderComponent,
     FullfooterComponent,
-    DragDropModule
+    DragDropModule,
+    AnnualEditorComponent
   ],
   templateUrl: './diary.component.html',
   styleUrl: './diary.component.scss'

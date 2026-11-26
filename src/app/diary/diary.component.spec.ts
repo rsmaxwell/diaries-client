@@ -7,6 +7,9 @@ import { AlertService } from '../alerts/alert.service';
 import { ClientBuildInfoService } from '../build-info/client-build-info.service';
 import { Diary } from '../model/diary';
 import { ModelContext } from '../model/model-context';
+import { FragmentLockService } from '../fragment/fragment-lock.service';
+import { LiveObjectListService } from '../mqtt/live.object.list.service';
+import { MqttService } from '../mqtt/mqtt.service';
 import { Page } from '../model/page';
 import { RpcService } from '../mqtt/rpc.service';
 import { DiaryComponent } from './diary.component';
@@ -46,6 +49,15 @@ describe('DiaryComponent', () => {
         { provide: Router, useValue: router },
         { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ diaryId: '7' })) } },
         { provide: RpcService, useValue: rpcService },
+        // The annual editor is a child of DiaryComponent. Keep these page-navigation
+        // tests independent of real MQTT connections and HTTP configuration.
+        { provide: MqttService, useValue: { getConnection: () => Promise.resolve({}) } },
+        { provide: LiveObjectListService, useValue: { subscribeToTopicTree$: () => of([]) } },
+        { provide: FragmentLockService, useValue: {
+          lockFragmentForEdit: () => Promise.resolve(true),
+          unlockFragment: () => Promise.resolve(true),
+          unlockFragmentAfterFailedEdit: () => Promise.resolve()
+        } },
         { provide: ModelContext, useValue: modelContext },
         { provide: AlertService, useValue: { error: jasmine.createSpy('error'), getAlerts: () => of([]) } },
         { provide: ClientBuildInfoService, useValue: { getBuildInfo: () => of({ version: 'client-test' }) } }

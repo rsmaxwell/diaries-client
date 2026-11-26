@@ -18,6 +18,8 @@ import { Register, RegisterReply, RegisterRequest } from "../model/register";
 import { Diary, UpdateDiaryRequest } from "../model/diary";
 import { RefreshTokenReply, RefreshTokenRequest } from "../model/refresh.token";
 import { AddFragmentRequest, AddImageFragmentRequest, DeleteFragmentRequest, Fragment, ImageFragment, LockFragmentRequest, NormaliseFragmentsRequest, UnlockFragmentRequest, UpdateFragmentRequest, UpdateImageFragmentRequest, UpdateImageLinkRequest } from "../model/fragment";
+import { AddAnnualFragmentRequest, NormaliseAnnualFragmentsRequest } from "../model/annual-fragment-request";
+import { AnnualPlacement } from "../model/annual-fragments";
 import { AccessTokenService } from "../user/token/accessTokenService";
 import { RefreshTokenService } from "../user/token/refreshTokenService";
 import { FileListResponse } from "../model/FileListResponse";
@@ -489,6 +491,28 @@ export class RpcService {
                     deserialize
                 );
             })
+        );
+    }
+
+    /** Create an annual PREAMBLE/POSTAMBLE Fragment without a Page or Marquee. */
+    addAnnualFragment$(request: AddAnnualFragmentRequest): Observable<Fragment> {
+        return forkJoin({ client: this.mqtt.getConnection() }).pipe(
+            switchMap(({ client }) => this.authorisedRpcRequest<Fragment>(
+                client, Constants.replyTopic(this.mqtt.getClientId()),
+                { function: 'addAnnualFragment', args: request },
+                ReplyHandler.getBufferAsObject<Fragment>
+            ))
+        );
+    }
+
+    normaliseAnnualFragments$(diaryId: number, year: number, placement: AnnualPlacement): Observable<number> {
+        const args = new NormaliseAnnualFragmentsRequest(diaryId, year, placement);
+        return forkJoin({ client: this.mqtt.getConnection() }).pipe(
+            switchMap(({ client }) => this.authorisedRpcRequest<number>(
+                client, Constants.replyTopic(this.mqtt.getClientId()),
+                { function: 'normaliseFragments', args },
+                ReplyHandler.getBufferAsNumber
+            ))
         );
     }
 

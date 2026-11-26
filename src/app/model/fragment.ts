@@ -1,9 +1,16 @@
 
-export type FragmentType = 'MARQUEE' | 'IMAGE';
+/** MARQUEE remains a wire-level legacy value until the coordinated migration. */
+export type FragmentType = 'TEXT' | 'IMAGE' | 'MARQUEE';
+export type FragmentPlacement = 'PREAMBLE' | 'DATED' | 'POSTAMBLE';
+export type ContentFragmentType = 'TEXT' | 'IMAGE';
 
 export interface Fragment {
   id: number;
   pageId?: number | null;
+  /** Explicit owner for year-level editorial content; the Page determines it for DATED. */
+  diaryId?: number | null;
+  /** Absent in old retained messages; absence means DATED. */
+  placement?: FragmentPlacement | null;
   type?: FragmentType | null;
   imageId?: number | null;
   /** Fragment-owned external destination, independent of the catalogue Image. */
@@ -19,7 +26,8 @@ export interface Fragment {
   lock?: EditLockInfo | null;
 }
 
-export type MarqueeFragment = Fragment & { type?: 'MARQUEE' | null };
+/** Historical name kept for legacy editor callers until the complete UI migration. */
+export type MarqueeFragment = Fragment & { type?: 'MARQUEE' | 'TEXT' | null };
 export type ImageFragment = Fragment & { type: 'IMAGE' };
 export type PageOwnedFragment = Fragment & { pageId: number };
 
@@ -29,7 +37,16 @@ export function effectiveFragmentType(fragment: Fragment): FragmentType {
 }
 
 export function isMarqueeFragment(fragment: Fragment | null | undefined): fragment is MarqueeFragment {
-  return !!fragment && effectiveFragmentType(fragment) === 'MARQUEE';
+  return !!fragment && (effectiveFragmentType(fragment) === 'MARQUEE' || effectiveFragmentType(fragment) === 'TEXT');
+}
+
+/** Content semantics independent of the historic wire-level MARQUEE spelling. */
+export function contentFragmentType(fragment: Fragment): ContentFragmentType {
+  return effectiveFragmentType(fragment) === 'IMAGE' ? 'IMAGE' : 'TEXT';
+}
+
+export function fragmentPlacement(fragment: Fragment): FragmentPlacement {
+  return fragment.placement ?? 'DATED';
 }
 
 export function isImageFragment(fragment: Fragment | null | undefined): fragment is ImageFragment {

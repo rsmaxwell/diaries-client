@@ -191,7 +191,7 @@ export class DayviewComponent implements OnInit, OnDestroy {
   }
 
 
-  fragmentTypeLabel(fragment: Fragment): 'MARQUEE' | 'IMAGE' {
+  fragmentTypeLabel(fragment: Fragment): 'TEXT' | 'MARQUEE' | 'IMAGE' {
     return effectiveFragmentType(fragment);
   }
 

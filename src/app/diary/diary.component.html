@@ -16,6 +16,10 @@
         </header>
       }
 
+      @if (diary) {
+        <app-annual-editor [diaryId]="diary.id"></app-annual-editor>
+      }
+
       @if (dataSource.data.length > 0) {
         <ol class="reader-list" aria-label="Diary pages" cdkDropList
           [cdkDropListData]="dataSource.data" (cdkDropListDropped)="drop($event)">
