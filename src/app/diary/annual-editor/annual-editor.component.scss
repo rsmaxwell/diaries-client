@@ -1,0 +1,33 @@
+@use '../../../styles/tokens' as tokens;
+
+:host { display: block; min-width: 0; color: tokens.$diaries-ink; }
+.annual-editor { max-width: 100%; padding: 1rem; }
+.annual-editor > div, .annual-editor li { margin-block: 0.65rem; }
+.annual-editor label { display: inline-block; margin: 0.4rem 0.65rem 0.4rem 0; }
+.annual-editor input, .annual-editor select { max-width: 100%; }
+.annual-editor ol { padding-inline-start: 1.7rem; }
+.annual-editor li { padding: 0.75rem; border-bottom: 1px solid tokens.$diaries-line; }
+.annual-editor button { margin: 0.35rem; }
+.annual-editor fieldset { margin-top: 1rem; min-width: 0; }
+.annual-editor quill-editor { display: block; width: 100%; min-width: 0; margin: 0.4rem 0 0.8rem; }
+.annual-editor ::ng-deep .ql-toolbar { background: tokens.$diaries-paper; }
+.annual-editor ::ng-deep .ql-container { min-height: 12rem; font-size: 1rem; }
+.annual-editor ::ng-deep .ql-editor { min-height: 12rem; overflow-wrap: anywhere; }
+.annual-editor-preview { overflow-wrap: anywhere; }
+.html-count { color: tokens.$diaries-muted; font-size: 0.8rem; margin: 0.2rem 0 0.7rem; }
+.html-count.over-limit { color: #a82020; font-weight: 700; }
+@media (max-width: 600px) {
+  .annual-editor { padding: 0.5rem; }
+  .annual-editor li { padding: 0.45rem; }
+  .annual-editor ::ng-deep .ql-toolbar { display: flex; flex-wrap: wrap; }
+}
+
+.diary-scope { margin: .5rem 0; }
+.annual-editor ::ng-deep .annual-editor-preview .ql-align-center { text-align: center; }
+.annual-editor ::ng-deep .annual-editor-preview .ql-align-right { text-align: right; }
+.annual-editor ::ng-deep .annual-editor-preview .ql-align-justify { text-align: justify; }
+.annual-editor ::ng-deep .annual-editor-preview .ql-size-small { font-size: .75em; }
+.annual-editor ::ng-deep .annual-editor-preview .ql-size-large { font-size: 1.5em; }
+.annual-editor ::ng-deep .annual-editor-preview .ql-size-huge { font-size: 2.5em; }
+.annual-editor ::ng-deep .annual-editor-preview .ql-font-serif { font-family: Georgia, serif; }
+.annual-editor ::ng-deep .annual-editor-preview .ql-font-monospace { font-family: monospace; }

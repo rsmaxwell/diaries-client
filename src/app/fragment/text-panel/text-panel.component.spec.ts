@@ -2,8 +2,12 @@ import { BehaviorSubject, Subject } from 'rxjs';
 
 import { Fragment, UpdateFragmentRequest } from '../../model/fragment';
 import { TextPanelComponent } from './text-panel.component';
+import { TEXT_EDITOR_MODULES } from '../quill-text-toolbar';
 
 describe('TextPanelComponent', () => {
+  it('uses the shared annual toolbar without the inline image control', () => {
+    expect(createComponent().component.editorModules).toBe(TEXT_EDITOR_MODULES);
+  });
   const fragment = (overrides: Partial<Fragment> = {}): Fragment => ({
     id: 17,
     marqueeId: 23,
@@ -47,7 +51,6 @@ describe('TextPanelComponent', () => {
     const component = new TextPanelComponent(
       { selectedFragment$, selectedDiary$ } as any,
       rpcService as any,
-      { open: jasmine.createSpy('open') } as any,
       accessTokenService as any,
       { clearToken: jasmine.createSpy('clearToken') } as any,
       { url: '/diary/1/2/17', navigateByUrl: jasmine.createSpy('navigateByUrl') } as any,

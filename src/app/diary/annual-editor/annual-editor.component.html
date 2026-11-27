@@ -1,9 +1,10 @@
 <section class="annual-editor" aria-label="Diary-year editorial content">
   <h2>Annual editorial content</h2>
+  <p class="diary-scope">Editing diary: <strong>{{ diaryName || ('Diary ' + diaryId) }}</strong> (Diary {{ diaryId }})</p>
   <p>Preambles appear before the year's dated entries; postambles appear afterwards.</p>
   <div>
     <label>Year <input type="number" min="1" max="9999" step="1" [(ngModel)]="year"
-      (change)="changeGroup()" [disabled]="busy || editingId !== null" /></label>
+      (change)="changeYear()" [disabled]="busy || editingId !== null" /></label>
     <label>Section <select [(ngModel)]="placement" (change)="changeGroup()"
       [disabled]="busy || editingId !== null">
       <option value="PREAMBLE">Preamble</option>
@@ -22,9 +23,14 @@
               [disabled]="busy" aria-label="Edit annual Image link" />
           } @else {
             <label for="annual-edit-text">Editorial text</label>
-            <quill-editor id="annual-edit-text" [(ngModel)]="editText" format="html" [modules]="editorModules" [readOnly]="busy" aria-label="Edit annual editorial text"></quill-editor>
+            <quill-editor id="annual-edit-text" [(ngModel)]="editText" format="html" [modules]="editorModules" [readOnly]="busy" (onEditorCreated)="onEditQuillCreated($event)" aria-label="Edit annual editorial text"></quill-editor>
           }
-          <button type="button" [disabled]="busy" (click)="save(fragment)">Save</button>
+          @if (fragment.type === 'TEXT') {
+            <p class="html-count" [class.over-limit]="(editText || '').length > maxHtmlLength">
+              HTML: {{ (editText || '').length }} / {{ maxHtmlLength }} characters
+            </p>
+          }
+          <button type="button" [disabled]="busy || (fragment.type === 'TEXT' && (editText || '').length > maxHtmlLength)" (click)="save(fragment)">Save</button>
           <button type="button" [disabled]="busy" (click)="cancel()">Cancel</button>
         } @else {
           @if (fragment.type === 'IMAGE') {
@@ -32,7 +38,7 @@
             @if (fragment.imageLinkUrl) { <span> Link: {{ fragment.imageLinkUrl }}</span> }
             <button type="button" [disabled]="busy || editingId !== null" (click)="beginEdit(fragment)">Edit image link</button>
           } @else {
-            <div class="annual-editor-preview" [innerHTML]="fragment.text"></div>
+            <div class="annual-editor-preview" [annualQuillPreview]="fragment.text"></div>
             <button type="button" [disabled]="busy || editingId !== null" (click)="beginEdit(fragment)">Edit text</button>
           }
           <button type="button" [disabled]="busy || editingId !== null || first" (click)="move(fragment,-1)">Up</button>
@@ -55,8 +61,11 @@
     }
     @if (newType === 'TEXT') {
       <label for="annual-new-text">Editorial text</label>
-      <quill-editor id="annual-new-text" [(ngModel)]="newText" format="html" [modules]="editorModules" [readOnly]="busy" aria-label="New annual editorial text"></quill-editor>
+      <quill-editor id="annual-new-text" [(ngModel)]="newText" format="html" [modules]="editorModules" [readOnly]="busy" (onEditorCreated)="onQuillCreated($event)" aria-label="New annual editorial text"></quill-editor>
+      <p class="html-count" [class.over-limit]="(newText || '').length > maxHtmlLength">
+        HTML: {{ (newText || '').length }} / {{ maxHtmlLength }} characters
+      </p>
     }
-    <button type="button" (click)="add()">Add {{ newType }} Fragment</button>
+    <button type="button" [disabled]="newType === 'TEXT' && (newText || '').length > maxHtmlLength" (click)="add()">Add {{ newType }} Fragment</button>
   </fieldset>
 </section>

@@ -17,7 +17,7 @@
       }
 
       @if (diary) {
-        <app-annual-editor [diaryId]="diary.id"></app-annual-editor>
+        <app-annual-editor [diaryId]="diary.id" [diaryName]="diary.name" [pages]="dataSource.data"></app-annual-editor>
       }
 
       @if (dataSource.data.length > 0) {

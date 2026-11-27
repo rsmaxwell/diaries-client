@@ -2,7 +2,7 @@ import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ModelContext } from '../../model/model-context';
 import { EditLockInfo, Fragment } from '../../model/fragment';
-import { auditTime, BehaviorSubject, combineLatest, distinctUntilChanged, firstValueFrom, from, Subject, take, takeUntil } from 'rxjs';
+import { auditTime, combineLatest, distinctUntilChanged, firstValueFrom, from, Subject, take, takeUntil } from 'rxjs';
 import { QuillModule } from 'ngx-quill';
 import { FormControl, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { RpcError, RpcService } from '../../mqtt/rpc.service';
@@ -15,8 +15,7 @@ import { MatNativeDateModule } from '@angular/material/core';
 import { MatDatepickerInputEvent } from '@angular/material/datepicker';
 import { DateFormatter } from '../../utilities/DateFormatter';
 import Quill from 'quill';
-import { FileSelection, FilesListDialogComponent } from '../../files-list-dialog/files-list-dialog.component';
-import { Dialog, DialogRef } from '@angular/cdk/dialog';
+import { TEXT_EDITOR_MODULES, blockInlineImageInsertion } from '../quill-text-toolbar';
 import { AccessTokenService } from '../../user/token/accessTokenService';
 import { RefreshTokenService } from '../../user/token/refreshTokenService';
 import { HttpStatusCode } from '@angular/common/http';
@@ -24,11 +23,6 @@ import { Router } from '@angular/router';
 import { FragmentLockService } from '../fragment-lock.service';
 import { ConfigService } from '../../config/config.service';
 import { buildLegacyImageBaseUrl, resolveLegacyFragmentHtml, restoreLegacyFragmentHtml } from '../../utilities/legacy-fragment-html.pipe';
-
-// minimal shape we need
-type QuillToolbarModule = {
-  addHandler: (format: string, handler: (...args: any[]) => void) => void;
-};
 
 @Component({
   selector: 'app-text-panel',
@@ -62,17 +56,8 @@ export class TextPanelComponent implements OnInit, OnDestroy {
     body: new FormControl('<p>Hello, Quill!</p>')
   });
 
-  editorModules = {
-    toolbar: [
-      ['bold', 'italic', 'underline'],
-      [{ header: [1, 2, 3, false] }],
-      [{ list: 'bullet' }, { list: 'ordered' }],
-      ['link', 'image'],
-      [{ font: [] }],
-      [{ size: ['small', false, 'large', 'huge'] }],
-      [{ color: [] }, { background: [] }]
-    ]
-  };
+  editorModules = TEXT_EDITOR_MODULES;
+  private stopImageInsertionGuard?: () => void;
 
   formattedDate = '';
   isDateValid = false;
@@ -100,7 +85,6 @@ export class TextPanelComponent implements OnInit, OnDestroy {
   constructor(
     private modelContext: ModelContext,
     private rpcService: RpcService,
-    private dialog: Dialog,
     private accessTokenService: AccessTokenService,
     private refreshTokenService: RefreshTokenService,
     private router: Router,
@@ -241,6 +225,8 @@ export class TextPanelComponent implements OnInit, OnDestroy {
     console.log(`TextPanelComponent.ngOnDestroy`);
 
     this.destroyed = true;
+    this.stopImageInsertionGuard?.();
+    this.stopImageInsertionGuard = undefined;
     if (this.fragment?.id !== this.saveFragmentIdInFlight) {
       void this.releaseFragmentLockIfOwned(this.fragment, 'destroy');
     }
@@ -539,47 +525,9 @@ export class TextPanelComponent implements OnInit, OnDestroy {
     console.log(`TextPanelComponent.onEditorCreated`);
     this.quill = quill;
     this.invalidateCanonicalBodyCache();
-    const toolbar = quill.getModule('toolbar') as unknown as QuillToolbarModule | undefined;
-
-    if (!toolbar || typeof toolbar.addHandler !== 'function') {
-      console.warn('Quill toolbar module not available; ensure toolbar is enabled in editorModules.');
-      return;
-    }
-
-    toolbar.addHandler('image', () => this.openImagePicker(quill));
+    this.stopImageInsertionGuard?.();
+    this.stopImageInsertionGuard = blockInlineImageInsertion(quill.root, quill);
     this.updateEditorReadOnlyState(); // apply initial state
-  }
-
-  private openImagePicker(quill: any) {
-    // start from root (or remember last path if you prefer)
-    const path$ = new BehaviorSubject<string>('/');
-
-    const ref: DialogRef<FileSelection, FilesListDialogComponent> =
-      this.dialog.open(FilesListDialogComponent, {
-        width: '80vw',
-        height: '70vh',
-        minWidth: 'min(560px, 96vw)',
-        minHeight: 'min(380px, 92vh)',
-        maxWidth: '96vw',
-        maxHeight: '92vh',
-        panelClass: 'files-dialog-panel',
-        data: { path$, select: true }
-      });
-
-    ref.closed.pipe(take(1)).subscribe(res => {
-      path$.complete();                       // tidy
-      if (!res?.url) return;
-
-      // Insert image at the current selection/cursor
-      const range = quill.getSelection(true);
-      const url = res.url.startsWith('http')
-        ? res.url
-        : new URL(res.url, window.location.origin).toString();
-
-      const index = range ? range.index : quill.getLength();
-      quill.insertEmbed(index, 'image', url, 'user');
-      quill.setSelection(index + 1, 0);
-    });
   }
 
   private updateEditorReadOnlyState(): void {
