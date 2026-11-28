@@ -494,7 +494,7 @@ export class RpcService {
         );
     }
 
-    /** Create an annual PREAMBLE/POSTAMBLE Fragment without a Page or Marquee. */
+    /** Create an annual PREAMBLE/EPILOGUE Fragment without a Page or Marquee. */
     addAnnualFragment$(request: AddAnnualFragmentRequest): Observable<Fragment> {
         return forkJoin({ client: this.mqtt.getConnection() }).pipe(
             switchMap(({ client }) => this.authorisedRpcRequest<Fragment>(
@@ -505,8 +505,8 @@ export class RpcService {
         );
     }
 
-    normaliseAnnualFragments$(diaryId: number, year: number, placement: AnnualPlacement): Observable<number> {
-        const args = new NormaliseAnnualFragmentsRequest(diaryId, year, placement);
+    normaliseAnnualFragments$(year: number, placement: AnnualPlacement): Observable<number> {
+        const args = new NormaliseAnnualFragmentsRequest(year, placement);
         return forkJoin({ client: this.mqtt.getConnection() }).pipe(
             switchMap(({ client }) => this.authorisedRpcRequest<number>(
                 client, Constants.replyTopic(this.mqtt.getClientId()),

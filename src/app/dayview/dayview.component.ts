@@ -1,17 +1,17 @@
 import { Component, ElementRef, OnDestroy, OnInit, QueryList, ViewChildren } from '@angular/core';
-import { catchError, combineLatest, firstValueFrom, from, map, Observable, of, shareReplay, startWith, Subject, take, takeUntil } from 'rxjs';
+import { catchError, combineLatest, from, map, Observable, of, shareReplay, startWith, Subject, take, takeUntil } from 'rxjs';
 import { ModelContext } from '../model/model-context';
 import { effectiveFragmentType, Fragment, hasAuthoritativePage, safeImageLinkUrl } from '../model/fragment';
 import { CatalogueImage } from '../model/image';
 import { CommonModule } from '@angular/common';
 import { DateFormatter } from '../utilities/DateFormatter';
-import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
+import { CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
 import { MatTableDataSource } from '@angular/material/table';
 import { RpcService } from '../mqtt/rpc.service';
 import { AlertService } from '../alerts/alert.service';
 import { Router } from '@angular/router';
 import { SafeHtmlPipe } from '../utilities/safe-html.pipe';
-import { FragmentLockService } from '../fragment/fragment-lock.service';
+import { FragmentReorderService } from '../fragment/fragment-reorder.service';
 import { ConfigService } from '../config/config.service';
 import { buildLegacyImageBaseUrl, LegacyFragmentHtmlPipe } from '../utilities/legacy-fragment-html.pipe';
 import { buildCatalogueImageUrl } from '../utilities/catalogue-image-url';
@@ -59,7 +59,7 @@ export class DayviewComponent implements OnInit, OnDestroy {
     private modelContext: ModelContext,
     private alertService: AlertService,
     private router: Router,
-    private fragmentLockService: FragmentLockService,
+    private fragmentReorderService: FragmentReorderService,
     private configService: ConfigService
   ) { }
 
@@ -123,68 +123,17 @@ export class DayviewComponent implements OnInit, OnDestroy {
   }
 
   async drop(event: CdkDragDrop<Fragment[]>): Promise<void> {
-    if (this.reorderInFlight || event.previousIndex === event.currentIndex) {
-      return;
-    }
-
-    const original = [...this.dataSource.data];
-    const reordered = [...original];
-    moveItemInArray(reordered, event.previousIndex, event.currentIndex);
-
-    // Clone the moved fragment before assigning its temporary sort key. The
-    // fragments supplied by ModelContext are shared live-model objects and must
-    // not be mutated optimistically.
-    const movedItem = { ...reordered[event.currentIndex] };
-    reordered[event.currentIndex] = movedItem;
-
-    const prevItem = reordered[event.currentIndex - 1] ?? null;
-    const nextItem = reordered[event.currentIndex + 1] ?? null;
-
-    if (prevItem && nextItem) {
-      movedItem.sequence = (prevItem.sequence + nextItem.sequence) / 2;
-    } else if (!prevItem && nextItem) {
-      movedItem.sequence = nextItem.sequence - 1000;
-    } else if (prevItem && !nextItem) {
-      movedItem.sequence = prevItem.sequence + 1000;
-    } else {
-      movedItem.sequence = 1;
-    }
+    if (this.reorderInFlight) return;
+    const plan = this.fragmentReorderService.plan(this.dataSource.data, event.previousIndex, event.currentIndex);
+    if (!plan) return;
 
     this.reorderInFlight = true;
-    let lockAcquired = false;
-
     try {
-      lockAcquired = await this.fragmentLockService.lockFragmentForEdit(movedItem.id);
-      if (!lockAcquired) {
-        this.dataSource.data = original;
-        return;
-      }
-
-      // Present the intended final order without exposing the temporary sort
-      // key. Retained MQTT updates will replace these optimistic values with the
-      // responder's canonical, versioned fragments.
-      this.dataSource.data = reordered.map((fragment, index) => ({
-        ...fragment,
-        sequence: index + 1
-      }));
-
-      const n = await firstValueFrom(
-        this.rpcService.updateFragment$(movedItem).pipe(take(1))
-      );
-      console.log(`DayviewComponent.drop: UpdateFragment succeeded: n: ${n}`);
-
-      // UpdateFragment releases the lock and normalises the date atomically.
-      lockAcquired = false;
-
+      const saved = await this.fragmentReorderService.persist(plan, items => this.dataSource.data = items);
+      if (!saved) this.dataSource.data = plan.original;
     } catch (err) {
-      this.dataSource.data = original;
-
-      if (lockAcquired) {
-        await this.fragmentLockService.unlockFragmentAfterFailedEdit(movedItem.id);
-      }
-
+      this.dataSource.data = plan.original;
       this.handleError(err);
-
     } finally {
       this.reorderInFlight = false;
     }

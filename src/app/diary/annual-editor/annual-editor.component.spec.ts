@@ -2,6 +2,7 @@ import { of, Subject, throwError } from 'rxjs';
 import { Fragment } from '../../model/fragment';
 import { AnnualEditorComponent } from './annual-editor.component';
 import { TEXT_EDITOR_MODULES } from '../../fragment/quill-text-toolbar';
+import { FragmentReorderService } from '../../fragment/fragment-reorder.service';
 
 describe('AnnualEditorComponent (0054)', () => {
   it('uses the shared DATED toolbar without inline images', () => {
@@ -9,7 +10,7 @@ describe('AnnualEditorComponent (0054)', () => {
     expect(component.editorModules).toBe(TEXT_EDITOR_MODULES);
   });
   const fragment = (overrides: Partial<Fragment> = {}): Fragment => ({
-    id: 54, diaryId: 1, year: 1830, placement: 'PREAMBLE',
+    id: 54, diaryId: null, year: 1830, month: null, day: null, placement: 'PREAMBLE',
     type: 'TEXT', text: '<p>Original</p>', sequence: 1, version: 2,
     ...overrides
   } as Fragment);
@@ -29,13 +30,14 @@ describe('AnnualEditorComponent (0054)', () => {
       unlockFragmentAfterFailedEdit: jasmine.createSpy('unlockFragmentAfterFailedEdit').and.resolveTo()
     };
     const alerts = { error: jasmine.createSpy('error') };
-    const component = new AnnualEditorComponent(mqtt as any, lists as any, rpc as any, locks as any, alerts as any);
+    const reorder = new FragmentReorderService(rpc as any, locks as any);
+    const component = new AnnualEditorComponent(mqtt as any, lists as any, rpc as any, locks as any, alerts as any, reorder);
     component.diaryId = 1;
     component.year = 1830;
     return { component, mqtt, lists, rpc, locks, alerts };
   }
 
-  for (const placement of ['PREAMBLE', 'POSTAMBLE'] as const) {
+  for (const placement of ['PREAMBLE', 'EPILOGUE'] as const) {
     it(`creates ${placement} rich HTML using the annual RPC`, async () => {
       const { component, rpc } = fixture();
       component.placement = placement;
@@ -88,9 +90,11 @@ describe('AnnualEditorComponent (0054)', () => {
     expect(component.editingId).toBe(54);
     expect(component.editText).toBe('<p>Edited</p>');
     expect(alerts.error).toHaveBeenCalled();
+    expect(component.saveError).toContain('RPC unavailable');
     rpc.updateFragment$.and.returnValue(of(item));
     await component.save(item);
     expect(component.editingId).toBeNull();
+    expect(component.saveError).toBeNull();
   });
 
   it('keeps the edit open when unlock fails', async () => {
@@ -157,4 +161,47 @@ describe('AnnualEditorComponent (0054)', () => {
     expect(locks.unlockFragment).toHaveBeenCalledWith(54, 'cancel annual edit');
     expect(component.editingId).toBeNull();
   });
+  for (const placement of ['PREAMBLE', 'EPILOGUE'] as const) {
+    it(`drag-reorders ${placement} within its year using the update RPC`, async () => {
+      const { component, rpc, locks } = fixture();
+      component.placement = placement;
+      component.fragments = [
+        fragment({ id: 11, placement, sequence: 1 }),
+        fragment({ id: 12, placement, sequence: 2 }),
+        fragment({ id: 13, placement, sequence: 3 })
+      ];
+      await component.drop({ previousIndex: 0, currentIndex: 2 } as any);
+      expect(locks.lockFragmentForEdit).toHaveBeenCalledWith(11);
+      const moved = rpc.updateFragment$.calls.mostRecent().args[0];
+      expect(moved.id).toBe(11);
+      expect(moved.sequence).toBeGreaterThan(3);
+      expect(moved.year).toBe(1830);
+      expect(moved.placement).toBe(placement);
+      expect(component.fragments.map(f => f.id)).toEqual([12, 13, 11]);
+      expect(component.reorderInFlight).toBeFalse();
+    });
+  }
+
+  it('restores original order and releases the lock if drag-reorder RPC fails', async () => {
+    const { component, rpc, locks, alerts } = fixture();
+    component.fragments = [fragment({ id: 11, sequence: 1 }), fragment({ id: 12, sequence: 2 })];
+    rpc.updateFragment$.and.returnValue(throwError(() => new Error('RPC failed')));
+    await component.drop({ previousIndex: 0, currentIndex: 1 } as any);
+    expect(component.fragments.map(f => f.id)).toEqual([11, 12]);
+    expect(locks.unlockFragmentAfterFailedEdit).toHaveBeenCalledWith(11);
+    expect(alerts.error).toHaveBeenCalled();
+    expect(component.busy).toBeFalse();
+  });
+
+  it('ignores drag-reorder during an edit or another operation', async () => {
+    const { component, rpc } = fixture();
+    component.fragments = [fragment({ id: 11 }), fragment({ id: 12, sequence: 2 })];
+    component.editingId = 11;
+    await component.drop({ previousIndex: 0, currentIndex: 1 } as any);
+    component.editingId = null;
+    component.busy = true;
+    await component.drop({ previousIndex: 0, currentIndex: 1 } as any);
+    expect(rpc.updateFragment$).not.toHaveBeenCalled();
+  });
+
 });

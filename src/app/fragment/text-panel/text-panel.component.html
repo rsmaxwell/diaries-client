@@ -58,6 +58,9 @@
         Read only — locked by {{ lockOwnerDisplay }}.
       </p>
     }
+    @if (saveError) {
+      <p class="panel-status save-error" role="alert">{{ saveError }}</p>
+    }
     @if (saveInFlight) {
       <p class="panel-status save-status" role="status" aria-live="polite">
         Saving transcription…

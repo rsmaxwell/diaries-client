@@ -1,6 +1,6 @@
 import type Quill from 'quill';
 
-/** Shared toolbar for DATED, PREAMBLE and POSTAMBLE TEXT fragments.
+/** Shared toolbar for DATED, PREAMBLE and EPILOGUE TEXT fragments.
  * Colours are placed near the left of the toolbar so Quill's dropdown palette
  * stays inside the editor at typical split-pane widths. Quill's default palette
  * is retained for both foreground and background colours.

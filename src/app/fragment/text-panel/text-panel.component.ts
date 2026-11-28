@@ -62,6 +62,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
   formattedDate = '';
   isDateValid = false;
   saveInFlight = false;
+  saveError: string | null = null;
   private saveFragmentIdInFlight: number | null = null;
   private destroyed = false;
   private destroy$ = new Subject<void>();
@@ -169,6 +170,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
         this.fragment = fragment;
 
         if (switchingFragment) {
+          this.saveError = null;
           this.datePickerOpen = false;
           this.failedLockForFragmentId = null;
         }
@@ -394,6 +396,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
     if (!this.fragment || this.saveInFlight || !this.hasEdits || !this.isLockedByMe
         || this.isLockedByOther || this.lockOperations.has(this.fragment.id)) return;
 
+    this.saveError = null;
     const currentEditorBody = this.form.get('body')!.value as string;
 
     // Snapshots for rollback
@@ -455,6 +458,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
       next: () => {
         this.saveInFlight = false;
         this.saveFragmentIdInFlight = null;
+        this.saveError = null;
         console.log('TextPanelComponent.onSave: success (optimistic accepted)');
 
         // UpdateFragment clears the saved fragment's lock atomically. Only
@@ -468,6 +472,7 @@ export class TextPanelComponent implements OnInit, OnDestroy {
         this.saveInFlight = false;
         this.saveFragmentIdInFlight = null;
         console.log(`TextPanelComponent.onSave: error -> rolling back: ${err}`);
+        this.saveError = `Unable to save fragment ${savedFragmentId}: ${err instanceof Error ? err.message : String(err)}. Your changes have not been saved; you can retry.`;
 
         const stillOnSavedFragment = this.fragment?.id === savedFragmentId;
 
@@ -484,13 +489,11 @@ export class TextPanelComponent implements OnInit, OnDestroy {
           this.formattedDate = rollDf.formattedDate;
           this.isDateValid = rollDf.isDateValid;
 
-          // restore editor body without firing change handlers
-          const previousEditorText = resolveLegacyFragmentHtml(
-            prevFragment.text,
-            this.legacyImageBaseUrl
-          );
-          this.editorServerText = previousEditorText;
-          this.form.get('body')!.setValue(previousEditorText, {
+          // Restore the server baseline, but preserve the unsaved Quill buffer
+          // so the user can retry after the failed RPC.
+          this.editorServerText = resolveLegacyFragmentHtml(prevFragment.text, this.legacyImageBaseUrl);
+          this.invalidateCanonicalBodyCache();
+          this.form.get('body')!.setValue(currentEditorBody, {
             emitEvent: false,
             emitModelToViewChange: true
           });
@@ -502,7 +505,13 @@ export class TextPanelComponent implements OnInit, OnDestroy {
          * fragment id avoids accidentally unlocking or rewriting the new
          * selection.
          */
-        void this.fragmentLockService.unlockFragmentAfterFailedEdit(savedFragmentId);
+        void this.fragmentLockService.unlockFragmentAfterFailedEdit(savedFragmentId).then(() => {
+          // Failed-edit unlock preserves the server lock contract. A retry
+          // reacquires the lock through the existing dirty-state machinery.
+          if (!this.destroyed && this.fragment?.id === savedFragmentId && this.hasEdits) {
+            this.reconcileFragmentLock();
+          }
+        });
 
         if (err?.status === HttpStatusCode.Unauthorized) {
           // clear auth

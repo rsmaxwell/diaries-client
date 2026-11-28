@@ -106,6 +106,26 @@ describe('Fragment compatibility helpers', () => {
     expect(Object.hasOwn(request, 'lock')).toBeFalse();
   });
 
+  it('omits null dates from year-owned annual update requests for mqtt-rpc', () => {
+    const annual = fragment({
+      id: 2355,
+      pageId: null,
+      diaryId: null,
+      placement: 'EPILOGUE',
+      month: null as unknown as number,
+      day: null as unknown as number,
+      marqueeId: null,
+      text: '<p>Changed epilogue</p>'
+    });
+    const request = UpdateFragmentRequest.fromFragment(annual);
+    expect(JSON.parse(JSON.stringify(request))).toEqual({
+      id: 2355, year: 1830, sequence: 1, version: 0,
+      text: '<p>Changed epilogue</p>'
+    });
+    expect(Object.hasOwn(request, 'month')).toBeFalse();
+    expect(Object.hasOwn(request, 'day')).toBeFalse();
+  });
+
   it('serializes deliberate IMAGE reference replacement with a positive imageId', () => {
     const imageFragment = fragment({
       type: 'IMAGE',

@@ -493,6 +493,30 @@ describe('TextPanelComponent', () => {
     component.ngOnDestroy();
   });
 
+  it('keeps unsaved DATED text and a visible error after a failed Save', () => {
+    const saveResult$ = new Subject<number>();
+    const { component, fragmentLockService } = createComponent(saveResult$ as any);
+    const item = fragment();
+    component.fragment = item;
+    (component as any).currentFragment = item;
+    (component as any).originalYear = item.year;
+    (component as any).originalMonth = item.month;
+    (component as any).originalDay = item.day;
+    (component as any).editorServerText = item.text;
+    component.form.get('body')!.setValue('<p>Important unsaved draft</p>', { emitEvent: false });
+
+    component.onSave();
+    expect(component.saveInFlight).toBeTrue();
+    saveResult$.error(new Error('Status 400: bad request'));
+
+    expect(component.saveInFlight).toBeFalse();
+    expect(component.fragment?.version).toBe(item.version);
+    expect(component.form.get('body')!.value).toBe('<p>Important unsaved draft</p>');
+    expect(component.hasEdits).toBeTrue();
+    expect(component.saveError).toContain('Status 400: bad request');
+    expect(fragmentLockService.unlockFragmentAfterFailedEdit).toHaveBeenCalledOnceWith(item.id);
+  });
+
   it('rolls back the same IMAGE Fragment and invokes failed-edit unlock after an update failure', () => {
     const saveResult$ = new Subject<number>();
     const { component, fragmentLockService, rpcService } = createComponent(saveResult$ as any);
@@ -511,6 +535,9 @@ describe('TextPanelComponent', () => {
     expect(component.fragment?.id).toBe(image.id);
     expect(component.fragment?.imageId).toBe(101);
     expect(component.fragment?.text).toBe(image.text);
+    expect(component.form.get('body')!.value).toBe('<p>Edited IMAGE text</p>');
+    expect(component.hasEdits).toBeTrue();
+    expect(component.saveError).toContain('update failed');
     expect(fragmentLockService.unlockFragmentAfterFailedEdit).toHaveBeenCalledOnceWith(image.id);
     expect(rpcService.updateImageFragment$).not.toHaveBeenCalled();
   });

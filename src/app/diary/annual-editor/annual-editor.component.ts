@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, Input, OnChanges, OnDestroy, SimpleChanges } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { QuillModule } from 'ngx-quill';
+import { CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
 import { AnnualQuillPreviewDirective } from './annual-quill-preview.directive';
 import { Page } from '../../model/page';
 import Quill from 'quill';
@@ -14,13 +15,14 @@ import { MqttService } from '../../mqtt/mqtt.service';
 import { LiveObjectListService } from '../../mqtt/live.object.list.service';
 import { RpcService } from '../../mqtt/rpc.service';
 import { FragmentLockService } from '../../fragment/fragment-lock.service';
+import { FragmentReorderService } from '../../fragment/fragment-reorder.service';
 import { AlertService } from '../../alerts/alert.service';
 
 /** Year-owned editorial material; deliberately distinct from Page/Marquee editing. */
 @Component({
   selector: 'app-annual-editor',
   standalone: true,
-  imports: [CommonModule, FormsModule, QuillModule, AnnualQuillPreviewDirective],
+  imports: [CommonModule, FormsModule, QuillModule, DragDropModule, AnnualQuillPreviewDirective],
   templateUrl: './annual-editor.component.html',
   styleUrls: ['./annual-editor.component.scss']
 })
@@ -49,6 +51,8 @@ export class AnnualEditorComponent implements OnChanges, OnDestroy {
   private pendingGroupRefresh = false;
   private leaving = false;
   busy = false;
+  saveError: string | null = null;
+  reorderInFlight = false;
   private activeSubscription = new Subject<void>();
   private destroyed = new Subject<void>();
 
@@ -57,7 +61,8 @@ export class AnnualEditorComponent implements OnChanges, OnDestroy {
     private liveLists: LiveObjectListService,
     private rpc: RpcService,
     private locks: FragmentLockService,
-    private alerts: AlertService
+    private alerts: AlertService,
+    private reorder: FragmentReorderService
   ) {}
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -170,7 +175,7 @@ export class AnnualEditorComponent implements OnChanges, OnDestroy {
     this.fragments = [];
     if (!Number.isSafeInteger(this.diaryId) || this.diaryId <= 0 ||
         !Number.isSafeInteger(this.year) || this.year < 1 || this.year > 9999) return;
-    const filter = annualTopicFilter(this.diaryId, this.year, this.placement);
+    const filter = annualTopicFilter(this.year, this.placement);
     from(this.mqtt.getConnection()).pipe(
       switchMap(client => this.liveLists.subscribeToTopicTree$<Fragment>(
         client, [filter], buf => JSON.parse(buf.toString()) as Fragment
@@ -178,7 +183,7 @@ export class AnnualEditorComponent implements OnChanges, OnDestroy {
       takeUntil(this.activeSubscription),
       takeUntil(this.destroyed)
     ).subscribe({
-      next: items => this.fragments = orderedAnnualFragments(items, this.diaryId, this.year, this.placement),
+      next: items => this.fragments = orderedAnnualFragments(items, this.year, this.placement),
       error: err => this.alerts.error(err instanceof Error ? err.message : String(err))
     });
   }
@@ -189,7 +194,7 @@ export class AnnualEditorComponent implements OnChanges, OnDestroy {
     try {
       const last = this.fragments[this.fragments.length - 1];
       const request = new AddAnnualFragmentRequest({
-        diaryId: this.diaryId, year: this.year, placement: this.placement,
+        year: this.year, placement: this.placement,
         type: this.newType, sequence: last ? last.sequence + 1 : 1,
         text: this.newType === 'IMAGE' ? '' : (this.newText ?? ''),
         ...(this.newType === 'IMAGE' ? {
@@ -215,6 +220,7 @@ export class AnnualEditorComponent implements OnChanges, OnDestroy {
             this.alerts.error('Unable to release annual Fragment lock on navigation');
           return;
         }
+        this.saveError = null;
         this.editingId = fragment.id;
         this.originalEditHtml = fragment.text ?? '';
         this.editText = this.originalEditHtml;
@@ -227,6 +233,7 @@ export class AnnualEditorComponent implements OnChanges, OnDestroy {
   async save(fragment: Fragment): Promise<void> {
     if (this.busy || this.editingId !== fragment.id) return;
     this.busy = true;
+    this.saveError = null;
     try {
       if (fragment.type === 'IMAGE') {
         const requestedLink = this.editImageLinkUrl.trim();
@@ -251,7 +258,8 @@ export class AnnualEditorComponent implements OnChanges, OnDestroy {
       this.editingId = null;
       this.editQuill = null;
     } catch (err) {
-      this.alerts.error(err instanceof Error ? err.message : String(err));
+      this.saveError = `Unable to save fragment ${fragment.id}: ${err instanceof Error ? err.message : String(err)}. Your changes have not been saved.`;
+      this.alerts.error(this.saveError);
       // Keep the buffer for retry while mounted; a destroyed editor must release its lock.
       if (this.leaving && this.editingId !== null) {
         if (await this.locks.unlockFragment(this.editingId, 'failed annual save after navigation'))
@@ -268,6 +276,7 @@ export class AnnualEditorComponent implements OnChanges, OnDestroy {
       if (await this.locks.unlockFragment(this.editingId, 'cancel annual edit')) {
         this.editingId = null;
         this.editQuill = null;
+        this.saveError = null;
       }
       else this.alerts.error('Unable to release annual Fragment lock');
     } finally { this.finishOperation(); }
@@ -289,26 +298,22 @@ export class AnnualEditorComponent implements OnChanges, OnDestroy {
     }
   }
 
-  async move(fragment: Fragment, direction: -1 | 1): Promise<void> {
+  /** Reorder within the selected calendar year and section only. */
+  async drop(event: CdkDragDrop<Fragment[]>): Promise<void> {
     if (this.busy || this.editingId !== null) return;
-    const index = this.fragments.findIndex(f => f.id === fragment.id);
-    const neighbour = this.fragments[index + direction];
-    if (index < 0 || !neighbour) return;
-    const before = this.fragments[index - 1];
-    const after = this.fragments[index + 1];
-    const destinationSequence = direction === -1
-      ? (index > 1 ? (before.sequence + this.fragments[index - 2].sequence) / 2 : neighbour.sequence - 1)
-      : (index + 2 < this.fragments.length ? (after.sequence + this.fragments[index + 2].sequence) / 2 : neighbour.sequence + 1);
+    const plan = this.reorder.plan(this.fragments, event.previousIndex, event.currentIndex);
+    if (!plan) return;
+
     this.busy = true;
-    let acquired = false;
+    this.reorderInFlight = true;
     try {
-      acquired = await this.locks.lockFragmentForEdit(fragment.id);
-      if (!acquired) return;
-      await firstValueFrom(this.rpc.updateFragment$({ ...fragment, sequence: destinationSequence }).pipe(take(1)));
-      acquired = false;
-    } catch (err) { this.alerts.error(err instanceof Error ? err.message : String(err)); }
-    finally {
-      if (acquired) await this.locks.unlockFragmentAfterFailedEdit(fragment.id);
+      const saved = await this.reorder.persist(plan, items => this.fragments = items);
+      if (!saved) this.fragments = plan.original;
+    } catch (err) {
+      this.fragments = plan.original;
+      this.alerts.error(`Unable to reorder annual fragments: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      this.reorderInFlight = false;
       this.finishOperation();
     }
   }

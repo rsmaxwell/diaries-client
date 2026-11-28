@@ -1,7 +1,7 @@
 
 /** MARQUEE remains a wire-level legacy value until the coordinated migration. */
 export type FragmentType = 'TEXT' | 'IMAGE' | 'MARQUEE';
-export type FragmentPlacement = 'PREAMBLE' | 'DATED' | 'POSTAMBLE';
+export type FragmentPlacement = 'PREAMBLE' | 'DATED' | 'EPILOGUE';
 export type ContentFragmentType = 'TEXT' | 'IMAGE';
 
 export interface Fragment {
@@ -120,31 +120,46 @@ export class AddImageFragmentRequest {
  * Omitting imageId also means "preserve the existing Image reference".
  */
 export class UpdateFragmentRequest {
+  // `declare` prevents class-field emit from creating undefined own properties.
+  // Explicit constructor assignments retain the historic DATED request key
+  // order while omitting null month/day fields on annual fragments.
+  declare public id: number;
+  declare public year: number;
+  declare public month?: number;
+  declare public day?: number;
+  declare public sequence: number;
+  declare public version: number;
+  declare public text: string;
+
   constructor(
-    public id: number,
-    public year: number,
-    public month: number,
-    public day: number,
-    public sequence: number,
-    public version: number,
-    public text: string
-  ) { };
+    id: number,
+    year: number,
+    month: number | null,
+    day: number | null,
+    sequence: number,
+    version: number,
+    text: string
+  ) {
+    this.id = id;
+    this.year = year;
+    // Annual fragments have no calendar day. mqtt-rpc's Request uses
+    // Map.copyOf(args), which rejects null values before reaching the handler.
+    // Omitting these keys is distinct from sending month:null/day:null.
+    if (month != null) this.month = month;
+    if (day != null) this.day = day;
+    this.sequence = sequence;
+    this.version = version;
+    this.text = text;
+  }
 
   static fromFragment(fragment: Fragment): UpdateFragmentRequest {
-
     console.log('UpdateFragmentRequest.fromFragment', {
       id: fragment.id,
       version: fragment.version
     });
-
     return new UpdateFragmentRequest(
-      fragment.id,
-      fragment.year,
-      fragment.month,
-      fragment.day,
-      fragment.sequence,
-      fragment.version,
-      fragment.text,
+      fragment.id, fragment.year, fragment.month, fragment.day,
+      fragment.sequence, fragment.version, fragment.text
     );
   }
 }

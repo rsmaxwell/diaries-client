@@ -1,53 +1,73 @@
 <section class="annual-editor" aria-label="Diary-year editorial content">
   <h2>Annual editorial content</h2>
-  <p class="diary-scope">Editing diary: <strong>{{ diaryName || ('Diary ' + diaryId) }}</strong> (Diary {{ diaryId }})</p>
-  <p>Preambles appear before the year's dated entries; postambles appear afterwards.</p>
+  <p class="diary-scope">Opened from diary: <strong>{{ diaryName || ('Diary ' + diaryId) }}</strong> (Diary {{ diaryId }}); annual fragments belong to the calendar year, not this diary</p>
+  <p>Preambles appear before the year's dated entries; epilogues appear afterwards.</p>
   <div>
     <label>Year <input type="number" min="1" max="9999" step="1" [(ngModel)]="year"
       (change)="changeYear()" [disabled]="busy || editingId !== null" /></label>
     <label>Section <select [(ngModel)]="placement" (change)="changeGroup()"
       [disabled]="busy || editingId !== null">
       <option value="PREAMBLE">Preamble</option>
-      <option value="POSTAMBLE">Postamble</option>
+      <option value="EPILOGUE">Epilogue</option>
     </select></label>
   </div>
-  <ol aria-label="Annual Fragments">
-    @for (fragment of fragments; track fragment.id; let first = $first; let last = $last) {
-      <li>
-        <strong>Fragment {{ fragment.id }} — {{ fragment.type }}</strong>
-        @if (fragment.type === 'IMAGE') { <span>Catalogue Image {{ fragment.imageId }}</span> }
-        @if (editingId === fragment.id) {
-          @if (fragment.type === 'IMAGE') {
-            <label for="annual-edit-image-link">Optional image link</label>
-            <input id="annual-edit-image-link" type="url" [(ngModel)]="editImageLinkUrl"
-              [disabled]="busy" aria-label="Edit annual Image link" />
+  @if (reorderInFlight) {
+    <p class="reorder-status" role="status" aria-live="polite">Saving the new fragment order…</p>
+  }
+  <ol class="fragment-list" aria-label="Annual Fragments" cdkDropList
+    [cdkDropListData]="fragments" [cdkDropListDisabled]="busy || editingId !== null"
+    (cdkDropListDropped)="drop($event)">
+    @for (fragment of fragments; track fragment.id) {
+      <li class="fragment-item" cdkDrag cdkDragLockAxis="y" [cdkDragData]="fragment"
+        [cdkDragDisabled]="busy || editingId !== null">
+        <button type="button" class="drag-handle" cdkDragHandle
+          [disabled]="busy || editingId !== null"
+          [attr.aria-label]="'Drag to reorder fragment ' + fragment.id"
+          [title]="'Drag to reorder fragment ' + fragment.id">
+          <span aria-hidden="true">⠿</span>
+        </button>
+        <article class="fragment-body">
+          <p class="fragment-metadata">
+            <span class="fragment-type" [class.fragment-type--image]="fragment.type === 'IMAGE'">{{ fragment.type }}</span>
+            <span>Fragment {{ fragment.id }}</span>
+            <span>Position {{ fragment.sequence }}</span>
+            @if (fragment.type === 'IMAGE') { <span>Catalogue Image {{ fragment.imageId }}</span> }
+          </p>
+          @if (editingId === fragment.id) {
+            @if (fragment.type === 'IMAGE') {
+              <label for="annual-edit-image-link">Optional image link</label>
+              <input id="annual-edit-image-link" type="url" [(ngModel)]="editImageLinkUrl"
+                [disabled]="busy" aria-label="Edit annual Image link" />
+            } @else {
+              <label for="annual-edit-text">Editorial text</label>
+              <quill-editor id="annual-edit-text" [(ngModel)]="editText" format="html" [modules]="editorModules" [readOnly]="busy" (onEditorCreated)="onEditQuillCreated($event)" aria-label="Edit annual editorial text"></quill-editor>
+            }
+            @if (fragment.type === 'TEXT') {
+              <p class="html-count" [class.over-limit]="(editText || '').length > maxHtmlLength">
+                HTML: {{ (editText || '').length }} / {{ maxHtmlLength }} characters
+              </p>
+            }
+            @if (saveError) { <p class="save-error" role="alert">{{ saveError }}</p> }
+            @if (busy) { <p role="status">Saving…</p> }
+            <button type="button" [disabled]="busy || (fragment.type === 'TEXT' && (editText || '').length > maxHtmlLength)" (click)="save(fragment)">Save</button>
+            <button type="button" [disabled]="busy" (click)="cancel()">Cancel</button>
           } @else {
-            <label for="annual-edit-text">Editorial text</label>
-            <quill-editor id="annual-edit-text" [(ngModel)]="editText" format="html" [modules]="editorModules" [readOnly]="busy" (onEditorCreated)="onEditQuillCreated($event)" aria-label="Edit annual editorial text"></quill-editor>
+            @if (fragment.type === 'IMAGE') {
+              <span>Image caption and alternative text are managed in the Image Catalogue.</span>
+              @if (fragment.imageLinkUrl) { <span> Link: {{ fragment.imageLinkUrl }}</span> }
+              <button type="button" [disabled]="busy || editingId !== null" (click)="beginEdit(fragment)">Edit image link</button>
+            } @else {
+              <div class="annual-editor-preview" [annualQuillPreview]="fragment.text"></div>
+              <button type="button" [disabled]="busy || editingId !== null" (click)="beginEdit(fragment)">Edit text</button>
+            }
+            <button type="button" [disabled]="busy || editingId !== null" (click)="delete(fragment)">Delete</button>
           }
-          @if (fragment.type === 'TEXT') {
-            <p class="html-count" [class.over-limit]="(editText || '').length > maxHtmlLength">
-              HTML: {{ (editText || '').length }} / {{ maxHtmlLength }} characters
-            </p>
-          }
-          <button type="button" [disabled]="busy || (fragment.type === 'TEXT' && (editText || '').length > maxHtmlLength)" (click)="save(fragment)">Save</button>
-          <button type="button" [disabled]="busy" (click)="cancel()">Cancel</button>
-        } @else {
-          @if (fragment.type === 'IMAGE') {
-            <span>Image caption and alternative text are managed in the Image Catalogue.</span>
-            @if (fragment.imageLinkUrl) { <span> Link: {{ fragment.imageLinkUrl }}</span> }
-            <button type="button" [disabled]="busy || editingId !== null" (click)="beginEdit(fragment)">Edit image link</button>
-          } @else {
-            <div class="annual-editor-preview" [annualQuillPreview]="fragment.text"></div>
-            <button type="button" [disabled]="busy || editingId !== null" (click)="beginEdit(fragment)">Edit text</button>
-          }
-          <button type="button" [disabled]="busy || editingId !== null || first" (click)="move(fragment,-1)">Up</button>
-          <button type="button" [disabled]="busy || editingId !== null || last" (click)="move(fragment,1)">Down</button>
-          <button type="button" [disabled]="busy || editingId !== null" (click)="delete(fragment)">Delete</button>
-        }
+        </article>
+        <div *cdkDragPreview class="fragment-drag-preview">Fragment {{ fragment.id }} — {{ placement }}</div>
+        <div *cdkDragPlaceholder class="fragment-drag-placeholder"></div>
       </li>
     } @empty {
-      <li>No {{ placement.toLowerCase() }} Fragments for this Diary year.</li>
+      <li class="empty-state">No {{ placement.toLowerCase() }} Fragments for this calendar year.</li>
     }
   </ol>
   <fieldset [disabled]="busy || editingId !== null">
